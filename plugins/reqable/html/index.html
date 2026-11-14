@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>小黄鸟抓包</title>
+    <script src="../../static/js/vue.js"></script>
+    <script src="../../static/js/plugin.js"></script>
+    <script src="../../static/js/element.js"></script>
+    <link rel="stylesheet" href="../../static/css/plugin.css">
+    <link rel="stylesheet" href="../../static/css/element.css">
+    <style>
+        .reqable-frame { width: 100%; height: calc(100vh - 300px); min-height: 520px; border: 1px solid #e4e7ed; border-radius: 4px; display: block; }
+        .reqable-card { border: 1px solid #ebeef5; border-radius: 4px; padding: 14px 16px; margin-top: 12px; background: #fff; }
+        .reqable-card h4 { margin: 0 0 10px 0; font-size: 13px; color: #303133; }
+        .reqable-card h4 span { font-weight: normal; color: #909399; font-size: 12px; padding-left: 8px; }
+        .reqable-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+        .reqable-row label { font-size: 12px; color: #606266; min-width: 64px; }
+        .reqable-tip { background: #f4f4f5; border-left: 3px solid #409eff; padding: 10px 14px; font-size: 12px; color: #606266; line-height: 1.9; margin-top: 10px; }
+        .reqable-devices { max-height: 180px; overflow-y: auto; border: 1px solid #ebeef5; border-radius: 4px; padding: 8px 10px; }
+        .reqable-device-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px; }
+        .reqable-device-item .ip { color: #909399; font-family: monospace; }
+    </style>
+</head>
+<body>
+<div id="app" class="wrapper row" v-loading="loading" :element-loading-text="loading_text">
+    <div class="box clearfix">
+        <div class="box_block">
+            <div class="clearfix margin_phone col-lg-11 col-lg-offset-1 ">
+                <div class="h20"></div>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <b style="font-size:15px;">小黄鸟抓包</b>
+                        <span style="font-size:12px; color:#909399; padding-left:10px;">Reqable 式流量捕获与 HTTPS 解密</span>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <el-tag size="small" :type="status === 1 ? 'success' : 'info'">{{ status === 1 ? '运行中' : '已停止' }}</el-tag>
+                        <el-tag size="small" :type="capture === 1 ? 'danger' : 'info'">{{ capture === 1 ? '抓包中' : '抓包已关' }}</el-tag>
+                        <el-tag size="small" :type="rulesOn === 1 ? 'warning' : 'info'">{{ rulesOn === 1 ? '规则生效' : '规则未生效' }}</el-tag>
+                        <el-tag size="small" :type="caok === 1 ? 'success' : 'warning'">{{ caok === 1 ? 'CA已生成' : 'CA未生成' }}</el-tag>
+                        <span style="font-size:12px; color:#909399;">已捕获 {{ flows }} 条</span>
+                    </div>
+                </div>
+                <div class="h20"></div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button v-if="capture !== 1" type="button" class="btn btn_green rounded height26" @click="setCapture(true)">开启抓包</button>
+                    <button v-else type="button" class="btn btn_red rounded height26" @click="setCapture(false)">关闭抓包</button>
+                    <a class="btn btn_blue rounded height26" :href="caUrl" target="_blank">下载 CA 证书</a>
+                    <button type="button" class="btn btn_gray rounded height26" @click="clearFlows">清空流量</button>
+                    <a class="btn btn_gray rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
+                    <button type="button" class="btn btn_gray rounded height26" @click="loadInitData">刷新状态</button>
+                </div>
+                <div class="reqable-tip">
+                    <b>使用步骤：</b>1. 在下方<b>抓包设备</b>里勾选要调试的设备（不选=不抓任何设备，绝不全局）；2. 点<b>开启抓包</b>；3. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；4. 在下方界面查看解密后的请求/响应。<br>
+                    <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
+                </div>
+
+                <!-- 1. 抓包设备 -->
+                <div class="reqable-card">
+                    <h4>1. 抓包设备<span>只抓勾选的设备（MAC 优先，DHCP 换 IP 不失效）；不选则任何设备都不抓</span></h4>
+                    <div class="reqable-row">
+                        <button type="button" class="btn btn_blue rounded height26" @click="loadDevices">刷新设备列表</button>
+                        <span style="font-size:12px; color:#909399;">已选 {{ selectedDevices.length }} 台</span>
+                        <span v-for="g in groups" :key="g.name" style="display:inline-flex; gap:4px; align-items:center;">
+                            <button type="button" class="btn btn_gray rounded height26" @click="applyGroup(g)">{{ g.name }}({{ g.devices.length }})</button>
+                            <a href="javascript:void(0)" style="font-size:12px; color:#f56c6c;" @click="delGroup(g.name)">删</a>
+                        </span>
+                    </div>
+                    <div class="reqable-devices">
+                        <div v-if="lanDevices.length === 0" style="color:#909399; font-size:12px; padding:8px 0;">暂无在线设备，点“刷新设备列表”（来自 iKuai 终端列表）</div>
+                        <div v-for="(d, i) in lanDevices" :key="i" class="reqable-device-item">
+                            <label class="el-checkbox">
+                                <input type="checkbox" :checked="isSelected(d)" @change="toggleDevice(d)">
+                                <span class="el-checkbox__label"></span>
+                            </label>
+                            <span>{{ d.name || d.hostname || '未命名设备' }}</span>
+                            <span class="ip">{{ d.ip_addr }}</span>
+                            <span class="ip">{{ d.mac }}</span>
+                            <span v-if="d.termname && d.termname !== d.hostname" class="ip">{{ d.termname }}</span>
+                        </div>
+                    </div>
+                    <div class="reqable-row" style="margin-top:8px;">
+                        <label>手动添加</label>
+                        <input v-model="manualIp" placeholder="IP" style="width:130px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <input v-model="manualMac" placeholder="MAC(可选)" style="width:150px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <input v-model="manualName" placeholder="名称(可选)" style="width:120px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <button type="button" class="btn btn_gray rounded height26" @click="addManual">添加</button>
+                        <button type="button" class="btn btn_green rounded height26" @click="saveDevices">保存设备选择</button>
+                        <input v-model="groupName" placeholder="分组名" style="width:100px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <button type="button" class="btn btn_gray rounded height26" @click="saveGroup">存为分组</button>
+                    </div>
+                </div>
+
+                <!-- 2. 网络范围 -->
+                <div class="reqable-card">
+                    <h4>2. 网络范围<span>限定从哪个口/VLAN、哪些端口进代理（iptables 层）</span></h4>
+                    <div class="reqable-row">
+                        <label>接口/VLAN</label>
+                        <input v-model="interfaces" placeholder="留空=全部；如 lan1,lan2" style="width:220px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <label>端口</label>
+                        <input v-model="ports" placeholder="80,443" style="width:140px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <button type="button" class="btn btn_green rounded height26" @click="saveNetwork">保存</button>
+                    </div>
+                    <div class="reqable-row">
+                        <label>定时抓包</label>
+                        <label class="el-checkbox"><input type="checkbox" v-model="schedEnabled"><span class="el-checkbox__label"></span></label>
+                        <input v-model="schedStart" placeholder="09:00" style="width:70px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
+                        <span style="color:#606266;">至</span>
+                        <input v-model="schedStop" placeholder="18:00" style="width:70px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
+                        <label v-for="d in weekDays" :key="d.v" style="display:inline-flex; align-items:center; gap:2px; font-size:12px;">
+                            <input type="checkbox" :value="d.v" v-model="schedDays">{{ d.n }}
+                        </label>
+                        <button type="button" class="btn btn_green rounded height26" @click="saveSchedule">保存时段</button>
+                        <el-tag size="mini" :type="inWindow === 1 ? 'success' : 'info'">{{ inWindow === 1 ? '当前在时段内' : '当前不在时段内' }}</el-tag>
+                    </div>
+                </div>
+
+                <!-- 3. 解密范围 -->
+                <div class="reqable-card">
+                    <h4>3. 解密范围<span>命中规则的连接只隧道不解密（引擎层，SIGHUP 热重载不中断抓包）</span></h4>
+                    <div class="reqable-row">
+                        <label>域名</label>
+                        <el-radio-group v-model="domainMode" size="mini">
+                            <el-radio-button label="all_except">解密全部(除外)</el-radio-button>
+                            <el-radio-button label="only">仅解密</el-radio-button>
+                        </el-radio-group>
+                        <input v-model="domains" placeholder="*.taobao.com,api.github.com（逗号分隔，支持*通配）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    </div>
+                    <div class="reqable-row">
+                        <label>目标IP</label>
+                        <el-radio-group v-model="dstIpMode" size="mini">
+                            <el-radio-button label="all_except">解密全部(除外)</el-radio-button>
+                            <el-radio-button label="only">仅解密</el-radio-button>
+                        </el-radio-group>
+                        <input v-model="dstIps" placeholder="203.0.113.0/24,198.51.100.7（CIDR 或单 IP）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    </div>
+                    <div class="reqable-row">
+                        <label>国家地区</label>
+                        <el-radio-group v-model="geoMode" size="mini">
+                            <el-radio-button label="off">关闭</el-radio-button>
+                            <el-radio-button label="only">仅这些国家</el-radio-button>
+                            <el-radio-button label="except">排除这些国家</el-radio-button>
+                        </el-radio-group>
+                        <input v-model="countries" placeholder="CN,US（两位国别码）" style="width:220px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <el-tag size="mini" :type="geoLoaded === 1 ? 'success' : 'warning'">{{ geoLoaded === 1 ? 'GEOIP已加载' : 'GEOIP未下载' }}</el-tag>
+                        <button type="button" class="btn btn_gray rounded height26" @click="updateGeoip">更新 GEOIP 数据</button>
+                        <button type="button" class="btn btn_green rounded height26" @click="saveScope">保存解密范围</button>
+                    </div>
+                </div>
+
+                <!-- 4. 记录范围 -->
+                <div class="reqable-card">
+                    <h4>4. 记录范围<span>MITM 之后决定哪些流量入库展示（排噪；不配=全记录）</span></h4>
+                    <div class="reqable-row">
+                        <label>匹配模式</label>
+                        <el-radio-group v-model="recordMode" size="mini">
+                            <el-radio-button label="all_except">记录全部(除外)</el-radio-button>
+                            <el-radio-button label="only">仅记录命中</el-radio-button>
+                        </el-radio-group>
+                        <span style="font-size:12px; color:#909399;">下面任一项命中即视为“命中”</span>
+                    </div>
+                    <div class="reqable-row">
+                        <label>路径正则</label>
+                        <input v-model="paths" placeholder="^/api/,^/v[0-9]+/（逗号分隔）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    </div>
+                    <div class="reqable-row">
+                        <label>方法</label>
+                        <input v-model="methods" placeholder="POST,PUT（留空=不限）" style="width:200px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <label>UA包含</label>
+                        <input v-model="userAgents" placeholder="MyApp/1.0（逗号分隔）" style="flex:1; min-width:200px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    </div>
+                    <div class="reqable-row">
+                        <label>JA3</label>
+                        <input v-model="ja3" placeholder="JA3 md5（逗号分隔；仅透明路径可算）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    </div>
+                    <div class="reqable-row">
+                        <label>内容类型</label>
+                        <input v-model="contentTypes" placeholder="json,image,video,xml（逗号分隔）" style="width:280px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <label>响应大小</label>
+                        <input v-model="sizeMin" placeholder="最小B" style="width:90px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
+                        <span style="color:#606266;">~</span>
+                        <input v-model="sizeMax" placeholder="最大B(0=不限)" style="width:110px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
+                        <button type="button" class="btn btn_green rounded height26" @click="saveScope">保存记录范围</button>
+                    </div>
+                </div>
+
+                <div class="h20"></div>
+                <iframe class="reqable-frame" :src="uiUrl"></iframe>
+                <div class="h20"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="module">
+var app = new Vue({
+    el: '#app',
+    data: {
+        loading: false,
+        loading_text: '',
+        status: 0, capture: 0, rulesOn: 0, autostart: 0, caok: 0, flows: 0,
+        proxyPort: 18080, apiPort: 18081, geoLoaded: 0, inWindow: 0,
+        uiUrl: '', caUrl: '',
+        // 设备
+        lanDevices: [], selectedDevices: [], groups: [],
+        manualIp: '', manualMac: '', manualName: '', groupName: '',
+        // 网络范围
+        interfaces: '', ports: '80,443',
+        schedEnabled: false, schedStart: '09:00', schedStop: '18:00',
+        schedDays: [1, 2, 3, 4, 5],
+        weekDays: [{v:1,n:'一'},{v:2,n:'二'},{v:3,n:'三'},{v:4,n:'四'},{v:5,n:'五'},{v:6,n:'六'},{v:7,n:'日'}],
+        // 解密范围
+        domainMode: 'all_except', domains: '', dstIpMode: 'all_except', dstIps: '',
+        geoMode: 'off', countries: '',
+        // 记录范围
+        recordMode: 'all_except', paths: '', methods: '', userAgents: '', ja3: '',
+        contentTypes: '', sizeMin: '', sizeMax: ''
+    },
+    mounted() {
+        this.uiUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/';
+        this.caUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/api/ca.pem';
+        this.loadInitData();
+        this.loadDevices();
+    },
+    methods: {
+        callPlugin(action, param, cb) {
+            AjaxPost('/Action/call', {func_name: 'plugin_reqable', action: action, param: param}, (response) => {
+                cb(response);
+            });
+        },
+        loadInitData() {
+            this.callPlugin('show', {TYPE: 'data'}, (response) => {
+                if (response.Result % 10000 == 0 && response.Data) {
+                    const d = response.Data;
+                    this.status = d.status || 0;
+                    this.capture = d.capture || 0;
+                    this.rulesOn = d.rulesOn || 0;
+                    this.autostart = d.autostart || 0;
+                    this.caok = d.caok || 0;
+                    this.flows = d.flows || 0;
+                    this.geoLoaded = d.geoLoaded || 0;
+                    this.inWindow = d.inWindow || 0;
+                    if (d.proxyPort) this.proxyPort = d.proxyPort;
+                    if (d.apiPort) this.apiPort = d.apiPort;
+                    this.uiUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/';
+                    this.caUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/api/ca.pem';
+                    // 配置回填
+                    this.selectedDevices = d.devices || [];
+                    this.groups = d.groups || [];
+                    this.interfaces = d.interfaces || '';
+                    this.ports = d.ports || '80,443';
+                    const sc = d.scope || {};
+                    this.domainMode = sc.domain_mode || 'all_except';
+                    this.domains = (sc.domains || []).join(',');
+                    this.dstIpMode = sc.dst_ip_mode || 'all_except';
+                    this.dstIps = (sc.dst_ips || []).join(',');
+                    this.geoMode = sc.geo_mode || 'off';
+                    this.countries = (sc.countries || []).join(',');
+                    this.recordMode = sc.record_mode || 'all_except';
+                    this.paths = (sc.paths || []).join(',');
+                    this.methods = (sc.methods || []).join(',');
+                    this.userAgents = (sc.user_agents || []).join(',');
+                    this.ja3 = (sc.ja3 || []).join(',');
+                    this.contentTypes = (sc.content_types || []).join(',');
+                    this.sizeMin = sc.size_min || '';
+                    this.sizeMax = sc.size_max || '';
+                    const sd = d.schedule || {};
+                    this.schedEnabled = !!sd.enabled;
+                    this.schedStart = sd.start || '09:00';
+                    this.schedStop = sd.stop || '18:00';
+                    this.schedDays = sd.days || [1, 2, 3, 4, 5];
+                }
+            });
+        },
+        // 从 iKuai 终端列表(dhcp_lease)拉在线设备
+        loadDevices() {
+            AjaxPost('/Action/call', {func_name: 'dhcp_lease', action: 'show', param: {TYPE: 'data'}}, (response) => {
+                if (response.Result % 10000 == 0 && response.Data) {
+                    this.lanDevices = response.Data;
+                }
+            });
+        },
+        isSelected(d) {
+            return this.selectedDevices.some(s => (d.mac && s.mac === d.mac) || (d.ip_addr && s.ip === d.ip_addr));
+        },
+        toggleDevice(d) {
+            const idx = this.selectedDevices.findIndex(s => (d.mac && s.mac === d.mac) || (d.ip_addr && s.ip === d.ip_addr));
+            if (idx >= 0) {
+                this.selectedDevices.splice(idx, 1);
+            } else {
+                this.selectedDevices.push({ip: d.ip_addr, mac: d.mac, name: d.termname || d.hostname || ''});
+            }
+        },
+        addManual() {
+            if (!this.manualIp) { this.$message.error('请填 IP'); return; }
+            this.selectedDevices.push({ip: this.manualIp, mac: this.manualMac, name: this.manualName});
+            this.manualIp = ''; this.manualMac = ''; this.manualName = '';
+        },
+        saveDevices() {
+            this.callPlugin('set_devices', {devices: JSON.stringify(this.selectedDevices)}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('设备已保存(' + this.selectedDevices.length + ' 台)');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        saveGroup() {
+            if (!this.groupName) { this.$message.error('请填分组名'); return; }
+            this.callPlugin('save_group', {name: this.groupName, devices: JSON.stringify(this.selectedDevices)}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('分组已保存');
+                    this.groupName = '';
+                    this.loadInitData();
+                } else {
+                    this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        applyGroup(g) {
+            this.selectedDevices = JSON.parse(JSON.stringify(g.devices));
+            this.saveDevices();
+        },
+        delGroup(name) {
+            this.callPlugin('del_group', {name: name}, () => this.loadInitData());
+        },
+        saveNetwork() {
+            this.callPlugin('set_ports', {ports: this.ports}, () => {
+                this.callPlugin('set_interfaces', {ifaces: this.interfaces}, (response) => {
+                    if (response.Result % 10000 == 0) {
+                        this.$message.success('网络范围已保存');
+                    } else {
+                        this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                    }
+                });
+            });
+        },
+        saveSchedule() {
+            const sched = {
+                enabled: this.schedEnabled,
+                start: this.schedStart,
+                stop: this.schedStop,
+                days: this.schedDays
+            };
+            this.callPlugin('set_schedule', {schedule: JSON.stringify(sched)}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('时段已保存');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        splitList(s) {
+            return (s || '').split(',').map(x => x.trim()).filter(x => x);
+        },
+        saveScope() {
+            const scope = {
+                domain_mode: this.domainMode,
+                domains: this.splitList(this.domains),
+                dst_ip_mode: this.dstIpMode,
+                dst_ips: this.splitList(this.dstIps),
+                geo_mode: this.geoMode,
+                countries: this.splitList(this.countries).map(x => x.toUpperCase()),
+                record_mode: this.recordMode,
+                paths: this.splitList(this.paths),
+                methods: this.splitList(this.methods).map(x => x.toUpperCase()),
+                user_agents: this.splitList(this.userAgents),
+                ja3: this.splitList(this.ja3),
+                content_types: this.splitList(this.contentTypes),
+                size_min: parseInt(this.sizeMin) || 0,
+                size_max: parseInt(this.sizeMax) || 0
+            };
+            this.callPlugin('set_scope', {scope: JSON.stringify(scope)}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('范围已保存并热重载');
+                } else {
+                    this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        updateGeoip() {
+            this.loading = true;
+            this.loading_text = '正在下载 GEOIP 数据...';
+            this.callPlugin('update_geoip', {}, (response) => {
+                this.loading = false;
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('GEOIP 数据已更新');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('更新失败：' + (response.ErrMsg || '请检查网络'));
+                }
+            });
+        },
+        setCapture(on) {
+            this.callPlugin('set_capture', {capture: on ? 'true' : 'false'}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message({message: on ? '抓包已开启' : '抓包已关闭', type: 'success'});
+                    this.loadInitData();
+                } else {
+                    this.$message.error('操作失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        clearFlows() {
+            this.callPlugin('clear_flows', {}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message({message: '已清空', type: 'success'});
+                    this.loadInitData();
+                } else {
+                    this.$message.error('清空失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        }
+    }
+});
+</script>
+</body>
+</html>

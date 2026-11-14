@@ -1,0 +1,11 @@
+{
+    "name": "reqable",
+    "alias": "小黄鸟抓包",
+    "manufacturer": "iKuai",
+    "version": "1.0.0",
+    "type": "external",
+    "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
+    "releasenotes": "首个版本：透明模式抓包+HTTPS解密+完整 Web 分析界面",
+    "arch": ["x86_64"],
+    "bin": {"x86_64": {"bins/reqable-x86_64": "bins/reqable-x86_64"}}
+}
