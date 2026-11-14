@@ -42,7 +42,8 @@ start() {
 		ln -s $EXT_PLUGIN_CONFIG_DIR/nps/nps.conf /usr/ikuai/www/nps.conf
 		sed -i -e '/^\s*#\?\s*auth_key\s*=/s/^\s*#\?\s*auth_key\s*=\s*.*/auth_key=123qazwsx/' /tmp/app/nps/conf/nps.conf
 		sed -i -e '/^\s*#\?\s*auth_crypt_key\s*=/s/^\s*#\?\s*auth_crypt_key\s*=\s*.*/auth_crypt_key=qazwsxedcrfv/' /tmp/app/nps/conf/nps.conf
-		/tmp/app/nps/nps >/dev/null &
+		# [4.x web栈适配] 守护化+stdio重定向
+		start-stop-daemon -S -x /tmp/app/nps/nps -b >/dev/null 2>&1
 
 	fi
 

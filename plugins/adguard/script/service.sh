@@ -2,6 +2,10 @@
 PLUGIN_NAME="adguard"
 . /etc/mnt/plugins/configs/config.sh
 
+# [rootfs空间修复] 工作目录放存储分区: /tmp 在 rootfs RAM 盘(仅剩~6MB),
+# AdGuardHome 解压后 ~20MB, 解压到 /tmp 必 ENOSPC → 二进制起不来 → 3000 端口从不监听
+WORK_DIR=$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/work
+
 set_auto_start() {
 	if [ "$autostart" = "true" ]; then
 		[ -f "$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart" ] || touch $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart
@@ -80,7 +84,7 @@ __show_data() {
 
 
 	local runningTime=""
-	start_time=$(cat /tmp/AdGuardHome/adguards_start_time)
+	start_time=$(cat $WORK_DIR/adguards_start_time 2>/dev/null)
 	if [ -n "$start_time" ]; then 
 		time=$((`date +%s`-start_time))
 		day=$((time/86400))
@@ -103,41 +107,45 @@ start() {
 	PID=$(pidof AdGuardHome | awk '{print $NF}')
 	[ -n "$PID" ] && return 0
 
-	# PID=$(pidof CrashCore | awk '{print $NF}')
-	# if [ -n "$PID" ]; then
-	# 	echo "请先停止ShellClash，再启动AdGuardHome！" 
-	# 	return 1
-	# fi
-
 	BIN_DIR=$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin
+	AGDIR=$WORK_DIR/AdGuardHome
 
-	tar -zxf $BIN_DIR/AdGuardHome.tar.gz -C /tmp
-	mkdir -p /tmp/AdGuardHome/data
-	ln -sf $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml /tmp/AdGuardHome/AdGuardHome.yaml
-	ln -sf $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/filters /tmp/AdGuardHome/data/filters
+	# 解压到存储分区(二进制不存在才解; stop 会删二进制, 升级/重开自动生效)
+	mkdir -p $AGDIR/data
+	if [ ! -f $AGDIR/AdGuardHome ]; then
+		tar -zxf $BIN_DIR/AdGuardHome.tar.gz -C $WORK_DIR || { echo "解压 AdGuardHome 失败, 请检查存储空间"; return 1; }
+	fi
+	ln -sf $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml $AGDIR/AdGuardHome.yaml
+	ln -sf $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/filters $AGDIR/data/filters
+	chmod +x $AGDIR/AdGuardHome
 
-	chmod +x /tmp/AdGuardHome/AdGuardHome 
-	/tmp/AdGuardHome/AdGuardHome >/dev/null &
-	sleep 5 && rm -f /tmp/AdGuardHome/AdGuardHome 
+	# [4.x web栈适配] start-stop-daemon -b 守护化+stdio重定向:
+	# 裸 & 会让守护进程继承 func 的 $(...) 管道 → 阻塞60s超时 → SIGPIPE 打死 → 端口从不监听
+	start-stop-daemon -S -x $AGDIR/AdGuardHome -b -- \
+		-c $AGDIR/AdGuardHome.yaml -w $AGDIR/data --no-check-update \
+		>/dev/null 2>&1
 
 	if [ -f "$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/dnshijacking" ]; then
 		__do_dns_hijacking start
 	fi
 
-	# 禁止外网访问
+	# 禁止外网访问(幂等: -C 探测后追加, 防重复 start 堆规则)
 	for iface in $(ip link show | awk -F: '/: wan[0-9]+:/{print $2}' | tr -d ' '); do
-		iptables -A INPUT -i "$iface" -p tcp --dport 3000 -j DROP
-		iptables -A INPUT -i "$iface" -p tcp --dport 53 -j DROP
+		iptables -C INPUT -i "$iface" -p tcp --dport 3000 -j DROP 2>/dev/null || iptables -A INPUT -i "$iface" -p tcp --dport 3000 -j DROP
+		iptables -C INPUT -i "$iface" -p tcp --dport 53 -j DROP 2>/dev/null || iptables -A INPUT -i "$iface" -p tcp --dport 53 -j DROP
 	done
 
-	echo `date +%s` > /tmp/AdGuardHome/adguards_start_time
+	echo `date +%s` > $WORK_DIR/adguards_start_time
 	return 0
 }
+
 
 stop() {
 
 	PID=$(pidof AdGuardHome | awk '{print $NF}')
-	[ -n "$PID" ] && kill $PID && rm -rf /tmp/AdGuardHome
+	[ -n "$PID" ] && kill $PID
+	# 删二进制(下次 start 重新解压, 升级即生效); 保留 data(统计/会话)
+	rm -f $WORK_DIR/AdGuardHome/AdGuardHome
 
 	__do_dns_hijacking stop
 

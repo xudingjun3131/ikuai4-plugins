@@ -51,7 +51,9 @@ start() {
 
     ln -s $EXT_PLUGIN_CONFIG_DIR/frps/frps.ini /usr/ikuai/www/frps.txt
 
-    frps -c $EXT_PLUGIN_CONFIG_DIR/frps/frps.ini >/dev/dell &
+    # [4.x web栈适配] start-stop-daemon -b 守护化+stdio重定向(原 /dev/dell 是错别字,
+    # 重定向到不存在的文件会导致整条命令失败, frps 从未真正启动过)
+    start-stop-daemon -S -x /usr/bin/frps -b -- -c $EXT_PLUGIN_CONFIG_DIR/frps/frps.ini >/dev/null 2>&1
     echo "9" >>/tmp/frpsstart.log
 }
 

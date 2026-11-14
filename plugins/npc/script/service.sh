@@ -21,15 +21,16 @@ start() {
         if [ -n "$password" ]; then
             # 如果 local_type 不为空，使用 local_type 启动
             if [ -n "$local_type" ]; then
-                npc -server=$server -vkey=$vkey -type=tcp -password=$password -local_type=$local_type >>/tmp/npc.log &
+                # [4.x web栈适配] 守护化+stdio重定向+日志落存储盘(/tmp 是 rootfs RAM)
+                start-stop-daemon -S -x /usr/sbin/npc -b -- -server=$server -vkey=$vkey -type=tcp -password=$password -local_type=$local_type >>$EXT_PLUGIN_LOG_DIR/npc.log 2>&1
 
             else
-                npc -server=$server -vkey=$vkey -type=tcp -password=$password -target=$target >>/tmp/npc.log &
+                start-stop-daemon -S -x /usr/sbin/npc -b -- -server=$server -vkey=$vkey -type=tcp -password=$password -target=$target >>$EXT_PLUGIN_LOG_DIR/npc.log 2>&1
 
             fi
         else
             # 如果 password 为空，给出错误提示
-            npc -server=$server -vkey=$vkey -type=tcp >>/tmp/npc.log &
+            start-stop-daemon -S -x /usr/sbin/npc -b -- -server=$server -vkey=$vkey -type=tcp >>$EXT_PLUGIN_LOG_DIR/npc.log 2>&1
         fi
     fi
 }

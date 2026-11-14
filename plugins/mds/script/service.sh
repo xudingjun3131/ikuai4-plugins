@@ -11,7 +11,8 @@ fi
 start() {
 
 	if [ -f $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/msd_lite ]; then
-		msd_lite -c $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/msd_lite.conf >/dev/null &
+		# [4.x web栈适配] 守护化+stdio重定向(stderr 泄漏会阻塞 $(...) 致 SIGPIPE)
+		start-stop-daemon -S -x /usr/sbin/msd_lite -b -- -c $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/msd_lite.conf >/dev/null 2>&1
 	fi
 
 }

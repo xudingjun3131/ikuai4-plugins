@@ -7,9 +7,10 @@ start() {
 	pidof uuplugin >/dev/null 2>&1 && return 0
 
 	if [ -f /usr/sbin/uu/uuplugin_monitor.sh ]; then
-		/bin/sh /usr/sbin/uu/uuplugin_monitor.sh >/dev/null &
+		# [4.x web栈适配] stdio 重定向(stderr 泄漏会阻塞 $(...) 致 SIGPIPE)
+		( /bin/sh /usr/sbin/uu/uuplugin_monitor.sh >/dev/null 2>&1 & )
 	else
-		$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/script/uu_install.sh openwrt $(uname -m) >/dev/null &
+		( $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/script/uu_install.sh openwrt $(uname -m) >/dev/null 2>&1 & )
 	fi
 	sleep 1
 	return 0

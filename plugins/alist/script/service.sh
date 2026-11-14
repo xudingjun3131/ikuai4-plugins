@@ -15,7 +15,8 @@ start()
     chrootmgt mount_plugin $PLUGIN_NAME
 
     inited=0 && [ -f "$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/data.db" ] && inited=1
-    chrootmgt run $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin/alist server --data $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME --log-std > /dev/null &
+    # [4.x web栈适配] stderr 也要重定向(泄漏会阻塞 $(...) 致 SIGPIPE)
+    chrootmgt run $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin/alist server --data $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME --log-std > /dev/null 2>&1 &
     
     if [ $inited -eq 0 ]; then
         sleep 1

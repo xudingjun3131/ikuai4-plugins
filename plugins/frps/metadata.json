@@ -2,10 +2,14 @@
     "name": "frps",
     "alias": "frps服务端",
     "manufacturer": "iKuai",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "type": "external",
     "description": "frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP、UDP、HTTP、HTTPS 等多种协议。可以将内网服务以安全、便捷的方式通过具有公网 IP 节点的中转暴露到公网。",
-    "arch": ["arm64", "mipsle", "x86_64"],
+    "arch": [
+        "arm64",
+        "mipsle",
+        "x86_64"
+    ],
     "bin": {
         "arm64": {
             "bins/frps-arm64": "bin/frps"
@@ -16,5 +20,6 @@
         "x86_64": {
             "bins/frps-x86_64": "bin/frps"
         }
-    }
+    },
+    "releasenotes": "修复插件启动后端口不监听(4.x web栈适配): 守护进程改用 start-stop-daemon -b 守护化+stdio 全重定向。根因: iKuai4 的 func 经 resty.shell 执行, start 动作走 Exec_Return 的 $(...) 命令替换, 裸 & 启动的守护进程继承管道写端 → 替换阻塞 60s 超时 → 读端关闭后守护进程写 stdout/stderr 吃 SIGPIPE 打死。start-stop-daemon -b 会 fork 出新会话(ppid=1, 独立 pgid/sid)彻底脱离 func 进程组与管道。"
 }

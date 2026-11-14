@@ -2,9 +2,17 @@
     "name": "uu",
     "alias": "UU加速器",
     "manufacturer": "iKuai",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "type": "external",
     "description": "网易UU网游加速器是由网易公司推出的游戏加速工具，于2013年3月正式上线。网易UU网游加速器提供游戏加速服务，支持3000余款手游加速，涵盖吃鸡类、MOBA类等多种游戏，可一键加速。",
-    "scripts": ["service", "uu_install"],
-    "arch": ["arm64", "mipsle", "x86_64"]
+    "scripts": [
+        "service",
+        "uu_install"
+    ],
+    "arch": [
+        "arm64",
+        "mipsle",
+        "x86_64"
+    ],
+    "releasenotes": "修复插件启动后端口不监听(4.x web栈适配): 守护进程改用 start-stop-daemon -b 守护化+stdio 全重定向。根因: iKuai4 的 func 经 resty.shell 执行, start 动作走 Exec_Return 的 $(...) 命令替换, 裸 & 启动的守护进程继承管道写端 → 替换阻塞 60s 超时 → 读端关闭后守护进程写 stdout/stderr 吃 SIGPIPE 打死。start-stop-daemon -b 会 fork 出新会话(ppid=1, 独立 pgid/sid)彻底脱离 func 进程组与管道。"
 }

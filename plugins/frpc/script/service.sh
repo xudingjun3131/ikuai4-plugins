@@ -53,7 +53,9 @@ start() {
 
     ln -s $EXT_PLUGIN_CONFIG_DIR/frpc/frpc.ini /usr/ikuai/www/frpc.txt
 
-    frpc -c $EXT_PLUGIN_CONFIG_DIR/frpc/frpc.ini >/dev/dell &
+    # [4.x web栈适配] start-stop-daemon -b 守护化+stdio重定向:
+    # 裸 & 会让守护进程继承 func 的 $(...) 管道 → 阻塞60s超时 → SIGPIPE 打死
+    start-stop-daemon -S -x /usr/bin/frpc -b -- -c $EXT_PLUGIN_CONFIG_DIR/frpc/frpc.ini >/dev/null 2>&1
 
 }
 

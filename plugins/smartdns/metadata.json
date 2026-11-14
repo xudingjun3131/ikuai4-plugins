@@ -2,10 +2,14 @@
     "name": "smartdns",
     "alias": "SmartDNS",
     "manufacturer": "iKuai",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "type": "external",
     "description": "smartdns - 一个本地DNS服务器，获取最快的网站IP，获得最佳上网体验，支持DoH，DoT。<br>详情查看:<a>https://github.com/pymumu/smartdns</a>",
-    "arch": ["arm64", "mipsle", "x86_64"],
+    "arch": [
+        "arm64",
+        "mipsle",
+        "x86_64"
+    ],
     "bin": {
         "arm64": {
             "bins/smartdns-arm64": "bin/smartdns"
@@ -16,5 +20,6 @@
         "x86_64": {
             "bins/smartdns-x86_64": "bin/smartdns"
         }
-    }
+    },
+    "releasenotes": "修复插件启动后端口不监听(4.x web栈适配): 守护进程改用 start-stop-daemon -b 守护化+stdio 全重定向。根因: iKuai4 的 func 经 resty.shell 执行, start 动作走 Exec_Return 的 $(...) 命令替换, 裸 & 启动的守护进程继承管道写端 → 替换阻塞 60s 超时 → 读端关闭后守护进程写 stdout/stderr 吃 SIGPIPE 打死。start-stop-daemon -b 会 fork 出新会话(ppid=1, 独立 pgid/sid)彻底脱离 func 进程组与管道。"
 }

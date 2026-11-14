@@ -28,7 +28,8 @@ start() {
 
     if [ -f $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/smartdns ]; then
         rm /etc/smartdns/*.log
-        smartdns >/dev/null &
+        # [4.x web栈适配] 守护化+stdio重定向
+        start-stop-daemon -S -x /usr/sbin/smartdns -b >/dev/null 2>&1
 
     fi
 

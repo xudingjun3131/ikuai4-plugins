@@ -2,10 +2,10 @@
     "name": "adguard",
     "alias": "AdGuardHome",
     "manufacturer": "iKuai",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "type": "external",
     "description": "AdGuard Home是一个用于拦截广告和跟踪的 DNS 服务器，使您网络冲浪更快速，更安全，更便捷！<br>官网地址：<a>https://adguard.com/</a>",
-    "releasenotes": "更新说明：<br>更新AdGuardHome内核版本为v0.108.0-b.69。<br>修复有时开机不能自启动的问题。<br>更合理的检测机制，允许Clash禁用DNS劫持时与之搭配使用。<br>默认禁止外网访问。",
+    "releasenotes": "修复插件启动后端口不监听(4.x web栈适配): 守护进程改用 start-stop-daemon -b 守护化+stdio 全重定向。根因: iKuai4 的 func 经 resty.shell 执行, start 动作走 Exec_Return 的 $(...) 命令替换, 裸 & 启动的守护进程继承管道写端 → 替换阻塞 60s 超时 → 读端关闭后守护进程写 stdout/stderr 吃 SIGPIPE 打死。start-stop-daemon -b 会 fork 出新会话(ppid=1, 独立 pgid/sid)彻底脱离 func 进程组与管道。",
     "arch": [
         "arm64",
         "mipsle",
