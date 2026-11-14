@@ -41,7 +41,12 @@
                     </div>
                 </div>
                 <div class="h20"></div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    <button v-if="status !== 1" type="button" class="btn btn_green rounded height26" @click="startEngine">启动引擎</button>
+                    <button v-else type="button" class="btn btn_red rounded height26" @click="stopEngine">停止引擎</button>
+                    <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#606266; cursor:pointer;">
+                        <input type="checkbox" v-model="autostart" @change="setAutostart">开机自启
+                    </label>
                     <button v-if="capture !== 1" type="button" class="btn btn_green rounded height26" @click="setCapture(true)">开启抓包</button>
                     <button v-else type="button" class="btn btn_red rounded height26" @click="setCapture(false)">关闭抓包</button>
                     <a class="btn btn_blue rounded height26" :href="caUrl" target="_blank">下载 CA 证书</a>
@@ -50,7 +55,7 @@
                     <button type="button" class="btn btn_gray rounded height26" @click="loadInitData">刷新状态</button>
                 </div>
                 <div class="reqable-tip">
-                    <b>使用步骤：</b>1. 在下方<b>抓包设备</b>里勾选要调试的设备（不选=不抓任何设备，绝不全局）；2. 点<b>开启抓包</b>；3. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；4. 在下方界面查看解密后的请求/响应。<br>
+                    <b>使用步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>抓包设备</b>里勾选要调试的设备（不选=不抓任何设备，绝不全局）；3. 点<b>开启抓包</b>；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在下方界面查看解密后的请求/响应。<br>
                     <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
                 </div>
 
@@ -197,6 +202,7 @@ var app = new Vue({
         loading: false,
         loading_text: '',
         status: 0, capture: 0, rulesOn: 0, autostart: 0, caok: 0, flows: 0,
+        // autostart 同时用于复选框 v-model(0/1) 和 set_auto_start 传参(true/false)
         proxyPort: 18080, apiPort: 18081, geoLoaded: 0, inWindow: 0,
         uiUrl: '', caUrl: '',
         // 设备
@@ -388,6 +394,35 @@ var app = new Vue({
                     this.loadInitData();
                 } else {
                     this.$message.error('更新失败：' + (response.ErrMsg || '请检查网络'));
+                }
+            });
+        },
+        startEngine() {
+            this.callPlugin('start', {}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('引擎已启动');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('启动失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        stopEngine() {
+            this.callPlugin('stop', {}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('引擎已停止, 规则已撤');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('停止失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        setAutostart() {
+            this.callPlugin('set_auto_start', {autostart: this.autostart ? 'true' : 'false'}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success(this.autostart ? '已开启开机自启' : '已关闭开机自启');
+                } else {
+                    this.$message.error('设置失败：' + (response.ErrMsg || '未知错误'));
                 }
             });
         },

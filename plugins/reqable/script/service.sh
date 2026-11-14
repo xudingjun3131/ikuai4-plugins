@@ -144,14 +144,21 @@ start()
 	$BIN -proxy-addr 0.0.0.0:$PROXY_PORT -transparent-addr 0.0.0.0:$TRANSPARENT_PORT \
 		-api-addr 0.0.0.0:$API_PORT \
 		-data-dir $DATADIR -transparent -scope-file $SCOPE_FILE \
-		>>$LOGDIR/reqable.log 2>&1 &
+		>>$LOGDIR/reqable.log 2>&1 </dev/null &
 	echo $! > $PIDFILE
 	sleep 1
 	# 健康检查 + CA 预热
 	wget -q -O /dev/null -T3 http://127.0.0.1:$API_PORT/api/ca.pem 2>/dev/null
+	# 启动自检: 进程或端口不在要报出来(否则用户看到"已启动"但端口没监听)
+	if ! kill -0 $(cat $PIDFILE) 2>/dev/null; then
+		echo "引擎启动失败, 日志尾部:"
+		tail -3 $LOGDIR/reqable.log 2>/dev/null
+		rm -f $PIDFILE
+		return 1
+	fi
 	# 时段调度循环(总开关开着才会上规则)
 	[ -f $SCHED_PIDFILE ] && kill $(cat $SCHED_PIDFILE) 2>/dev/null
-	( scheduler_loop ) &
+	( scheduler_loop ) >/dev/null 2>&1 &
 	echo $! > $SCHED_PIDFILE
 	return 0
 }
@@ -172,6 +179,10 @@ stop()
 set_capture()
 {
 	if [ "$capture" = "true" ]; then
+		# 引擎没跑先拉起来: 规则指向没监听的端口会把勾选设备的 80/443 全弄断
+		if [ ! -f $PIDFILE ] || ! kill -0 $(cat $PIDFILE) 2>/dev/null; then
+			start || { echo "引擎未运行且启动失败, 抓包无法开启"; return 1; }
+		fi
 		touch $CAPTURE_FLAG
 		if in_schedule; then
 			iptables_add
