@@ -14,9 +14,9 @@ install()
 	ln -sf ./install.sh $INSTALL_DIR/uninstall.sh
 	mkdir -p $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME
 
-	ln -fs $INSTALL_DIR/bin/ddnstod /usr/sbin/ddnstod
-	ln -fs $INSTALL_DIR/bin/ddwebdav /usr/sbin/ddwebdav
-	chmod  +x $INSTALL_DIR/bin/ddnstod $INSTALL_DIR/bin/ddwebdav
+	ln -fs $INSTALL_DIR/bins/ddnstod-x86_64 /usr/sbin/ddnstod
+	ln -fs $INSTALL_DIR/bins/ddwebdav-x86_64 /usr/sbin/ddwebdav
+	chmod  +x $INSTALL_DIR/bins/ddnstod-x86_64 $INSTALL_DIR/bins/ddwebdav-x86_64
 
 	[ -f "$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart" ] && /usr/ikuai/function/plugin_$PLUGIN_NAME start
 	touch /tmp/iktmp/plugins/${PLUGIN_NAME}_installed

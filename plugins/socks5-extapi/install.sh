@@ -26,7 +26,7 @@ install()
     /usr/ikuai/function/plugin_$PLUGIN_NAME renewToken
   fi
 
-  if [ ! -f /tmp/iktmp/extapi.token ]
+  if [ ! -f /tmp/iktmp/extapi.token ]; then
     ln -fs $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/extapi.token /tmp/iktmp/extapi.token
   fi
 

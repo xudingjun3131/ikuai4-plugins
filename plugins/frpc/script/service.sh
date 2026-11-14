@@ -111,6 +111,27 @@ config() {
 
 }
 
+__show_data() {
+    local status=0
+    PID=$(pidof frpc | awk '{print $NF}')
+    [ -n "$PID" ] && status=1
+    [ -f /tmp/iktmp/plugins/frpc_installed ] || status=2
+
+    local autostart=0
+    [ -f $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart ] && autostart=1
+
+    local version=$(jq -r '.version' $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/html/metadata.json 2>/dev/null)
+    local server_addr="" server_port=""
+    [ -f "$CONFIG_FILE" ] && server_addr=$(read_ini_value "common" "server_addr")
+    [ -f "$CONFIG_FILE" ] && server_port=$(read_ini_value "common" "server_port")
+
+    json_append __json_result__ autostart:int
+    json_append __json_result__ status:int
+    json_append __json_result__ version:str
+    json_append __json_result__ server_addr:str
+    json_append __json_result__ server_port:str
+}
+
 show() {
     Show __json_result__
 }
