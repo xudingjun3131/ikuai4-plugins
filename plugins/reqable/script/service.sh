@@ -354,7 +354,8 @@ __show_diag()
 	local __r="" __u __sz __err __wr __dfc __dfi __du
 	__dfc=$(df -h $DATADIR 2>/dev/null | tail -1 | tr -s ' ' | tr -d '"')
 	__dfi=$(df -h $EXT_PLUGIN_INSTALL_DIR 2>/dev/null | tail -1 | tr -s ' ' | tr -d '"')
-	__du=$(du -sh $EXT_PLUGIN_CONFIG_DIR/* 2>/dev/null | sort -rh | head -6 | tr '\n' ';' | tr -d '"')
+	# busybox sort 不支持 -rh, 用 KB 数值排序
+	__du=$(du -sk $EXT_PLUGIN_CONFIG_DIR/* 2>/dev/null | sort -rn | head -8 | tr '\n' ';' | tr -d '"')
 	__wr=$([ -w "$DATADIR" ] && echo yes || echo no)
 	__json_result__="{\"mark\":\"diag_ran\",\"df_config\":\"$__dfc\",\"df_install\":\"$__dfi\",\"du_config_top\":\"$__du\",\"writable\":\"$__wr\",\"datadir\":\"$DATADIR\"}"
 	return 0
