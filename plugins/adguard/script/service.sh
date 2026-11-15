@@ -344,11 +344,12 @@ __show_diag()
 	done
 	# monitor_iface.sh 的 gawk 读的文件是否存在(缺失→getline 返回 -1→while(-1) 死循环)
 	local FILES=""
-	for __f in /tmp/proc.net.dev /proc/net/dev /tmp/iktmp/monitor-ikstat/iface; do
+	for __f in /proc/ikuai/stats/remote_if_stats /tmp/proc.net.dev /proc/net/dev /tmp/iktmp/monitor-ikstat/iface /tmp/iktmp/cache/ifname_comment/wan $EXT_PLUGIN_INSTALL_DIR/../..$IK_DIR_CACHE/ifname/wan; do
 		if [ -f "$__f" ]; then FILES="$FILES$__f=OK($(wc -c < $__f 2>/dev/null)B);"
 		else FILES="$FILES$__f=缺失!;"
 		fi
 	done
+	FILES="$FILES| proc_ikuai_stats: $(ls /proc/ikuai/stats/ 2>/dev/null | tr '\n' ',')"
 	local TMPINFO="tmp使用: $(df -h /tmp 2>/dev/null | tail -1 | awk '{print $3"/"$2" ("$5")"}')"
 	local AGCPU=$(pidof AdGuardHome 2>/dev/null | awk '{print $1}')
 	__json_result__="{\"diag\":{\"pid\":\"$PID\",\"binary\":\"$BIN_OK\",\"package\":\"$PKG_OK\",\"workdir_writable\":\"$WR_OK\",\"start_stop_daemon\":\"$SS_CMD\",\"ports_listening\":\"$PORTS\",\"web_port\":\"$__wc\",\"web_reachable\":\"$WEB\",\"http_address\":\"$HTTPADDR\",\"yaml_path\":\"$YAMLPATH\",\"yaml_info\":\"$YAMLINFO\",\"loadavg\":\"$LOADAVG\",\"cpu_use\":\"$CPUUSE\",\"ag_cpu\":\"$AGCPU\",\"proc_cpu_ticks\":\"$PROCCPU\",\"heavy_proc\":\"$HEAVYINFO\",\"stat_files\":\"$FILES\",\"tmp_usage\":\"$TMPINFO\",\"log_tail\":\"$LOGTAIL\"}}"
@@ -359,6 +360,28 @@ __show_diag()
 diag()
 {
 	__show_diag
+}
+
+# [cpu-rescue] 立即降压: monitor_iface.sh 的 gawk 因 while(getline<缺失文件) 死循环
+# (getline 返回 -1 → while(-1) 恒真 → 100% CPU), 积压的每个都吃满一核。
+# 杀掉累计 CPU ticks > 50000 的 gawk(正常统计 gawk 一次只跑几百 ticks),
+# 先把 CPU 还给设备; 根治要靠固件补丁(改 while((getline<f)>0))。
+__show_kill_stuck_gawk()
+{
+	local killed=0 pid ticks
+	for __p in /proc/[0-9]*/stat; do
+		[ -r "$__p" ] || continue
+		local __st=$(cat "$__p" 2>/dev/null); [ -z "$__st" ] && continue
+		echo "$__st" | grep -q '(gawk)' || continue
+		ticks=$(echo "$__st" | awk '{print $14+$15}')
+		case "$ticks" in ''|*[!0-9]*) continue;; esac
+		if [ "$ticks" -gt 50000 ]; then
+			pid=$(echo "$__st" | awk '{print $1}')
+			kill -9 "$pid" 2>/dev/null && killed=$((killed+1))
+		fi
+	done
+	echo "已杀掉 $killed 个失控 gawk(>50000 ticks)"
+	return 0
 }
 
 stop() {
