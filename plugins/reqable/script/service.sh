@@ -343,14 +343,21 @@ show()
 # [diag] GEOIP 下载失败诊断: 不吞错误, 两种参数顺序都测, 连DNS/目录可写性一起回报
 __show_diag()
 {
-	# [diag] 不依赖 jq(固件 jq 对 --arg/-n 组合调用会失败), 手搓 JSON;
-	# wget 统一 -q(避免 head -1 触发 SIGPIPE 打断下载), 错误信息原样带回
+	# [diag] 原样复现 update_geoip 的命令形式(含 -T 120), 并不吞错误;
+	# 另加一条去掉 -q 的同参捕获真实报错文本
 	local __r="" __u __sz __err __wr
 	for __u in "$GEOIP_URL" "$GEOIP_URL2"; do
-		__err=$(wget -q -T 8 -O $DATADIR/geoip.csv.tmp "$__u" 2>&1 | tr '\n' ' ' | tr -d '"\\')
+		# A: 与 update_geoip 完全一致的形式
+		wget -q -T 120 -O $DATADIR/geoip.csv.tmp "$__u" 2>/dev/null
 		__sz=$(wc -c < $DATADIR/geoip.csv.tmp 2>/dev/null || echo 0)
 		rm -f $DATADIR/geoip.csv.tmp
-		__r="$__r$__u|size=$__sz|err=$__err ; "
+		__r="$__r[A同参] $__u size=$__sz ; "
+		# B: 同参但不去quiet, 抓真实错误(截断防SIGPIPE: 用文件接stderr)
+		wget -T 120 -O $DATADIR/geoip.csv.tmp "$__u" 2>$DATADIR/.diag_err
+		__sz=$(wc -c < $DATADIR/geoip.csv.tmp 2>/dev/null || echo 0)
+		__err=$(tail -2 $DATADIR/.diag_err 2>/dev/null | tr '\n' ' ' | tr -d '"\\')
+		rm -f $DATADIR/geoip.csv.tmp $DATADIR/.diag_err
+		__r="$__r[B抓错] size=$__sz err=$__err ; "
 	done
 	__wr=$([ -w "$DATADIR" ] && echo yes || echo no)
 	__json_result__="{\"mark\":\"diag_ran\",\"geo\":\"$__r\",\"writable\":\"$__wr\",\"datadir\":\"$DATADIR\"}"
