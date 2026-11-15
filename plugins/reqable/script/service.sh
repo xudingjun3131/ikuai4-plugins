@@ -144,8 +144,8 @@ scheduler_loop()
 start()
 {
 	mkdir -p $DATADIR $LOGDIR $GROUPS_DIR
-	# GEOIP 数据在安装分区(配置分区空间不足), 保持软链到引擎 dataDir
-	[ -s $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/geoip/geoip.csv ] && ln -sf $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/geoip/geoip.csv $DATADIR/geoip.csv
+	# GEOIP 数据在大容量分区(配置分区空间不足), 保持软链到引擎 dataDir
+	[ -s $EXT_PLUGIN_INSTALL_DIR/../.geoip_cache/geoip.csv ] && ln -sf $EXT_PLUGIN_INSTALL_DIR/../.geoip_cache/geoip.csv $DATADIR/geoip.csv
 	if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null; then
 		return 0
 	fi
@@ -297,7 +297,9 @@ update_geoip()
 	# [wget-arg-order] busybox wget 不重排参数: 选项必须全在 URL 之前, 放到
 	# URL 后面会被当成额外 URL 导致秒败(曾表现为"两个源均不可达")。
 	# 超时120s: 设备到 CDN 实测 ~550KB/s, 11MB 需 ~20s, 留足余量。
-	local GEO_STORE=$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/geoip
+	# 放安装目录的同级(.geoip_cache): 升级会整体替换插件安装目录(实测升级后
+	# 安装目录内的 geoip.csv 被冲掉), 同级目录不受升级影响, 同在大容量分区
+	local GEO_STORE=$EXT_PLUGIN_INSTALL_DIR/../.geoip_cache
 	mkdir -p $GEO_STORE 2>/dev/null
 	local ok=0 __u
 	for __u in "$GEOIP_URL" "$GEOIP_URL2"; do

@@ -2,10 +2,10 @@
     "name": "adguard",
     "alias": "AdGuardHome",
     "manufacturer": "iKuai",
-    "version": "2.0.7",
+    "version": "2.0.8",
     "type": "external",
     "description": "AdGuard Home是一个用于拦截广告和跟踪的 DNS 服务器，使您网络冲浪更快速，更安全，更便捷！<br>官网地址：<a>https://adguard.com/</a>",
-    "releasenotes": "访问控制架构调整: 公网直连挡/NAT映射放/LAN全开/私有来源放行。DROP 规则从\"一刀切挡 wan 口所有流量\"改为只挡目标为本机 WAN IP 的流量(-d), NAT 端口映射(DNAT 后目标是 LAN IP)不再被误挡; LAN 口本就不加规则; 新增 __clean_adguard_rules 统一清理(含旧版遗留的无 -d DROP), start 先清后装防重复。",
+    "releasenotes": "新增 clean_logs 动作: 截断 AdGuardHome 查询日志/统计释放配置分区空间(实测配置分区43MB已96%满, adguard 数据占34.9MB); 进程在跑只能截断不能删, 过滤规则和配置不动。",
     "arch": [
         "arm64",
         "mipsle",

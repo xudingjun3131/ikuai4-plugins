@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.11",
+    "version": "1.0.12",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "diag 修正: busybox sort 不支持 -rh 致占用TOP为空, 改 KB 数值排序; 定位配置分区96%满的占用大户",
+    "releasenotes": "GEOIP 缓存改放安装目录同级 .geoip_cache(升级会整体替换插件安装目录, 之前的 geoip.csv 每次升级都被冲掉导致 geoLoaded 归零); 软链到引擎 dataDir 不变。",
     "arch": [
         "x86_64"
     ],
