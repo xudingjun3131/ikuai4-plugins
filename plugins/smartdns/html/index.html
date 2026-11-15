@@ -8,6 +8,11 @@
 	<link rel="stylesheet" href="../../static/css/element.css">
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<style>
+        /* [padding-fix] 插件内容页左右内距: col-lg-offset-1 只给左边8.33%缩进、
+           右边0px, 左右不对称(用户反馈)。去掉偏移类后统一 body 左右各20px,
+           对齐 iKuai4 .setting 内距与插件管理页 mgmt_section */
+        body { padding: 0 20px; }
+
 		.status-started {
 			color: green;
 		}

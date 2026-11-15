@@ -2,10 +2,10 @@
     "name": "socks5",
     "alias": "SK5分流",
     "manufacturer": "iKuai",
-    "version": "4.2.1",
+    "version": "4.2.2",
     "type": "external",
     "description": "Socks5 插件支持连接远程多个socks5服务器，同时支持本地设备进行分流",
-    "releasenotes": "修复 patch_custom_iprules 后台函数调用泄漏管道(改子shell+stdio双重重定向), 避免拖住 func 60s超时",
+    "releasenotes": "CrashCore(mihomo) v1.19.3 → v1.19.34; 内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
     "arch": [
         "arm64",
         "mipsle",

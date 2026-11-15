@@ -2,10 +2,10 @@
     "name": "zerotier",
     "alias": "Zerotier",
     "manufacturer": "iKuai",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "type": "external",
     "description": "ZeroTier 是一款开源的虚拟局域网（VPN）解决方案，旨在通过软件定义的网络技术让设备跨越不同的网络环境（如局域网、广域网、互联网等）进行无缝连接。<br>详情访问：<a>https://www.zerotier.com/</a>",
-    "releasenotes": "修复守护进程泄漏: zerotier-one -d 及 killall 后台调用补 stderr 重定向",
+    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
     "arch": [
         "x86_64"
     ]

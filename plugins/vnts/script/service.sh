@@ -14,9 +14,31 @@ start()
 	[ -d $EXT_PLUGIN_LOG_DIR ] || mkdir -p $EXT_PLUGIN_LOG_DIR
 	echo "启动VNTS" > $EXT_PLUGIN_LOG_DIR/vnts.log
 
+	# [vnts-2.x] 上游 v2.0.9 起 CLI 改为 TOML 配置文件(旧 -p/-P/-U/-W/-g/-m
+	# 旗标已全部移除), web UI 内嵌进二进制(不再需要 static/ 目录)。
+	# 按页面设置生成 config.toml; 证书/租约db落数据分区(配置分区放不下)。
+	local CONF=$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/config.toml
+	local DATA_DIR=$EXT_PLUGIN_INSTALL_DIR/../.vnts_data
+	mkdir -p $DATA_DIR 2>/dev/null
+	local NET="${gateway%.*}.0/${mask:-24}"
+	cat > $CONF <<-EOT
+tcp_bind = "[::]:${serviceport:-29889}"
+quic_bind = "[::]:${serviceport:-29889}"
+network = "$NET"
+white_list = []
+lease_duration = 86400
+web_bind = "[::]:${webport:-29888}"
+username = "${username:-ikuai}"
+password = "${password}"
+persistence = true
+EOT
+
 	killall vnts
-	param="-p $serviceport -P $webport -U $username -W $password -g $gateway -m $mask"
-	$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin/vnts $param >> $EXT_PLUGIN_LOG_DIR/vnts.log 2>&1 &
+	# [坑48] 必须直接 cd+后台, 不能用 (cd .. && cmd) & —— 子 shell 会持有
+	# 调用方管道写端, 命令替换等不到 EOF 直接阻塞 60s
+	cd $DATA_DIR
+	$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin/vnts --conf $CONF >> $EXT_PLUGIN_LOG_DIR/vnts.log 2>&1 &
+	sleep 1
 
 	if killall -q -0 vnts;then
 		echo "启动VNTS成功"

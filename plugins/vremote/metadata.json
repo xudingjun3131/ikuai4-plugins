@@ -2,10 +2,10 @@
     "name": "vremote",
     "alias": "VRemote服务",
     "manufacturer": "iKuai",
-    "version": "1.2.6",
+    "version": "1.2.7",
     "type": "external",
     "description": "VRemote服务配合相应的移动端App，可实现对路由器远程管理及网络共享等功能。",
-    "releasenotes": "页面启动/停止按钮合并为单按钮(按服务状态切换: 未运行显示启动, 运行中显示停止), 与 adguard/reqable 一致",
+    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
     "arch": [
         "all"
     ]

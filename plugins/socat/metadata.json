@@ -2,11 +2,11 @@
     "name": "socat",
     "alias": "IPV6转发",
     "manufacturer": "iKuai",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "type": "external",
     "description": "Socat (Socket CAT) 是一个功能强大的网络工具，它可以在不同类型的套接字（sockets）之间进行数据转发和代理。本插件可以实现将IPV6的端口转发到IPV4的端口。",
     "arch": [
         "x86_64"
     ],
-    "releasenotes": "修复守护进程泄漏: socat.conf 启动行及 TCP/UDP 转发模板行补 stderr 重定向"
+    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px"
 }

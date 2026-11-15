@@ -2,11 +2,11 @@
     "name": "tailscale",
     "alias": "Tailscale",
     "manufacturer": "iKuai",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "type": "external",
     "description": "Tailscale 是一个基于 WireGuard 协议的 零配置 虚拟专用网络（VPN）解决方案，旨在为用户提供安全、简单和高效的网络连接。",
     "arch": [
         "x86_64"
     ],
-    "releasenotes": "页面启动/停止按钮合并为单按钮(按服务状态切换: 未运行显示启动, 运行中显示停止), 与 adguard/reqable 一致"
+    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px"
 }

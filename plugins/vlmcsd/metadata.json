@@ -2,8 +2,11 @@
     "name": "vlmcsd",
     "alias": "Win激活",
     "manufacturer": "iKuai",
-    "version": "1.1.9",
+    "version": "1.1.10",
     "type": "external",
     "description": "KMS 激活是微软的一种 批量激活 技术，允许通过公司或组织的内部服务器进行操作系统和软件的激活，而不是依赖微软的官方激活服务器。",
-    "arch": ["x86_64"]
+    "arch": [
+        "x86_64"
+    ],
+    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px"
 }

@@ -2,7 +2,7 @@
     "name": "gecoos",
     "alias": "集客AC",
     "manufacturer": "iKuai",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "type": "external",
     "description": "GecoOS 集客 AC 是 GecoOS 操作系统中的一部分，主要用于提供集成管理的 无线局域网控制器(AC, Access Controller)。",
     "arch": [
@@ -19,5 +19,5 @@
             "bins/ac_linux_amd64_V2.2_202509121818": "bin/gecoos"
         }
     },
-    "releasenotes": "页面启动/停止按钮合并为单按钮(按服务状态切换: 未运行显示启动, 运行中显示停止), 与 adguard/reqable 一致"
+    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px"
 }

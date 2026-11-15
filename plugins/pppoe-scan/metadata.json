@@ -2,9 +2,11 @@
     "name": "pppoe_scan",
     "alias": "PPPoE Scan",
     "manufacturer": "iKuai",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "type": "external",
     "description": "扫描 PPPoE 服务器",
-    "releasenotes": "",
-    "arch": ["x86_64"]
+    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
+    "arch": [
+        "x86_64"
+    ]
 }

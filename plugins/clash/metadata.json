@@ -2,11 +2,11 @@
     "name": "clash",
     "alias": "Clash",
     "manufacturer": "iKuai",
-    "version": "2.1.2",
+    "version": "2.2.0",
     "type": "external",
     "upgradetype": "reinstall",
     "description": "ShellClash <br>Github地址：<a>https://github.com/juewuy/ShellCrash</a>",
-    "releasenotes": "页面启动/停止按钮合并为单按钮(按服务状态切换: 未运行显示启动, 运行中显示停止), 与 adguard/reqable 一致",
+    "releasenotes": "CrashCore(mihomo) v1.19.3 → v1.19.34; 内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
     "arch": [
         "arm64",
         "mipsle",

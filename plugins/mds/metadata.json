@@ -2,11 +2,11 @@
     "name": "msd_lite",
     "alias": "组播转换",
     "manufacturer": "iKuai",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "type": "external",
     "description": "msd_lite - 轻量级多流守护进程。 这是一个轻量级的Multi Stream守护进程（msd）程序，用于通过HTTP在网络上组织IP电视流媒体。<br>详情查看：<a>https://github.com/rozhuk-im/msd_lite</a>",
     "arch": [
         "x86_64"
     ],
-    "releasenotes": "修复插件启动后端口不监听(4.x web栈适配): 守护进程改用 start-stop-daemon -b 守护化+stdio 全重定向。根因: iKuai4 的 func 经 resty.shell 执行, start 动作走 Exec_Return 的 $(...) 命令替换, 裸 & 启动的守护进程继承管道写端 → 替换阻塞 60s 超时 → 读端关闭后守护进程写 stdout/stderr 吃 SIGPIPE 打死。start-stop-daemon -b 会 fork 出新会话(ppid=1, 独立 pgid/sid)彻底脱离 func 进程组与管道。"
+    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px"
 }
