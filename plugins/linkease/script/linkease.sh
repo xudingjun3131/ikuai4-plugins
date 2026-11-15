@@ -33,7 +33,7 @@ start() {
         return
     fi
 
-    sh $plugin_dir/chroot_mount.sh >/dev/null &
+    sh $plugin_dir/chroot_mount.sh >/dev/null 2>&1 &
 
     if [ ! -d "/etc/log/chroot/etc" ]; then
         mkdir /etc/log/chroot/etc
@@ -74,7 +74,7 @@ start() {
     rm /etc/log/chroot/linkease/data/linkease.sock -f
     rm /etc/log/chroot/linkease/tmp/* -rf
 
-    chroot /etc/log/chroot /linkease/data/linkease --deviceAddr :8897 --localApi /linkease/data/linkease.sock >/dev/null &
+    chroot /etc/log/chroot /linkease/data/linkease --deviceAddr :8897 --localApi /linkease/data/linkease.sock >/dev/null 2>&1 &
 }
 
 stop() {

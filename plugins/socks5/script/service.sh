@@ -116,7 +116,7 @@ start() {
 		reload_config || ret=1
 		add_guard_task || ret=1
     	clear_connections
-		patch_custom_iprules & 
+		( patch_custom_iprules ) >/dev/null 2>&1 &
 	fi
 
 	if [ "$ret" -eq "0" ]; then

@@ -2,8 +2,11 @@
     "name": "tailscale",
     "alias": "Tailscale",
     "manufacturer": "iKuai",
-    "version": "1.1.9",
+    "version": "1.2.0",
     "type": "external",
     "description": "Tailscale 是一个基于 WireGuard 协议的 零配置 虚拟专用网络（VPN）解决方案，旨在为用户提供安全、简单和高效的网络连接。",
-    "arch": ["x86_64"]
+    "arch": [
+        "x86_64"
+    ],
+    "releasenotes": "修复守护进程泄漏: tailscaled/tailscale up 后台启动补 stderr 重定向"
 }

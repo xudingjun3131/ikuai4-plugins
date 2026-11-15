@@ -7,7 +7,7 @@ plugin_dir=$(dirname "$script_path")
 start() {
 
     if killall -q -0 zerotier-one; then
-        killall zerotier-one >/dev/null &
+        killall zerotier-one >/dev/null 2>&1 &
         #rm /var/lib/zerotier-one -rf
         return
     fi
@@ -43,7 +43,7 @@ start() {
     if killall -q -0 zerotier-one; then
         local status=1
     else
-        zerotier-one -d >/dev/null &
+        zerotier-one -d >/dev/null 2>&1 &
         sleep 2
     fi
 

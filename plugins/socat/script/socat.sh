@@ -4,7 +4,7 @@
 start() {
 
     if [ -f $EXT_PLUGIN_CONFIG_DIR/socat/socat.conf ]; then
-        bash $EXT_PLUGIN_CONFIG_DIR/socat/socat.conf >/dev/null &
+        bash $EXT_PLUGIN_CONFIG_DIR/socat/socat.conf >/dev/null 2>&1 &
     fi
 }
 
@@ -63,13 +63,13 @@ add_config() {
     #socat TCP6-LISTEN:8081,fork,reuseaddr TCP4:192.168.188.101:8081
 
     if [ $protocol == "TCP" ]; then
-        echo "socat TCP6-LISTEN:$externalPort,fork,reuseaddr TCP4:$internalAddress:$internalPort >/dev/null &" >>$EXT_PLUGIN_CONFIG_DIR/socat/socat.conf
-        socat TCP6-LISTEN:$externalPort,fork,reuseaddr TCP4:$internalAddress:$internalPort >/dev/null &
+        echo "socat TCP6-LISTEN:$externalPort,fork,reuseaddr TCP4:$internalAddress:$internalPort >/dev/null 2>&1 &" >>$EXT_PLUGIN_CONFIG_DIR/socat/socat.conf
+        socat TCP6-LISTEN:$externalPort,fork,reuseaddr TCP4:$internalAddress:$internalPort >/dev/null 2>&1 &
     fi
 
     if [ $protocol == "UDP" ]; then
-        echo "socat UDP6-LISTEN:$externalPort,fork,reuseaddr UDP4:$internalAddress:$internalPort >/dev/null &" >>$EXT_PLUGIN_CONFIG_DIR/socat/socat.conf
-        socat UDP6-LISTEN:$externalPort,fork,reuseaddr UDP4:$internalAddress:$internalPort >/dev/null &
+        echo "socat UDP6-LISTEN:$externalPort,fork,reuseaddr UDP4:$internalAddress:$internalPort >/dev/null 2>&1 &" >>$EXT_PLUGIN_CONFIG_DIR/socat/socat.conf
+        socat UDP6-LISTEN:$externalPort,fork,reuseaddr UDP4:$internalAddress:$internalPort >/dev/null 2>&1 &
     fi
 
 }

@@ -16,7 +16,7 @@ start() {
 		ln -s $plugin_dir/../bin/tailscaled /usr/sbin/tailscaled
 	fi
 
-	tailscaled --port 41641 --state $EXT_PLUGIN_CONFIG_DIR/tailscale/tailscaled.state >/dev/null &
+	tailscaled --port 41641 --state $EXT_PLUGIN_CONFIG_DIR/tailscale/tailscaled.state >/dev/null 2>&1 &
 	iptables -I FORWARD -i tailscale0 -j ACCEPT
 	iptables -I FORWARD -o tailscale0 -j ACCEPT
 	iptables -t nat -I POSTROUTING -o tailscale0 -j MASQUERADE
@@ -96,7 +96,7 @@ __show_status() {
 	if [ "$BackendState" == "NeedsLogin" ]; then
 
 		if [ -z "$AuthURL" ]; then
-			tailscale up >/dev/null &
+			tailscale up >/dev/null 2>&1 &
 			output=$(tailscale status --json)
 			AuthURL=$(echo "$output" | jq -r '.AuthURL')
 		fi
