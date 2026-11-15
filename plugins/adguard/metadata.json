@@ -2,10 +2,10 @@
     "name": "adguard",
     "alias": "AdGuardHome",
     "manufacturer": "iKuai",
-    "version": "2.0.10",
+    "version": "2.0.11",
     "type": "external",
     "description": "AdGuard Home是一个用于拦截广告和跟踪的 DNS 服务器，使您网络冲浪更快速，更安全，更便捷！<br>官网地址：<a>https://adguard.com/</a>",
-    "releasenotes": "diag/clean_logs 改走 show&TYPE 通道: 框架只对 show 动作回传 stdout(Exec_Return 成功即丢弃), 独立动作的 echo 全被丢; tab 换空格(页面 JSON.parse 不容忍字符串里的字面 tab)。",
+    "releasenotes": "work 目录迁数据分区: 配置分区(sda3)仅43MB, AdGuardHome 二进制实测30.6MB, 占满96%只剩1.8MB(GEOIP 11MB CSV 曾因写盘失败被误报下载失败)。二进制+data 改放安装目录同级 .adguard_work(2.8G, 抗升级); 配置/过滤器仍留配置目录; 一次性迁移清理旧目录。",
     "arch": [
         "arm64",
         "mipsle",

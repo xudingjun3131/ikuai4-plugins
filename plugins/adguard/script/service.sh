@@ -4,7 +4,11 @@ PLUGIN_NAME="adguard"
 
 # [rootfs空间修复] 工作目录放存储分区: /tmp 在 rootfs RAM 盘(仅剩~6MB),
 # AdGuardHome 解压后 ~20MB, 解压到 /tmp 必 ENOSPC → 二进制起不来 → 3000 端口从不监听
-WORK_DIR=$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/work
+# [config分区空间修复] 配置分区(sda3)实测仅43MB, AdGuardHome 二进制实测30.6MB,
+# 放配置分区直接占到96%只剩1.8MB(GEOIP 11MB CSV 就曾因写不进而误报"下载失败")。
+# work 目录(二进制+data)改放安装目录同级 .adguard_work(数据分区2.8G, 抗升级——
+# 升级只替换插件安装目录); 配置文件/过滤器仍软链留在配置目录, 语义不变。
+WORK_DIR=$EXT_PLUGIN_INSTALL_DIR/../.adguard_work
 
 set_auto_start() {
 	if [ "$autostart" = "true" ]; then
@@ -140,6 +144,10 @@ start() {
 	if [ ! -x $AGDIR/AdGuardHome ]; then
 		chmod +x $AGDIR/AdGuardHome 2>/dev/null || { echo "二进制不可执行: $AGDIR/AdGuardHome"; return 1; }
 	fi
+	# 一次性迁移: 旧 work 目录在配置分区(实测占34.9MB/43MB=96%满), 新二进制
+	# 就位后才清理旧目录, 保证迁移失败可回退
+	local OLD_WORK=$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/work
+	[ "$OLD_WORK" != "$WORK_DIR" ] && [ -d "$OLD_WORK" ] && rm -rf "$OLD_WORK" 2>/dev/null
 	ln -sf $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml $AGDIR/AdGuardHome.yaml
 	ln -sf $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/filters $AGDIR/data/filters
 
