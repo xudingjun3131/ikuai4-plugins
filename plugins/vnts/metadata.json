@@ -2,7 +2,7 @@
     "name": "vnts",
     "alias": "VNT服务端",
     "manufacturer": "iKuai",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "type": "external",
     "description": "VNT是一个简便高效的异地组网、内网穿透工具。<br>详情访问：<a>https://rustvnt.com/</a>",
     "arch": [
@@ -21,5 +21,5 @@
             "bins/vnts-x86_64.tar.gz": "bin/vnts.tar.gz"
         }
     },
-    "releasenotes": "vnts v1.2.12 → v2.0.9 并移植CLI(TOML配置/内嵌web UI); 内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px"
+    "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。"
 }

@@ -2,7 +2,7 @@
     "name": "uu",
     "alias": "UU加速器",
     "manufacturer": "iKuai",
-    "version": "2.0.3",
+    "version": "2.0.4",
     "type": "external",
     "description": "网易UU网游加速器是由网易公司推出的游戏加速工具，于2013年3月正式上线。网易UU网游加速器提供游戏加速服务，支持3000余款手游加速，涵盖吃鸡类、MOBA类等多种游戏，可一键加速。",
     "scripts": [
@@ -14,5 +14,5 @@
         "mipsle",
         "x86_64"
     ],
-    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px"
+    "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。"
 }

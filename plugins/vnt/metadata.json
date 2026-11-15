@@ -2,10 +2,10 @@
     "name": "vnt",
     "alias": "VNT客户端",
     "manufacturer": "iKuai",
-    "version": "1.2.9",
+    "version": "1.2.10",
     "type": "external",
     "description": "VNT是一个简便高效的异地组网、内网穿透工具。<br>详情访问：<a>https://rustvnt.com/</a>",
-    "releasenotes": "vnt-cli v1.2.14 → v1.2.17(1.x最新; 2.x配置格式破坏性变更未跟); 内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
+    "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
     "arch": [
         "arm64",
         "mipsle",

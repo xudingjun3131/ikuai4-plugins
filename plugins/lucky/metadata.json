@@ -2,10 +2,10 @@
     "name": "lucky",
     "alias": "Lucky(万吉)",
     "manufacturer": "iKuai",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "type": "external",
     "description": "Lucky(万吉)是软硬路由公网神器,功能包括：ipv6/ipv4端口转发、反向代理、DDNS、WOL、ipv4 stun内网穿透、cron、ACME证书自动续签,阿里云盘、ftp、webdav、filebrowser等众多功能  <br>详情访问：<a>https://lucky666.cn/</a>",
-    "releasenotes": "lucky → v3.5.0; 内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
+    "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
     "arch": [
         "arm64",
         "mipsle",

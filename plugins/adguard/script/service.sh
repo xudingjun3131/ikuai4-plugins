@@ -10,6 +10,44 @@ PLUGIN_NAME="adguard"
 # 升级只替换插件安装目录); 配置文件/过滤器仍软链留在配置目录, 语义不变。
 WORK_DIR=$EXT_PLUGIN_INSTALL_DIR/../.adguard_work
 
+# [port-display-fix] show/diag 原来用 grep -A 5 读配置, 实测设备上返回空 →
+# 页面显示"DNS监听端口 0 / 管理面板 :0"(用户实踩)。两个坑: ①配置被 AG 自己
+# 迁移重写后 key 行距超过 5 行; ②升级迁移后文件可能不在预期路径。
+# 改为: 多路径找 yaml + 段感知 awk(不限行距) + 读不到就探测实际监听端口。
+__ag_find_yaml()
+{
+	local f
+	for f in "$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml" \
+	         "$WORK_DIR/AdGuardHome/AdGuardHome.yaml" \
+	         "$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/work/AdGuardHome.yaml"; do
+		[ -f "$f" ] && { echo "$f"; return 0; }
+	done
+	return 1
+}
+# 段感知取 dns 段的 port(第一个缩进 port: 行, 不限行距)
+__ag_yaml_dns_port()
+{
+	local f="$1"
+	[ -f "$f" ] || return 1
+	awk '/^dns:/{f=1;next} /^[^ \t]/{f=0} f && /^[ \t]+port:/{print $2; exit}' "$f" 2>/dev/null
+}
+# 段感知取 http 段的 address(形如 0.0.0.0:3000)
+__ag_yaml_http_addr()
+{
+	local f="$1"
+	[ -f "$f" ] || return 1
+	awk '/^http:/{f=1;next} /^[^ \t]/{f=0} f && /^[ \t]+address:/{print $2; exit}' "$f" 2>/dev/null
+}
+# 探测实际监听端口(配置读不到时的回退, 比显示 0 强)
+__ag_probe_port()
+{
+	local p
+	for p in "$@"; do
+		(echo > /dev/tcp/127.0.0.1/$p) >/dev/null 2>&1 && { echo "$p"; return 0; }
+	done
+	return 1
+}
+
 set_auto_start() {
 	if [ "$autostart" = "true" ]; then
 		[ -f "$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart" ] || touch $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart
@@ -82,9 +120,14 @@ __show_data() {
 	local dnshijacking=0
 	[ -f $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/dnshijacking ] && dnshijacking=1
 
-	local listenPort="$(grep -A 5 '^dns' $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml | grep 'port:' | awk '{print($2)}')"
-
-	local webPort="$(grep -A 5 '^http' $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml | grep 'address' | awk -F ':' '{print($3)}')"
+	local __yaml=$(__ag_find_yaml)
+	local listenPort=$(__ag_yaml_dns_port "$__yaml")
+	local __addr=$(__ag_yaml_http_addr "$__yaml")
+	local webPort=""
+	[ -n "$__addr" ] && webPort="${__addr##*:}"
+	# 配置读不到就探测实际端口(修复页面显示 0)
+	[ -z "$listenPort" ] && listenPort=$(__ag_probe_port 5353 53)
+	[ -z "$webPort" ] && webPort=$(__ag_probe_port 3000 80 8080)
 
 
 	local runningTime=""
@@ -153,7 +196,11 @@ start() {
 
 	# [4.x web栈适配] 守护化启动: start-stop-daemon -b(新会话, 脱离 func 进程组/管道),
 	# 失败回退子 shell 模式; stdio 全部重定向(裸 & 会继承 $(...) 管道致 SIGPIPE 打死)
-	local webPort=$(grep -A5 '^http' $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml 2>/dev/null | grep 'address' | awk -F ':' '{print($3)}')
+	local __yaml0=$(__ag_find_yaml)
+	local __addr0=$(__ag_yaml_http_addr "$__yaml0")
+	local webPort=""
+	[ -n "$__addr0" ] && webPort="${__addr0##*:}"
+	[ -z "$webPort" ] && webPort=$(__ag_probe_port 3000 80 8080)
 	[ -z "$webPort" ] && webPort=3000
 	# [日志落地] AdGuardHome 的启动报错(stdout/stderr)落文件, 不再丢 /dev/null,
 	# 否则"DNS起了Web没起"这类故障完全看不见原因
@@ -249,13 +296,22 @@ __show_diag()
 	local PKG_OK=no; [ -f $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin/AdGuardHome.tar.gz ] && PKG_OK=yes
 	local WR_OK=no; [ -w $WORK_DIR ] && WR_OK=yes
 	local SS_CMD=$(command -v start-stop-daemon 2>/dev/null || echo "不在PATH")
-	local PORTS=$(ss -tln 2>/dev/null | grep -E ':(3000|6060|5353)' | tr '\n' ';' )
-	local __wc=$(grep -A5 '^http' $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml 2>/dev/null | grep 'address' | awk -F ':' '{print($3)}')
+	local PORTS=$(ss -tln 2>/dev/null | tr '\n' ';' )
+	local __yaml=$(__ag_find_yaml)
+	local __addr=$(__ag_yaml_http_addr "$__yaml")
+	local __wc="${__addr##*:}"
+	[ -z "$__wc" ] && __wc=$(__ag_probe_port 3000 80 8080)
 	[ -z "$__wc" ] && __wc=3000
 	local WEB=no; curl -s -o /dev/null -m 2 http://127.0.0.1:$__wc/ 2>/dev/null && WEB=yes
 	local LOGTAIL=$(tail -15 $WORK_DIR/adguard.log 2>/dev/null | tr '\n' '|' | tr '"' "'")
-	local HTTPADDR=$(grep -A5 '^http' $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml 2>/dev/null | grep 'address' | tr -d ' ' | cut -d: -f2- )
-	__json_result__="{\"diag\":{\"pid\":\"$PID\",\"binary\":\"$BIN_OK\",\"package\":\"$PKG_OK\",\"workdir_writable\":\"$WR_OK\",\"start_stop_daemon\":\"$SS_CMD\",\"ports_listening\":\"$PORTS\",\"web_port\":\"$__wc\",\"web_reachable\":\"$WEB\",\"http_address\":\"$HTTPADDR\",\"log_tail\":\"$LOGTAIL\"}}"
+	local HTTPADDR="$__addr"
+	local YAMLPATH="${__yaml:-未找到}"
+	local YAMLINFO=""; [ -n "$__yaml" ] && YAMLINFO="$(ls -la "$__yaml" 2>/dev/null | tr '\n' ' ')"
+	local LOADAVG=$(cat /proc/loadavg 2>/dev/null)
+	local TOPINFO=$(ps -o pid,pcpu,pmem,comm --sort=-pcpu 2>/dev/null | head -10 | tr '\n' '|')
+	[ -z "$TOPINFO" ] && TOPINFO=$(ps 2>/dev/null | head -12 | tr '\n' '|')
+	local AGCPU=$(ps -o pcpu= -C AdGuardHome 2>/dev/null | head -1)
+	__json_result__="{\"diag\":{\"pid\":\"$PID\",\"binary\":\"$BIN_OK\",\"package\":\"$PKG_OK\",\"workdir_writable\":\"$WR_OK\",\"start_stop_daemon\":\"$SS_CMD\",\"ports_listening\":\"$PORTS\",\"web_port\":\"$__wc\",\"web_reachable\":\"$WEB\",\"http_address\":\"$HTTPADDR\",\"yaml_path\":\"$YAMLPATH\",\"yaml_info\":\"$YAMLINFO\",\"loadavg\":\"$LOADAVG\",\"ag_cpu\":\"$AGCPU\",\"top\":\"$TOPINFO\",\"log_tail\":\"$LOGTAIL\"}}"
 	return 0
 }
 

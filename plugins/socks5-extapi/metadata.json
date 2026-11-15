@@ -2,11 +2,11 @@
     "name": "extapi",
     "alias": "扩展API",
     "manufacturer": "",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "type": "external",
     "description": "扩展API插件可以提供扩展API接口，用于外部系统调用来实现自动化功能。",
     "arch": [
         "all"
     ],
-    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px"
+    "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。"
 }

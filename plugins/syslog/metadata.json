@@ -2,11 +2,11 @@
     "name": "syslog",
     "alias": "日志推送",
     "manufacturer": "iKuai",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "type": "external",
     "description": "本插件允许将本地日志上传至指定的syslog服务器，或兼容syslog协议的腾讯云、阿里云等云服务的日志收集器。",
     "arch": [
         "all"
     ],
-    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px"
+    "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。"
 }
