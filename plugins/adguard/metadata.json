@@ -2,10 +2,10 @@
     "name": "adguard",
     "alias": "AdGuardHome",
     "manufacturer": "iKuai",
-    "version": "2.1.4",
+    "version": "2.1.5",
     "type": "external",
     "description": "AdGuard Home是一个用于拦截广告和跟踪的 DNS 服务器，使您网络冲浪更快速，更安全，更便捷！<br>官网地址：<a>https://adguard.com/</a>",
-    "releasenotes": "diag 对 >5000 ticks 的进程增加 ppid+cmdline 输出——已实锤 7 个 gawk 各累计 ~256K ticks 打满 4 核(loadavg 8.65/CPU 99%), 需定位其父进程与命令行。",
+    "releasenotes": "diag 加: monitor_iface.sh gawk 读取的三个文件存在性 + /tmp 使用率 + 最重进程的 state/syscall/wchan 现场。",
     "arch": [
         "arm64",
         "mipsle",

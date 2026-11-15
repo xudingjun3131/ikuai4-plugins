@@ -322,6 +322,8 @@ __show_diag()
 	fi
 	# ② 进程累计 CPU ticks TOP(吃CPU的进程累计值一定最大)
 	local PROCCPU=""
+	local HEAVY=0
+	local HEAVYINFO=""
 	for __p in /proc/[0-9]*/stat; do
 		[ -r "$__p" ] || continue
 		local __st=$(cat "$__p" 2>/dev/null); [ -z "$__st" ] && continue
@@ -333,10 +335,23 @@ __show_diag()
 			local __ppid=$(echo "$__st" | awk '{print $4}')
 			local __cmd=$(tr '\0' ' ' < /proc/$__pid/cmdline 2>/dev/null | cut -c1-100)
 			PROCCPU="$PROCCPU$__pid($(echo "$__st" | awk '{print $2}'),ppid=$__ppid,cpu=$__t,cmd=$__cmd);"
+			# 最重进程的现场: state/syscall/wchan(判断是死循环还是阻塞)
+			if [ -z "$HEAVY" ] || [ "$__t" -gt "$HEAVY" ]; then
+				HEAVY=$__t
+				HEAVYINFO="pid=$__pid state=$(echo "$__st" | awk '{print $3}') syscall=$(cat /proc/$__pid/syscall 2>/dev/null | cut -c1-60) wchan=$(cat /proc/$__pid/wchan 2>/dev/null)"
+			fi
 		fi
 	done
+	# monitor_iface.sh 的 gawk 读的文件是否存在(缺失→getline 返回 -1→while(-1) 死循环)
+	local FILES=""
+	for __f in /tmp/proc.net.dev /proc/net/dev /tmp/iktmp/monitor-ikstat/iface; do
+		if [ -f "$__f" ]; then FILES="$FILES$__f=OK($(wc -c < $__f 2>/dev/null)B);"
+		else FILES="$FILES$__f=缺失!;"
+		fi
+	done
+	local TMPINFO="tmp使用: $(df -h /tmp 2>/dev/null | tail -1 | awk '{print $3"/"$2" ("$5")"}')"
 	local AGCPU=$(pidof AdGuardHome 2>/dev/null | awk '{print $1}')
-	__json_result__="{\"diag\":{\"pid\":\"$PID\",\"binary\":\"$BIN_OK\",\"package\":\"$PKG_OK\",\"workdir_writable\":\"$WR_OK\",\"start_stop_daemon\":\"$SS_CMD\",\"ports_listening\":\"$PORTS\",\"web_port\":\"$__wc\",\"web_reachable\":\"$WEB\",\"http_address\":\"$HTTPADDR\",\"yaml_path\":\"$YAMLPATH\",\"yaml_info\":\"$YAMLINFO\",\"loadavg\":\"$LOADAVG\",\"cpu_use\":\"$CPUUSE\",\"ag_cpu\":\"$AGCPU\",\"proc_cpu_ticks\":\"$PROCCPU\",\"log_tail\":\"$LOGTAIL\"}}"
+	__json_result__="{\"diag\":{\"pid\":\"$PID\",\"binary\":\"$BIN_OK\",\"package\":\"$PKG_OK\",\"workdir_writable\":\"$WR_OK\",\"start_stop_daemon\":\"$SS_CMD\",\"ports_listening\":\"$PORTS\",\"web_port\":\"$__wc\",\"web_reachable\":\"$WEB\",\"http_address\":\"$HTTPADDR\",\"yaml_path\":\"$YAMLPATH\",\"yaml_info\":\"$YAMLINFO\",\"loadavg\":\"$LOADAVG\",\"cpu_use\":\"$CPUUSE\",\"ag_cpu\":\"$AGCPU\",\"proc_cpu_ticks\":\"$PROCCPU\",\"heavy_proc\":\"$HEAVYINFO\",\"stat_files\":\"$FILES\",\"tmp_usage\":\"$TMPINFO\",\"log_tail\":\"$LOGTAIL\"}}"
 	return 0
 }
 
