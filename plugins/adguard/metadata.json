@@ -2,10 +2,10 @@
     "name": "adguard",
     "alias": "AdGuardHome",
     "manufacturer": "iKuai",
-    "version": "2.1.2",
+    "version": "2.1.3",
     "type": "external",
     "description": "AdGuard Home是一个用于拦截广告和跟踪的 DNS 服务器，使您网络冲浪更快速，更安全，更便捷！<br>官网地址：<a>https://adguard.com/</a>",
-    "releasenotes": "①修复页面显示\"DNS监听端口 0 / 管理面板 :0\": grep -A 5 读配置在设备上返回空(配置被 AG 迁移重写后 key 行距超5行/文件不在预期路径), 改多路径查找+段感知 awk+探测实际端口回退, diag 增加 yaml 路径/负载/进程 CPU 诊断; ②帮助提示框去掉 col-lg-11 col-xs-12(只占 91.67% 宽、与表单不齐), 与表单项对齐。",
+    "releasenotes": "diag 增加 /proc 级 CPU 诊断(总占用率2秒采样+进程累计CPU ticks TOP)——busybox ps 不支持 --sort/-C, 定位用户截图里的 CPU 99%。",
     "arch": [
         "arm64",
         "mipsle",

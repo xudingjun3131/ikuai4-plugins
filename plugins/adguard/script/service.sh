@@ -308,10 +308,29 @@ __show_diag()
 	local YAMLPATH="${__yaml:-未找到}"
 	local YAMLINFO=""; [ -n "$__yaml" ] && YAMLINFO="$(ls -la "$__yaml" 2>/dev/null | tr '\n' ' ')"
 	local LOADAVG=$(cat /proc/loadavg 2>/dev/null)
-	local TOPINFO=$(ps -o pid,pcpu,pmem,comm --sort=-pcpu 2>/dev/null | head -10 | tr '\n' '|')
-	[ -z "$TOPINFO" ] && TOPINFO=$(ps 2>/dev/null | head -12 | tr '\n' '|')
-	local AGCPU=$(ps -o pcpu= -C AdGuardHome 2>/dev/null | head -1)
-	__json_result__="{\"diag\":{\"pid\":\"$PID\",\"binary\":\"$BIN_OK\",\"package\":\"$PKG_OK\",\"workdir_writable\":\"$WR_OK\",\"start_stop_daemon\":\"$SS_CMD\",\"ports_listening\":\"$PORTS\",\"web_port\":\"$__wc\",\"web_reachable\":\"$WEB\",\"http_address\":\"$HTTPADDR\",\"yaml_path\":\"$YAMLPATH\",\"yaml_info\":\"$YAMLINFO\",\"loadavg\":\"$LOADAVG\",\"ag_cpu\":\"$AGCPU\",\"top\":\"$TOPINFO\",\"log_tail\":\"$LOGTAIL\"}}"
+	# [CPU 99% 诊断] busybox ps 不支持 --sort/-C, 改 /proc 采样:
+	# ① 总占用率: /proc/stat 两次采样(隔2秒)
+	local __c1=$(awk '/^cpu /{print $2+$3+$4+$5+$6+$7+$8}' /proc/stat 2>/dev/null)
+	local __i1=$(awk '/^cpu /{print $5}' /proc/stat 2>/dev/null)
+	sleep 2
+	local __c2=$(awk '/^cpu /{print $2+$3+$4+$5+$6+$7+$8}' /proc/stat 2>/dev/null)
+	local __i2=$(awk '/^cpu /{print $5}' /proc/stat 2>/dev/null)
+	local CPUUSE=""
+	if [ -n "$__c1" ] && [ -n "$__c2" ] && [ "$__c2" -gt "$__c1" ]; then
+		local __dt=$((__c2-__c1)); local __di=$((__i2-__i1))
+		CPUUSE="$(( (__dt-__di)*100/__dt ))%"
+	fi
+	# ② 进程累计 CPU ticks TOP(吃CPU的进程累计值一定最大)
+	local PROCCPU=""
+	for __p in /proc/[0-9]*/stat; do
+		[ -r "$__p" ] || continue
+		local __st=$(cat "$__p" 2>/dev/null); [ -z "$__st" ] && continue
+		local __t=$(echo "$__st" | awk '{print $14+$15}')
+		case "$__t" in ''|*[!0-9]*) continue;; esac
+		[ "$__t" -gt 200 ] && PROCCPU="$PROCCPU$(echo "$__st" | awk '{print $1"("$2")="$14+$15}');"
+	done
+	local AGCPU=$(pidof AdGuardHome 2>/dev/null | awk '{print $1}')
+	__json_result__="{\"diag\":{\"pid\":\"$PID\",\"binary\":\"$BIN_OK\",\"package\":\"$PKG_OK\",\"workdir_writable\":\"$WR_OK\",\"start_stop_daemon\":\"$SS_CMD\",\"ports_listening\":\"$PORTS\",\"web_port\":\"$__wc\",\"web_reachable\":\"$WEB\",\"http_address\":\"$HTTPADDR\",\"yaml_path\":\"$YAMLPATH\",\"yaml_info\":\"$YAMLINFO\",\"loadavg\":\"$LOADAVG\",\"cpu_use\":\"$CPUUSE\",\"ag_cpu\":\"$AGCPU\",\"proc_cpu_ticks\":\"$PROCCPU\",\"log_tail\":\"$LOGTAIL\"}}"
 	return 0
 }
 
