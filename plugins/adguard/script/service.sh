@@ -327,7 +327,13 @@ __show_diag()
 		local __st=$(cat "$__p" 2>/dev/null); [ -z "$__st" ] && continue
 		local __t=$(echo "$__st" | awk '{print $14+$15}')
 		case "$__t" in ''|*[!0-9]*) continue;; esac
-		[ "$__t" -gt 200 ] && PROCCPU="$PROCCPU$(echo "$__st" | awk '{print $1"("$2")="$14+$15}');"
+		# >5000 ticks 的才细查(带 ppid+cmdline, 定位失控进程的来源)
+		if [ "$__t" -gt 5000 ]; then
+			local __pid=$(echo "$__st" | awk '{print $1}')
+			local __ppid=$(echo "$__st" | awk '{print $4}')
+			local __cmd=$(tr '\0' ' ' < /proc/$__pid/cmdline 2>/dev/null | cut -c1-100)
+			PROCCPU="$PROCCPU$__pid($(echo "$__st" | awk '{print $2}'),ppid=$__ppid,cpu=$__t,cmd=$__cmd);"
+		fi
 	done
 	local AGCPU=$(pidof AdGuardHome 2>/dev/null | awk '{print $1}')
 	__json_result__="{\"diag\":{\"pid\":\"$PID\",\"binary\":\"$BIN_OK\",\"package\":\"$PKG_OK\",\"workdir_writable\":\"$WR_OK\",\"start_stop_daemon\":\"$SS_CMD\",\"ports_listening\":\"$PORTS\",\"web_port\":\"$__wc\",\"web_reachable\":\"$WEB\",\"http_address\":\"$HTTPADDR\",\"yaml_path\":\"$YAMLPATH\",\"yaml_info\":\"$YAMLINFO\",\"loadavg\":\"$LOADAVG\",\"cpu_use\":\"$CPUUSE\",\"ag_cpu\":\"$AGCPU\",\"proc_cpu_ticks\":\"$PROCCPU\",\"log_tail\":\"$LOGTAIL\"}}"
