@@ -236,6 +236,13 @@ var app = new Vue({
         this.loadDevices();
     },
     methods: {
+        // [param-b64] 框架 /Action/call 的参数值禁止包含 引号/空格/$/&/;/|/\ 等
+        // 字符(ikngx.lua __rest_check_illegality_char), JSON.stringify 的字符串
+        // 含双引号必被拒(2005 Invalid characters)——曾导致保存设备/范围/分组/时段
+        // 全部静默失败(用户实踩: 设备列表始终空、抓不到包)。改 base64 传输
+        // (仅含 [A-Za-z0-9+/=] 全合法), 后端 base64 -d 解码;
+        // unescape(encodeURIComponent()) 保证中文设备名安全。
+        b64enc(str) { return btoa(unescape(encodeURIComponent(str))); },
         callPlugin(action, param, cb) {
             AjaxPost('/Action/call', {func_name: 'plugin_reqable', action: action, param: param}, (response) => {
                 cb(response);
@@ -326,7 +333,7 @@ var app = new Vue({
             this.manualIp = ''; this.manualMac = ''; this.manualName = '';
         },
         saveDevices() {
-            this.callPlugin('set_devices', {devices: JSON.stringify(this.selectedDevices)}, (response) => {
+            this.callPlugin('set_devices', {devices_b64: this.b64enc(JSON.stringify(this.selectedDevices))}, (response) => {
                 if (response.Result % 10000 == 0) {
                     this.$message.success('设备已保存(' + this.selectedDevices.length + ' 台)');
                     this.loadInitData();
@@ -337,7 +344,7 @@ var app = new Vue({
         },
         saveGroup() {
             if (!this.groupName) { this.$message.error('请填分组名'); return; }
-            this.callPlugin('save_group', {name: this.groupName, devices: JSON.stringify(this.selectedDevices)}, (response) => {
+            this.callPlugin('save_group', {name_b64: this.b64enc(this.groupName), devices_b64: this.b64enc(JSON.stringify(this.selectedDevices))}, (response) => {
                 if (response.Result % 10000 == 0) {
                     this.$message.success('分组已保存');
                     this.groupName = '';
@@ -352,7 +359,7 @@ var app = new Vue({
             this.saveDevices();
         },
         delGroup(name) {
-            this.callPlugin('del_group', {name: name}, () => this.loadInitData());
+            this.callPlugin('del_group', {name_b64: this.b64enc(name)}, () => this.loadInitData());
         },
         saveNetwork() {
             this.callPlugin('set_ports', {ports: this.ports}, () => {
@@ -372,7 +379,7 @@ var app = new Vue({
                 stop: this.schedStop,
                 days: this.schedDays
             };
-            this.callPlugin('set_schedule', {schedule: JSON.stringify(sched)}, (response) => {
+            this.callPlugin('set_schedule', {schedule_b64: this.b64enc(JSON.stringify(sched))}, (response) => {
                 if (response.Result % 10000 == 0) {
                     this.$message.success('时段已保存');
                     this.loadInitData();
@@ -401,7 +408,7 @@ var app = new Vue({
                 size_min: parseInt(this.sizeMin) || 0,
                 size_max: parseInt(this.sizeMax) || 0
             };
-            this.callPlugin('set_scope', {scope: JSON.stringify(scope)}, (response) => {
+            this.callPlugin('set_scope', {scope_b64: this.b64enc(JSON.stringify(scope))}, (response) => {
                 if (response.Result % 10000 == 0) {
                     this.$message.success('范围已保存并热重载');
                 } else {

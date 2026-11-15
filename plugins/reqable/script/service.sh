@@ -183,6 +183,20 @@ stop()
 	return 0
 }
 
+# [param-b64] 框架 /Action/call 的参数值禁含 引号/空格/$/&/;/|/\  (ikngx.lua 的
+# __rest_check_illegality_char), 明文 JSON 必被 2005 Invalid characters 拒掉——
+# 页面保存设备/范围/分组/时段曾因此全部静默失败(用户实踩: 设备列表始终空、
+# 抓不到包)。统一 base64 传输(仅 [A-Za-z0-9+/=] 全合法), 此处解码;
+# 无 _b64 时回退明文参数(chroot 直调/兼容旧调用)。
+__param_decode()
+{
+	local v="${!1}"
+	if [ -n "$v" ]; then
+		echo "$v" | base64 -d 2>/dev/null && return
+	fi
+	echo "${!2}"
+}
+
 # ============ 配置动作(页面调用) ============
 
 # 总开关: set_capture capture=true|false
@@ -210,8 +224,9 @@ set_capture()
 # 设备选择: set_devices devices='[{"ip":"..","mac":"..","name":".."}]'
 set_devices()
 {
-	echo "$devices" | jq -e 'type == "array"' >/dev/null 2>&1 || { echo "devices 参数必须是 JSON 数组"; return 1; }
-	echo "$devices" | jq '.' > $DEVICES_FILE
+	local dj=$(__param_decode devices_b64 devices)
+	echo "$dj" | jq -e 'type == "array"' >/dev/null 2>&1 || { echo "devices 参数必须是 JSON 数组"; return 1; }
+	echo "$dj" | jq '.' > $DEVICES_FILE
 	# 规则热更新(总开关开着才重建)
 	if [ -f $CAPTURE_FLAG ] && in_schedule; then
 		iptables_add
@@ -224,8 +239,9 @@ set_devices()
 # 引擎层范围: set_scope scope='{"domain_mode":...,"domains":[...],...}'
 set_scope()
 {
-	echo "$scope" | jq -e 'type == "object"' >/dev/null 2>&1 || { echo "scope 参数必须是 JSON 对象"; return 1; }
-	echo "$scope" | jq '.' > $SCOPE_FILE
+	local sc=$(__param_decode scope_b64 scope)
+	echo "$sc" | jq -e 'type == "object"' >/dev/null 2>&1 || { echo "scope 参数必须是 JSON 对象"; return 1; }
+	echo "$sc" | jq '.' > $SCOPE_FILE
 	# SIGHUP 热重载(抓包不中断)
 	if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null; then
 		kill -HUP $(cat $PIDFILE) 2>/dev/null
@@ -261,8 +277,9 @@ set_interfaces()
 # 时段: set_schedule schedule='{"enabled":true,"start":"09:00","stop":"18:00","days":[1,2,3,4,5]}'
 set_schedule()
 {
-	echo "$schedule" | jq -e 'type == "object"' >/dev/null 2>&1 || { echo "schedule 参数必须是 JSON 对象"; return 1; }
-	echo "$schedule" | jq '.' > $SCHED_FILE
+	local sc=$(__param_decode schedule_b64 schedule)
+	echo "$sc" | jq -e 'type == "object"' >/dev/null 2>&1 || { echo "schedule 参数必须是 JSON 对象"; return 1; }
+	echo "$sc" | jq '.' > $SCHED_FILE
 	# 立即协调一次
 	if [ -f $CAPTURE_FLAG ]; then
 		if in_schedule; then iptables_add; else iptables_del; fi
@@ -274,18 +291,21 @@ set_schedule()
 # 设备分组: save_group name='手机' devices='[...]'
 save_group()
 {
-	[ -z "$name" ] && { echo "缺少 name"; return 1; }
-	echo "$devices" | jq -e 'type == "array"' >/dev/null 2>&1 || { echo "devices 必须是 JSON 数组"; return 1; }
-	echo "$name" | grep -qE '^[A-Za-z0-9_-]+$' || { echo "name 只允许字母数字_-"; return 1; }
-	echo "$devices" | jq '.' > $GROUPS_DIR/$name.json
-	echo "分组已保存: $name"
+	local nm=$(__param_decode name_b64 name)
+	local dj=$(__param_decode devices_b64 devices)
+	[ -z "$nm" ] && { echo "缺少 name"; return 1; }
+	echo "$nm" | grep -q '/' && { echo "name 不能含 /"; return 1; }
+	echo "$dj" | jq -e 'type == "array"' >/dev/null 2>&1 || { echo "devices 必须是 JSON 数组"; return 1; }
+	echo "$dj" | jq '.' > "$GROUPS_DIR/$nm.json"
+	echo "分组已保存: $nm"
 	return 0
 }
 
 del_group()
 {
-	[ -f $GROUPS_DIR/$name.json ] && rm -f $GROUPS_DIR/$name.json
-	echo "分组已删除: $name"
+	local nm=$(__param_decode name_b64 name)
+	[ -f "$GROUPS_DIR/$nm.json" ] && rm -f "$GROUPS_DIR/$nm.json"
+	echo "分组已删除: $nm"
 	return 0
 }
 

@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.16",
+    "version": "1.0.17",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "修复\"设备获取不到/抓不到\": ① 页面设备列表双源合并(dhcp_lease+arp), 静态IP设备只在ARP表里, 单源DHCP导致静态设备永远选不了; ② 修页面赋值为对象而非数组的渲染bug(v-for遍历对象/length永不0); ③ 路由器自身IP排除改为枚举所有本机IPv4(原来只排到WAN IP, LAN IP没排)。netdiag实锤: dhcp_lease空表+设备表[]+空scope默认全MITM。",
+    "releasenotes": "修复保存类动作全部静默失败(用户实踩\"设备获取不到\"真因): 框架 /Action/call 参数值禁含 引号/空格/$/&/;/|/\\, JSON.stringify 的字符串必被 2005 Invalid characters 拒掉——页面保存设备/范围/分组/时段从来都没成功过。改 base64 传输+后端解码(兼容明文)。",
     "arch": [
         "x86_64"
     ],
