@@ -2,10 +2,10 @@
     "name": "adguard",
     "alias": "AdGuardHome",
     "manufacturer": "iKuai",
-    "version": "2.0.4",
+    "version": "2.0.5",
     "type": "external",
     "description": "AdGuard Home是一个用于拦截广告和跟踪的 DNS 服务器，使您网络冲浪更快速，更安全，更便捷！<br>官网地址：<a>https://adguard.com/</a>",
-    "releasenotes": "1) 启动自检+回退: 启动后等待进程存活并报告 Web 端口, 失败给出明确原因(工作目录/二进制/存储); start-stop-daemon 不可用时回退子 shell 模式 2) 新增 diag 诊断动作(进程/二进制/端口监听/存储可写/配置/日志一键查看) 3) 页面启动/停止合并为单按钮(按状态切换)",
+    "releasenotes": "1) 启动日志落地: AdGuardHome stdout/stderr 写入 work/adguard.log(不再丢/dev/null), DNS起了Web没起这类故障可查因; 2) 启动后增加 Web 端口 curl 探测, 进程在跑但端口没听会明确报错并附日志尾部; 3) diag 诊断改 JSON 输出(框架只回传可解析JSON), 含进程/二进制/存储/端口监听/Web可达/http地址/日志尾部; 4) stop 杀全部 AdGuardHome 进程(防旧版孤儿占端口)",
     "arch": [
         "arm64",
         "mipsle",

@@ -128,12 +128,15 @@ start() {
 	# 失败回退子 shell 模式; stdio 全部重定向(裸 & 会继承 $(...) 管道致 SIGPIPE 打死)
 	local webPort=$(grep -A5 '^http' $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml 2>/dev/null | grep 'address' | awk -F ':' '{print($3)}')
 	[ -z "$webPort" ] && webPort=3000
+	# [日志落地] AdGuardHome 的启动报错(stdout/stderr)落文件, 不再丢 /dev/null,
+	# 否则"DNS起了Web没起"这类故障完全看不见原因
+	local LOG=$WORK_DIR/adguard.log
 	if command -v start-stop-daemon >/dev/null 2>&1; then
 		start-stop-daemon -S -x $AGDIR/AdGuardHome -b -- \
 			-c $AGDIR/AdGuardHome.yaml -w $AGDIR/data --no-check-update \
-			>/dev/null 2>&1
+			>>$LOG 2>&1
 	else
-		( $AGDIR/AdGuardHome -c $AGDIR/AdGuardHome.yaml -w $AGDIR/data --no-check-update >/dev/null 2>&1 & )
+		( $AGDIR/AdGuardHome -c $AGDIR/AdGuardHome.yaml -w $AGDIR/data --no-check-update >>$LOG 2>&1 & )
 	fi
 
 	# 等待监听(最多5秒), 起不来要把原因报出来(不再静默"成功")
@@ -144,7 +147,18 @@ start() {
 		i=$((i+1))
 	done
 	if ! pidof AdGuardHome >/dev/null 2>&1; then
-		echo "AdGuardHome 进程未存活(工作目录: $AGDIR, 端口: $webPort)"
+		echo "AdGuardHome 进程未存活(工作目录: $AGDIR, 端口: $webPort); 日志: $(tail -3 $LOG 2>/dev/null | tr '\n' ' ')"
+		return 1
+	fi
+	# Web 端口探测(最多再等3秒): 进程活着但 3000 没听=HTTP 绑定失败, 必须报出来
+	local __w=0
+	while [ $__w -lt 6 ]; do
+		curl -s -o /dev/null -m 2 http://127.0.0.1:$webPort/ 2>/dev/null && break
+		sleep 0.5
+		__w=$((__w+1))
+	done
+	if ! curl -s -o /dev/null -m 2 http://127.0.0.1:$webPort/ 2>/dev/null; then
+		echo "AdGuardHome 进程在跑但 Web 端口 $webPort 未监听(DNS 端口 $(grep -A5 '^dns' $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml 2>/dev/null | grep 'port:' | awk '{print($2)}') 正常则说明仅 HTTP 绑定失败); 日志尾部: $(tail -5 $LOG 2>/dev/null | tr '\n' ' | ')"
 		return 1
 	fi
 
@@ -166,33 +180,35 @@ start() {
 # [diag] 一键诊断: 页面/终端调用, 输出每一步的状态(定位"端口没起来")
 diag()
 {
-	echo "=== adguard 诊断 $(date '+%F %T') ==="
-	echo "进程: $(pidof AdGuardHome 2>/dev/null || echo '未运行')"
-	echo "工作目录: $WORK_DIR/AdGuardHome"
-	echo "二进制: $([ -x $WORK_DIR/AdGuardHome/AdGuardHome ] && echo '在' || echo '缺(未解压)')"
-	echo "安装包: $([ -f $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin/AdGuardHome.tar.gz ] && echo '在' || echo '缺')"
-	echo "存储可写: $([ -w $WORK_DIR ] && echo 是 || echo '否(存储未设置或只读)')"
-	echo "端口监听:"
-	ss -tln 2>/dev/null | grep -E ':(3000|6060|5353)' || netstat -tln 2>/dev/null | grep -E ':(3000|6060|5353)' || echo '  (ss/netstat 未显示)'
+	# [JSON 输出] 框架只把可解析为 JSON 的 stdout 放进 results, 纯文本会被丢弃,
+	# 所以诊断信息必须包成 JSON 才能回传到页面/调用方
+	local PID=$(pidof AdGuardHome 2>/dev/null | tr '\n' ',' )
+	local BIN_OK=no; [ -x $WORK_DIR/AdGuardHome/AdGuardHome ] && BIN_OK=yes
+	local PKG_OK=no; [ -f $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin/AdGuardHome.tar.gz ] && PKG_OK=yes
+	local WR_OK=no; [ -w $WORK_DIR ] && WR_OK=yes
+	local SS_CMD=$(command -v start-stop-daemon 2>/dev/null || echo "不在PATH")
+	local PORTS=$(ss -tln 2>/dev/null | grep -E ':(3000|6060|5353)' | tr '\n' ';' )
 	local __wc=$(grep -A5 '^http' $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml 2>/dev/null | grep 'address' | awk -F ':' '{print($3)}')
 	[ -z "$__wc" ] && __wc=3000
-	if curl -s -o /dev/null -m 3 http://127.0.0.1:$__wc/ 2>/dev/null; then
-		echo "  Web 端口 $__wc: 可访问(curl $(curl -s -o /dev/null -w '%{http_code}' -m 3 http://127.0.0.1:$__wc/ 2>/dev/null))"
-	else
-		echo "  Web 端口 $__wc: 不可访问(curl 连接失败)"
-	fi
-	echo "start-stop-daemon: $(command -v start-stop-daemon 2>/dev/null || echo '不在PATH(用回退模式)')"
-	echo "配置(http): $(grep -A5 '^http' $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml 2>/dev/null | tr '\n' ' ')"
-	echo "日志尾部:"
-	tail -5 $EXT_PLUGIN_LOG_DIR/$PLUGIN_NAME.log 2>/dev/null || echo '  (无日志)'
+	local WEB=no; curl -s -o /dev/null -m 2 http://127.0.0.1:$__wc/ 2>/dev/null && WEB=yes
+	local LOGTAIL=$(tail -15 $WORK_DIR/adguard.log 2>/dev/null | tr '\n' '|' | tr '"' "'")
+	local HTTPADDR=$(grep -A5 '^http' $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml 2>/dev/null | grep 'address' | tr -d ' ' | cut -d: -f2- )
+	echo "{\"diag\":{\"pid\":\"$PID\",\"binary\":\"$BIN_OK\",\"package\":\"$PKG_OK\",\"workdir_writable\":\"$WR_OK\",\"start_stop_daemon\":\"$SS_CMD\",\"ports_listening\":\"$PORTS\",\"web_port\":\"$__wc\",\"web_reachable\":\"$WEB\",\"http_address\":\"$HTTPADDR\",\"log_tail\":\"$LOGTAIL\"}}"
 	return 0
 }
 
 
 stop() {
 
-	PID=$(pidof AdGuardHome | awk '{print $NF}')
-	[ -n "$PID" ] && kill $PID
+	# 杀掉全部 AdGuardHome 进程(pidof 可能返回多个: 旧版裸& 时代的孤儿会占着
+	# 3000 不放, 只杀最后一个会导致新进程 HTTP 绑定失败)
+	for PID in $(pidof AdGuardHome 2>/dev/null); do
+		kill $PID 2>/dev/null
+	done
+	sleep 1
+	for PID in $(pidof AdGuardHome 2>/dev/null); do
+		kill -9 $PID 2>/dev/null
+	done
 	# 删二进制(下次 start 重新解压, 升级即生效); 保留 data(统计/会话)
 	rm -f $WORK_DIR/AdGuardHome/AdGuardHome
 
