@@ -38,9 +38,6 @@ mkdir -p $DATADIR $LOGDIR $GROUPS_DIR 2>/dev/null
 # 匹配优先级: MAC 优先(DHCP 换 IP 不失效), 无 MAC 用 -s IP
 iptables_add()
 {
-	local lanip=$(ip route 2>/dev/null | awk '/src/ {for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
-	[ -z "$lanip" ] && lanip=$(ifconfig br-lan 2>/dev/null | awk '/inet /{print $2}' | cut -d: -f2)
-
 	# 端口(默认 80,443)
 	local ports="80,443"
 	[ -f $DATADIR/ports ] && ports=$(cat $DATADIR/ports)
@@ -59,8 +56,13 @@ iptables_add()
 	iptables -C FORWARD -j REQABLE_QUIC 2>/dev/null || iptables -I FORWARD -j REQABLE_QUIC
 	iptables -F REQABLE_QUIC
 
-	# 排除路由器自身(否则 LAN 访问路由器管理页也会被截)
-	[ -n "$lanip" ] && iptables -t nat -A REQABLE_REDIRECT -d $lanip -j RETURN
+	# 排除路由器自身全部 IP(否则 LAN 访问路由器管理页也会被截)。
+	# [bugfix] 原来只排 ip route 第一条 src(实际是默认路由的 WAN IP, 如
+	# 10.10.10.6), LAN IP(192.168.9.1)反倒没排除——改为枚举本机所有 IPv4
+	local lip
+	for lip in $(ip -o -4 addr show 2>/dev/null | awk '{print $4}' | cut -d/ -f1); do
+		iptables -t nat -A REQABLE_REDIRECT -d $lip -j RETURN
+	done
 
 	# 接口匹配前缀
 	local ifm=""

@@ -80,7 +80,7 @@
                         </span>
                     </div>
                     <div class="reqable-devices">
-                        <div v-if="lanDevices.length === 0" style="color:#909399; font-size:12px; padding:8px 0;">暂无在线设备，点“刷新设备列表”（来自 iKuai 终端列表）</div>
+                        <div v-if="lanDevices.length === 0" style="color:#909399; font-size:12px; padding:8px 0; line-height:1.8;">暂无在线设备。列表来自 DHCP 租约 + ARP 表（含静态 IP 设备，需设备与路由器通信过才会出现）；<br>设备不在列表时，用下方“手动添加”填 IP（+MAC）即可。</div>
                         <div v-for="(d, i) in lanDevices" :key="i" class="reqable-device-item">
                             <label class="el-checkbox">
                                 <input type="checkbox" :checked="isSelected(d)" @change="toggleDevice(d)">
@@ -285,12 +285,28 @@ var app = new Vue({
                 }
             });
         },
-        // 从 iKuai 终端列表(dhcp_lease)拉在线设备
+        // 在线设备双源合并: dhcp_lease(DHCP客户端, 带主机名) + arp(ARP表)。
+        // [bugfix] 手动配了静态 IP/网关的设备不进 DHCP 租约, 只在 ARP 表里——
+        // 单源 dhcp_lease 会导致静态设备在列表里"获取不到"(用户实际踩中)。
+        // 另修: 原来直接赋 response.Data(是 {data:[...]} 对象不是数组),
+        // v-for 遍历对象 + length===0 永不成立, 列表根本渲染不对。
         loadDevices() {
-            AjaxPost('/Action/call', {func_name: 'dhcp_lease', action: 'show', param: {TYPE: 'data'}}, (response) => {
-                if (response.Result % 10000 == 0 && response.Data) {
-                    this.lanDevices = response.Data;
-                }
+            AjaxPost('/Action/call', {func_name: 'dhcp_lease', action: 'show', param: {TYPE: 'data'}}, (r1) => {
+                AjaxPost('/Action/call', {func_name: 'arp', action: 'show', param: {}}, (r2) => {
+                    const pick = (r) => (r.Result % 10000 == 0 && r.Data && Array.isArray(r.Data.data)) ? r.Data.data : [];
+                    const a1 = pick(r1);
+                    // arp 表含 WAN 侧条目(管理网), 按 tagname 过滤掉(wan1_xxx 形态)
+                    const a2 = pick(r2).filter(d => !/^wan\d/i.test(d.tagname || ''));
+                    const seen = {}, out = [];
+                    a1.concat(a2).forEach(d => {
+                        const ip = d.ip_addr;
+                        if (!ip || seen[ip]) return;
+                        seen[ip] = 1;
+                        if (!d.hostname && d.comment) d.hostname = d.comment;
+                        out.push(d);
+                    });
+                    this.lanDevices = out;
+                });
             });
         },
         isSelected(d) {
