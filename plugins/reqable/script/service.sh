@@ -340,27 +340,17 @@ show()
 # [diag] GEOIP 下载失败诊断: 不吞错误, 两种参数顺序都测, 连DNS/目录可写性一起回报
 __show_diag()
 {
-	local __r="" __u __rc __sz __err __dns __wr __df __bin
-	__bin=$(command -v wget 2>/dev/null || echo "NOT_FOUND")
+	# [diag] 不依赖 jq(固件 jq 对 --arg/-n 组合调用会失败), 手搓 JSON;
+	# wget 统一 -q(避免 head -1 触发 SIGPIPE 打断下载), 错误信息原样带回
+	local __r="" __u __sz __err __wr
 	for __u in "$GEOIP_URL" "$GEOIP_URL2"; do
-		# 顺序1: 选项在URL前
-		__err=$(wget -T 8 -O $DATADIR/geoip.csv.tmp "$__u" 2>&1 | head -1 | tr -d '"')
-		__rc=$?
+		__err=$(wget -q -T 8 -O $DATADIR/geoip.csv.tmp "$__u" 2>&1 | tr '\n' ' ' | tr -d '"\\')
 		__sz=$(wc -c < $DATADIR/geoip.csv.tmp 2>/dev/null || echo 0)
 		rm -f $DATADIR/geoip.csv.tmp
-		__r="$__r[前] $__u rc=$__rc size=$__sz err=${__err:-无} ; "
-		# 顺序2: 选项在URL后(原写法)
-		__err=$(wget -q -O $DATADIR/geoip.csv.tmp "$__u" -T 8 2>&1 | head -1 | tr -d '"')
-		__rc=$?
-		__sz=$(wc -c < $DATADIR/geoip.csv.tmp 2>/dev/null || echo 0)
-		rm -f $DATADIR/geoip.csv.tmp
-		__r="$__r[后] rc=$__rc size=$__sz err=${__err:-无} ; "
+		__r="$__r$__u|size=$__sz|err=$__err ; "
 	done
-	__dns=$(nslookup xudingjun3131.github.io 2>&1 | tail -2 | tr '\n' ' ' | tr -d '"')
 	__wr=$([ -w "$DATADIR" ] && echo yes || echo no)
-	__df=$(df -h "$DATADIR" 2>/dev/null | tail -1 | tr -s ' ' | tr -d '"')
-	__json_result__=$(jq -nc --arg r "$__r" --arg d "$__dns" --arg w "$__wr" --arg p "$DATADIR" --arg f "$__df" --arg b "$__bin" \
-		'{geo_test:$r, dns:$d, datadir_writable:$w, datadir:$p, df:$f, wget_path:$b}')
+	__json_result__="{\"mark\":\"diag_ran\",\"geo\":\"$__r\",\"writable\":\"$__wr\",\"datadir\":\"$DATADIR\"}"
 	return 0
 }
 
