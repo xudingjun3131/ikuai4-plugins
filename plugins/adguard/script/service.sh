@@ -209,13 +209,14 @@ start() {
 
 # [diag] 一键诊断: 页面/终端调用, 输出每一步的状态(定位"端口没起来")
 # [clean_logs] 清理 AdGuardHome 查询日志/统计(配置分区实测43MB已96%满)。
-# 进程在跑时不能删(删了 inode 不释放且进程持旧 fd), 只能截断;
-# 过滤规则/配置/二进制不动。同时回报完整文件清单(定位占用大户)。
-clean_logs()
+# [TYPE通道] 框架只对 show 动作回传 stdout(Exec_Return 成功即丢弃), 所以诊断/
+# 清理类动作必须走 show&TYPE=xxx: __show_ 前缀函数由 Show() 分发并回显。
+# 进程在跑时不能删日志(删了 inode 不释放且进程持旧 fd), 只能截断;
+# 过滤规则/配置/二进制不动。tab 换空格(页面 JSON.parse 不容忍字符串里的字面 tab)。
+__show_clean_logs()
 {
 	local freed=0 f sz list
-	# 完整清单(KB, 数值排序; busybox sort 不支持 -rh)
-	list=$(du -ak $WORK_DIR 2>/dev/null | sort -rn | head -15 | tr '\n' ';' | tr -d '"\\')
+	list=$(du -ak $WORK_DIR 2>/dev/null | sort -rn | head -15 | tr '\t\n' ' ' | tr -s ' ' | tr -d '"\\')
 	for f in $WORK_DIR/data/querylog.json $WORK_DIR/data/querylog.json.* $WORK_DIR/data/stats.db; do
 		[ -f "$f" ] || continue
 		sz=$(wc -c < "$f" 2>/dev/null || echo 0)
@@ -226,7 +227,12 @@ clean_logs()
 	return 0
 }
 
-diag()
+clean_logs()
+{
+	__show_clean_logs
+}
+
+__show_diag()
 {
 	# [JSON 输出] 框架只把可解析为 JSON 的 stdout 放进 results, 纯文本会被丢弃,
 	# 所以诊断信息必须包成 JSON 才能回传到页面/调用方
@@ -241,10 +247,15 @@ diag()
 	local WEB=no; curl -s -o /dev/null -m 2 http://127.0.0.1:$__wc/ 2>/dev/null && WEB=yes
 	local LOGTAIL=$(tail -15 $WORK_DIR/adguard.log 2>/dev/null | tr '\n' '|' | tr '"' "'")
 	local HTTPADDR=$(grep -A5 '^http' $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/AdGuardHome.yaml 2>/dev/null | grep 'address' | tr -d ' ' | cut -d: -f2- )
-	echo "{\"diag\":{\"pid\":\"$PID\",\"binary\":\"$BIN_OK\",\"package\":\"$PKG_OK\",\"workdir_writable\":\"$WR_OK\",\"start_stop_daemon\":\"$SS_CMD\",\"ports_listening\":\"$PORTS\",\"web_port\":\"$__wc\",\"web_reachable\":\"$WEB\",\"http_address\":\"$HTTPADDR\",\"log_tail\":\"$LOGTAIL\"}}"
+	__json_result__="{\"diag\":{\"pid\":\"$PID\",\"binary\":\"$BIN_OK\",\"package\":\"$PKG_OK\",\"workdir_writable\":\"$WR_OK\",\"start_stop_daemon\":\"$SS_CMD\",\"ports_listening\":\"$PORTS\",\"web_port\":\"$__wc\",\"web_reachable\":\"$WEB\",\"http_address\":\"$HTTPADDR\",\"log_tail\":\"$LOGTAIL\"}}"
 	return 0
 }
 
+
+diag()
+{
+	__show_diag
+}
 
 stop() {
 
