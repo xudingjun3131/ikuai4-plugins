@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "GEOIP 诊断修正: diag 改手搓 JSON(固件 jq 对 --arg/-n 调用失败导致 results 空), wget 统一 -q 避免 SIGPIPE",
+    "releasenotes": "GEOIP 下载修复(定位闭环): busybox wget 不重排参数, 选项放 URL 后会被当成额外URL导致秒败(误报\"两个源均不可达\"); 选项全移到 URL 前, 超时 60s→120s (设备到 CDN 实测~550KB/s, 11MB 需~20s)。diag 实测两源均可下载。",
     "arch": [
         "x86_64"
     ],

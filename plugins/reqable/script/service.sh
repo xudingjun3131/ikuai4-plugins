@@ -290,9 +290,12 @@ update_geoip()
 {
 	echo "正在下载 GEOIP 数据..."
 	# 明文CSV直落(免解压); 主源失败自动试备用源; 临时文件原子替换防半截文件
+	# [wget-arg-order] busybox wget 不重排参数: 选项必须全在 URL 之前, 放到
+	# URL 后面会被当成额外 URL 导致秒败(曾表现为"两个源均不可达")。
+	# 超时放到 120s: 设备到 CDN 实测 ~550KB/s, 11MB 需 ~20s, 留足余量。
 	local ok=0 __u
 	for __u in "$GEOIP_URL" "$GEOIP_URL2"; do
-		if wget -q -O $DATADIR/geoip.csv.tmp "$__u" -T 60 2>/dev/null && [ -s $DATADIR/geoip.csv.tmp ]; then
+		if wget -q -T 120 -O $DATADIR/geoip.csv.tmp "$__u" 2>/dev/null && [ -s $DATADIR/geoip.csv.tmp ]; then
 			ok=1
 			break
 		fi
