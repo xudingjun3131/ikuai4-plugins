@@ -2,10 +2,14 @@
     "name": "vnts",
     "alias": "VNT服务端",
     "manufacturer": "iKuai",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "type": "external",
     "description": "VNT是一个简便高效的异地组网、内网穿透工具。<br>详情访问：<a>https://rustvnt.com/</a>",
-    "arch": ["arm64", "mipsle", "x86_64"],
+    "arch": [
+        "arm64",
+        "mipsle",
+        "x86_64"
+    ],
     "bin": {
         "arm64": {
             "bins/vnts-arm64.tar.gz": "bin/vnts.tar.gz"
@@ -16,5 +20,6 @@
         "x86_64": {
             "bins/vnts-x86_64.tar.gz": "bin/vnts.tar.gz"
         }
-    }
+    },
+    "releasenotes": "页面启动/停止按钮合并为单按钮(按服务状态切换: 未运行显示启动, 运行中显示停止), 与 adguard/reqable 一致"
 }

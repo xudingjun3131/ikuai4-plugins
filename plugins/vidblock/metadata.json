@@ -2,8 +2,13 @@
     "name": "vidblock",
     "alias": "视频拦截",
     "manufacturer": "iKuai",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "type": "external",
     "description": "本插件可以实现屏蔽视频类网站或APP的视频流量而不影响点赞、评论、收藏等操作。",
-    "arch": ["arm64", "mipsle", "x86_64"]
+    "arch": [
+        "arm64",
+        "mipsle",
+        "x86_64"
+    ],
+    "releasenotes": "页面启动/停止按钮合并为单按钮(按服务状态切换: 未运行显示启动, 运行中显示停止), 与 adguard/reqable 一致"
 }

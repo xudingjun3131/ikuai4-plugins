@@ -32,8 +32,9 @@
                         </div>
                         <div class="line_edit">
                             <div class="input_group">
-                                <button type="button" @click="start" :disabled="this.status === 2" class="btn btn_green btn_confirm">启动AC</button>
-                                <button type="button" @click="stop"  :disabled="this.status === 2" class="btn btn_red btn_confirm margin-l-10">停止AC</button>
+                                <!-- [按钮合并] 按状态只显示一个: 未运行→启动, 运行中→停止 -->
+                                    <button v-if="status !== 1" type="button" @click="start" :disabled="status === 2" class="btn btn_green btn_confirm">启动AC</button>
+                                    <button v-else type="button" @click="stop" class="btn btn_red btn_confirm margin-l-10">停止AC</button>
                             </div>
                         </div>
                         <div class="h20"></div>
