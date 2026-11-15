@@ -7,12 +7,18 @@
     <link rel="stylesheet" href="../../static/css/plugin.css" type="text/css">
     <link rel="stylesheet" href="../../static/css/element.css">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<style>
+        /* [content-padding] 与其余插件页统一: 外层管理页卡片有 20px 内距, 插件页
+           原来靠 col-lg-offset-1 只给左边 8.33% 缩进、右边 0, 不对称; 去掉偏移类,
+           改 body 左右各 20px, 嵌入 iframe 后与外层间距一致。*/
+        body { padding: 0 20px; }
+    </style>
 </head>
 <body>
     <div id="app" class="wrapper row" v-loading="loading" :element-loading-text="loading_text">
         <div class="box clearfix">
             <div class="box_block">
-                <div class="clearfix margin_phone col-lg-11 col-lg-offset-1 ">
+                <div class="clearfix margin_phone">
                     <div  class="line_edit">
                         <span  class="input_tit">开机自启动：</span> 
                         <div  class="input_group">
