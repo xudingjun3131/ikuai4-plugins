@@ -144,6 +144,8 @@ scheduler_loop()
 start()
 {
 	mkdir -p $DATADIR $LOGDIR $GROUPS_DIR
+	# GEOIP 数据在安装分区(配置分区空间不足), 保持软链到引擎 dataDir
+	[ -s $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/geoip/geoip.csv ] && ln -sf $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/geoip/geoip.csv $DATADIR/geoip.csv
 	if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null; then
 		return 0
 	fi
@@ -289,20 +291,25 @@ del_group()
 update_geoip()
 {
 	echo "正在下载 GEOIP 数据..."
-	# 明文CSV直落(免解压); 主源失败自动试备用源; 临时文件原子替换防半截文件
+	# [disk-fix] 配置分区(实测43MB, 96%满, 剩1.8MB)放不下11MB的CSV, 写盘失败
+	# 曾被误判为"下载失败"。改到安装/数据分区(实测2.8G, 空闲2.5G)落盘, 再软链
+	# 到引擎 dataDir(引擎从 dataDir/geoip.csv 读, Go os.Open 跟随 symlink)。
 	# [wget-arg-order] busybox wget 不重排参数: 选项必须全在 URL 之前, 放到
 	# URL 后面会被当成额外 URL 导致秒败(曾表现为"两个源均不可达")。
-	# 超时放到 120s: 设备到 CDN 实测 ~550KB/s, 11MB 需 ~20s, 留足余量。
+	# 超时120s: 设备到 CDN 实测 ~550KB/s, 11MB 需 ~20s, 留足余量。
+	local GEO_STORE=$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/geoip
+	mkdir -p $GEO_STORE 2>/dev/null
 	local ok=0 __u
 	for __u in "$GEOIP_URL" "$GEOIP_URL2"; do
-		if wget -q -T 120 -O $DATADIR/geoip.csv.tmp "$__u" 2>/dev/null && [ -s $DATADIR/geoip.csv.tmp ]; then
+		if wget -q -T 120 -O $GEO_STORE/geoip.csv.tmp "$__u" 2>/dev/null && [ -s $GEO_STORE/geoip.csv.tmp ]; then
 			ok=1
 			break
 		fi
-		rm -f $DATADIR/geoip.csv.tmp
+		rm -f $GEO_STORE/geoip.csv.tmp
 	done
 	if [ "$ok" = "1" ]; then
-		mv -f $DATADIR/geoip.csv.tmp $DATADIR/geoip.csv
+		mv -f $GEO_STORE/geoip.csv.tmp $GEO_STORE/geoip.csv
+		ln -sf $GEO_STORE/geoip.csv $DATADIR/geoip.csv
 		# SIGHUP 让引擎重载
 		[ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null && kill -HUP $(cat $PIDFILE) 2>/dev/null
 		local lines=$(wc -l < $DATADIR/geoip.csv 2>/dev/null)
