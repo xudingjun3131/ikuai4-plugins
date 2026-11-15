@@ -337,6 +337,33 @@ show()
 # [CA下载通道] 页面是HTTPS(路由器Web UI), 直链 http://IP:18081/api/ca.pem 会被
 # 浏览器当混合内容拦掉(现象: 点了一闪而过没下载)。改走同源的 show&TYPE=ca:
 # CA 内容经本接口(base64)回传, 页面端 Blob 下载, 全程同源无混合内容。
+# [diag] GEOIP 下载失败诊断: 不吞错误, 两种参数顺序都测, 连DNS/目录可写性一起回报
+__show_diag()
+{
+	local __r="" __u __rc __sz __err __dns __wr __df __bin
+	__bin=$(command -v wget 2>/dev/null || echo "NOT_FOUND")
+	for __u in "$GEOIP_URL" "$GEOIP_URL2"; do
+		# 顺序1: 选项在URL前
+		__err=$(wget -T 8 -O $DATADIR/geoip.csv.tmp "$__u" 2>&1 | head -1 | tr -d '"')
+		__rc=$?
+		__sz=$(wc -c < $DATADIR/geoip.csv.tmp 2>/dev/null || echo 0)
+		rm -f $DATADIR/geoip.csv.tmp
+		__r="$__r[前] $__u rc=$__rc size=$__sz err=${__err:-无} ; "
+		# 顺序2: 选项在URL后(原写法)
+		__err=$(wget -q -O $DATADIR/geoip.csv.tmp "$__u" -T 8 2>&1 | head -1 | tr -d '"')
+		__rc=$?
+		__sz=$(wc -c < $DATADIR/geoip.csv.tmp 2>/dev/null || echo 0)
+		rm -f $DATADIR/geoip.csv.tmp
+		__r="$__r[后] rc=$__rc size=$__sz err=${__err:-无} ; "
+	done
+	__dns=$(nslookup xudingjun3131.github.io 2>&1 | tail -2 | tr '\n' ' ' | tr -d '"')
+	__wr=$([ -w "$DATADIR" ] && echo yes || echo no)
+	__df=$(df -h "$DATADIR" 2>/dev/null | tail -1 | tr -s ' ' | tr -d '"')
+	__json_result__=$(jq -nc --arg r "$__r" --arg d "$__dns" --arg w "$__wr" --arg p "$DATADIR" --arg f "$__df" --arg b "$__bin" \
+		'{geo_test:$r, dns:$d, datadir_writable:$w, datadir:$p, df:$f, wget_path:$b}')
+	return 0
+}
+
 __show_ca()
 {
 	local caf="" f

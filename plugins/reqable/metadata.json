@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "GEOIP 数据源再修复: 设备实测访问不了 cdn.jsdelivr.net(但能正常下载本仓库 Pages 上的 ipk), 主源改为随本仓库 Pages 发布的 GEOIP 数据(CI 构建时从 jsdelivr 抓取部署, 与 ipk 同 CDN), jsdelivr 降级为兜底源。v1.0.3 的按钮样式与 CA 同源下载已真机验证通过。",
+    "releasenotes": "GEOIP 下载失败诊断版: 新增 diag 诊断(经同源 show&TYPE=diag 回传JSON), 暴露 wget 真实错误/两种参数顺序对比/DNS解析/数据目录可写性/磁盘余量, 定位下载失败根因",
     "arch": [
         "x86_64"
     ],
