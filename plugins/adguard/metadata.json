@@ -2,10 +2,10 @@
     "name": "adguard",
     "alias": "AdGuardHome",
     "manufacturer": "iKuai",
-    "version": "2.0.5",
+    "version": "2.0.6",
     "type": "external",
     "description": "AdGuard Home是一个用于拦截广告和跟踪的 DNS 服务器，使您网络冲浪更快速，更安全，更便捷！<br>官网地址：<a>https://adguard.com/</a>",
-    "releasenotes": "1) 启动日志落地: AdGuardHome stdout/stderr 写入 work/adguard.log(不再丢/dev/null), DNS起了Web没起这类故障可查因; 2) 启动后增加 Web 端口 curl 探测, 进程在跑但端口没听会明确报错并附日志尾部; 3) diag 诊断改 JSON 输出(框架只回传可解析JSON), 含进程/二进制/存储/端口监听/Web可达/http地址/日志尾部; 4) stop 杀全部 AdGuardHome 进程(防旧版孤儿占端口)",
+    "releasenotes": "修复\"3000端口起不来\"的误判: 真正原因是启动时添加的 iptables DROP 规则(-i wanX --dport 3000 -j DROP)把从 wan 口接入的内网管理网(如 10.10.10.0/24)也挡住了——现象是本机回环自检通过(显示启动成功)但外网访问全部超时, 被误判为端口没监听。现在 DROP 前先放行私有段(10/8, 192.168/16, 172.16/12, 100.64/10), 只挡公网; stop 同步清理 ACCEPT 规则防泄漏。",
     "arch": [
         "arm64",
         "mipsle",

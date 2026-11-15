@@ -167,7 +167,14 @@ start() {
 	fi
 
 	# 禁止外网访问(幂等: -C 探测后追加, 防重复 start 堆规则)
+	# [wan-fix] 内网私有段必须放行: 企业网络(如 10.10.10.0/24 管理网)可能就从
+	# wan 口接入, 一刀切 DROP 会把管理网全挡住(现象: 本机回环正常/外网访问超时,
+	# 误判为"端口没起来")。私有段 ACCEPT 插在规则链最前(-I 1), 公网才 DROP。
 	for iface in $(ip link show 2>/dev/null | awk -F: '/: wan[0-9]+:/{print $2}' | tr -d ' '); do
+		for cidr in 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12 100.64.0.0/10; do
+			iptables -C INPUT -i "$iface" -p tcp --dport 3000 -s $cidr -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -i "$iface" -p tcp --dport 3000 -s $cidr -j ACCEPT
+			iptables -C INPUT -i "$iface" -p tcp --dport 53 -s $cidr -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -i "$iface" -p tcp --dport 53 -s $cidr -j ACCEPT
+		done
 		iptables -C INPUT -i "$iface" -p tcp --dport 3000 -j DROP 2>/dev/null || iptables -A INPUT -i "$iface" -p tcp --dport 3000 -j DROP
 		iptables -C INPUT -i "$iface" -p tcp --dport 53 -j DROP 2>/dev/null || iptables -A INPUT -i "$iface" -p tcp --dport 53 -j DROP
 	done
@@ -214,10 +221,14 @@ stop() {
 
 	__do_dns_hijacking stop
 
-	# 恢复外网对3000端口的访问
+	# 恢复外网对3000端口的访问(ACCEPT 和 DROP 都清, 防规则泄漏)
 	for iface in $(ip link show | awk -F: '/: wan[0-9]+:/{print $2}' | tr -d ' '); do
-		iptables -D INPUT -i "$iface" -p tcp --dport 3000 -j DROP
-		iptables -D INPUT -i "$iface" -p tcp --dport 53 -j DROP
+		for cidr in 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12 100.64.0.0/10; do
+			iptables -D INPUT -i "$iface" -p tcp --dport 3000 -s $cidr -j ACCEPT 2>/dev/null
+			iptables -D INPUT -i "$iface" -p tcp --dport 53 -s $cidr -j ACCEPT 2>/dev/null
+		done
+		iptables -D INPUT -i "$iface" -p tcp --dport 3000 -j DROP 2>/dev/null
+		iptables -D INPUT -i "$iface" -p tcp --dport 53 -j DROP 2>/dev/null
 	done
 
 	return 0
