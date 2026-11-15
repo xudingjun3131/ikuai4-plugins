@@ -208,19 +208,21 @@ start() {
 }
 
 # [diag] 一键诊断: 页面/终端调用, 输出每一步的状态(定位"端口没起来")
-# [clean_logs] 清理 AdGuardHome 查询日志/统计(配置分区实测43MB已96%满,
-# querylog/stats 是主要占用)。进程在跑时不能删(删了 inode 不释放, 且
-# AdGuardHome 仍持旧 fd), 只能截断; 过滤规则和配置不动。
+# [clean_logs] 清理 AdGuardHome 查询日志/统计(配置分区实测43MB已96%满)。
+# 进程在跑时不能删(删了 inode 不释放且进程持旧 fd), 只能截断;
+# 过滤规则/配置/二进制不动。同时回报完整文件清单(定位占用大户)。
 clean_logs()
 {
-	local freed=0 f sz
+	local freed=0 f sz list
+	# 完整清单(KB, 数值排序; busybox sort 不支持 -rh)
+	list=$(du -ak $WORK_DIR 2>/dev/null | sort -rn | head -15 | tr '\n' ';' | tr -d '"\\')
 	for f in $WORK_DIR/data/querylog.json $WORK_DIR/data/querylog.json.* $WORK_DIR/data/stats.db; do
 		[ -f "$f" ] || continue
 		sz=$(wc -c < "$f" 2>/dev/null || echo 0)
 		: > "$f" 2>/dev/null
 		freed=$((freed + sz))
 	done
-	__json_result__="{\"mark\":\"clean_ran\",\"freed_kb\":$((freed / 1024)),\"workdir\":\"$WORK_DIR/data\"}"
+	__json_result__="{\"mark\":\"clean_ran\",\"freed_kb\":$((freed / 1024)),\"files\":\"$list\",\"workdir\":\"$WORK_DIR\"}"
 	return 0
 }
 
