@@ -343,24 +343,13 @@ show()
 # [diag] GEOIP 下载失败诊断: 不吞错误, 两种参数顺序都测, 连DNS/目录可写性一起回报
 __show_diag()
 {
-	# [diag] 原样复现 update_geoip 的命令形式(含 -T 120), 并不吞错误;
-	# 另加一条去掉 -q 的同参捕获真实报错文本
-	local __r="" __u __sz __err __wr
-	for __u in "$GEOIP_URL" "$GEOIP_URL2"; do
-		# A: 与 update_geoip 完全一致的形式
-		wget -q -T 120 -O $DATADIR/geoip.csv.tmp "$__u" 2>/dev/null
-		__sz=$(wc -c < $DATADIR/geoip.csv.tmp 2>/dev/null || echo 0)
-		rm -f $DATADIR/geoip.csv.tmp
-		__r="$__r[A同参] $__u size=$__sz ; "
-		# B: 同参但不去quiet, 抓真实错误(截断防SIGPIPE: 用文件接stderr)
-		wget -T 120 -O $DATADIR/geoip.csv.tmp "$__u" 2>$DATADIR/.diag_err
-		__sz=$(wc -c < $DATADIR/geoip.csv.tmp 2>/dev/null || echo 0)
-		__err=$(tail -2 $DATADIR/.diag_err 2>/dev/null | tr '\n' ' ' | tr -d '"\\')
-		rm -f $DATADIR/geoip.csv.tmp $DATADIR/.diag_err
-		__r="$__r[B抓错] size=$__sz err=$__err ; "
-	done
+	# [diag] 磁盘实况: 两个分区的余量 + 配置目录占用TOP(定位谁吃满了空间)
+	local __r="" __u __sz __err __wr __dfc __dfi __du
+	__dfc=$(df -h $DATADIR 2>/dev/null | tail -1 | tr -s ' ' | tr -d '"')
+	__dfi=$(df -h $EXT_PLUGIN_INSTALL_DIR 2>/dev/null | tail -1 | tr -s ' ' | tr -d '"')
+	__du=$(du -sh $EXT_PLUGIN_CONFIG_DIR/* 2>/dev/null | sort -rh | head -6 | tr '\n' ';' | tr -d '"')
 	__wr=$([ -w "$DATADIR" ] && echo yes || echo no)
-	__json_result__="{\"mark\":\"diag_ran\",\"geo\":\"$__r\",\"writable\":\"$__wr\",\"datadir\":\"$DATADIR\"}"
+	__json_result__="{\"mark\":\"diag_ran\",\"df_config\":\"$__dfc\",\"df_install\":\"$__dfi\",\"du_config_top\":\"$__du\",\"writable\":\"$__wr\",\"datadir\":\"$DATADIR\"}"
 	return 0
 }
 
