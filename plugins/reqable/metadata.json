@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.14",
+    "version": "1.0.15",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
+    "releasenotes": "新增 netdiag 网络诊断(TYPE通道): iptables nat/filter 规则+设备表+scope+引擎日志+调度状态一次带回, 定位\"勾选设备却断网且无流量\"类问题",
     "arch": [
         "x86_64"
     ],

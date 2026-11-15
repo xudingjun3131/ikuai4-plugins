@@ -364,6 +364,25 @@ __show_diag()
 	return 0
 }
 
+# [netdiag] 网络层诊断: 把 iptables 规则/设备表/scope/引擎日志/调度状态一次带回。
+# 排查"设备勾选了却断网+无流量"类问题: 规则没匹配上 / scope only+空=全绕过 /
+# 引擎隧道失败, 三种根因从此一个动作分辨。
+__show_netdiag()
+{
+	local nat_rules fwd_rules devs scope logtail sched lanip
+	nat_rules=$(iptables -t nat -S REQABLE_REDIRECT 2>&1 | tr '\n' ';' | tr -d '"\\')
+	nat_rules="$nat_rules PREROUTING: $(iptables -t nat -S PREROUTING 2>&1 | grep REQABLE | tr '\n' ',')"
+	fwd_rules=$(iptables -S REQABLE_QUIC 2>&1 | tr '\n' ';' | tr -d '"\\')
+	fwd_rules="$fwd_rules FORWARD: $(iptables -S FORWARD 2>&1 | grep REQABLE | tr '\n' ',')"
+	devs=$(cat $DEVICES_FILE 2>/dev/null | tr -d '"\\' | head -c 400)
+	scope=$(cat $SCOPE_FILE 2>/dev/null | tr -d '"\\' | head -c 600)
+	logtail=$(tail -12 $LOGDIR/reqable.log 2>/dev/null | tr '\n' '|' | tr -d '"\\')
+	sched=$([ -f $SCHED_PIDFILE ] && echo "pid=$(cat $SCHED_PIDFILE 2>/dev/null) alive=$(kill -0 $(cat $SCHED_PIDFILE 2>/dev/null) 2>/dev/null && echo yes || echo no)" || echo none)
+	lanip=$(ip route 2>/dev/null | awk '/src/ {for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
+	__json_result__="{\"mark\":\"netdiag\",\"nat\":\"$nat_rules\",\"filter\":\"$fwd_rules\",\"devices\":\"$devs\",\"scope\":\"$scope\",\"logtail\":\"$logtail\",\"sched\":\"$sched\",\"lanip\":\"$lanip\",\"rules_flag\":\"$([ -f $RULES_FLAG ] && echo on || echo off)\"}"
+	return 0
+}
+
 __show_ca()
 {
 	local caf="" f
