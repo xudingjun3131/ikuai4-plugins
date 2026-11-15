@@ -12,6 +12,10 @@ DATADIR=$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME
 PROXY_PORT=18080       # 显式代理(设备手动设代理 router:18080)
 TRANSPARENT_PORT=18082 # 透明监听(iptables REDIRECT 的目标)
 API_PORT=18081         # Web 界面/API
+# [port-conf] 端口做成页面可配(用户常以为代理端口是 8080——写死曾让他们以为
+# 插件没起来)。配置落 ports.conf, set_proxy_ports 保存后重启引擎生效。
+PORTS_CONF=$DATADIR/ports.conf
+[ -f $PORTS_CONF ] && . $PORTS_CONF 2>/dev/null
 PIDFILE=$DATADIR/reqable.pid
 LOGDIR=$EXT_PLUGIN_LOG_DIR/$PLUGIN_NAME
 CAPTURE_FLAG=$DATADIR/capture_on     # 抓包总开关
@@ -250,6 +254,34 @@ set_scope()
 	return 0
 }
 
+# 引擎端口设置(页面可配): set_proxy_ports proxy=8080 api=18081 transparent=18082
+# 端口在引擎启动命令行里, 改端口必须重启引擎; 透明端口变的话规则也要重建
+set_proxy_ports()
+{
+	local p=${proxy:-$PROXY_PORT} a=${api:-$API_PORT} t=${transparent:-$TRANSPARENT_PORT}
+	local x
+	for x in "$p" "$a" "$t"; do
+		echo "$x" | grep -qE '^[0-9]+$' || { echo "端口必须是非负整数: $x"; return 1; }
+		[ "$x" -ge 1 ] && [ "$x" -le 65535 ] || { echo "端口超出范围(1-65535): $x"; return 1; }
+	done
+	if [ "$p" = "$a" ] || [ "$p" = "$t" ] || [ "$a" = "$t" ]; then
+		echo "三个端口不能相同"; return 1
+	fi
+	cat > $PORTS_CONF <<-EOT
+PROXY_PORT=$p
+API_PORT=$a
+TRANSPARENT_PORT=$t
+EOT
+	# 重启引擎使新端口生效(端口在启动命令行里)
+	stop
+	sleep 1
+	start
+	# 规则热更新(透明端口可能变了)
+	if [ -f $CAPTURE_FLAG ] && in_schedule; then iptables_add; fi
+	echo "端口已更新: 代理=$p API/UI=$a 透明=$t(引擎已重启)"
+	return 0
+}
+
 # 端口: set_ports ports='80,443,8080'
 set_ports()
 {
@@ -438,6 +470,7 @@ __show_data()
 	[ -z "$flows" ] && flows=0
 	local proxyPort=$PROXY_PORT
 	local apiPort=$API_PORT
+	local transparentPort=$TRANSPARENT_PORT
 	local geoLoaded=0
 	[ -s $DATADIR/geoip.csv ] && geoLoaded=1
 	local inWindow=0
@@ -462,7 +495,7 @@ __show_data()
 	[ -z "$groups" ] && groups='[]'
 
 	json_append __json_result__ status:int capture:int rulesOn:int autostart:int caok:int flows:int
-	json_append __json_result__ proxyPort:int apiPort:int geoLoaded:int inWindow:int
+	json_append __json_result__ proxyPort:int apiPort:int transparentPort:int geoLoaded:int inWindow:int
 	json_append __json_result__ devices:json scope:json schedule:json ports:str interfaces:str groups:json
 	return 0
 }

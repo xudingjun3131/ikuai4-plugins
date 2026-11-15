@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.17",
+    "version": "1.0.18",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "修复保存类动作全部静默失败(用户实踩\"设备获取不到\"真因): 框架 /Action/call 参数值禁含 引号/空格/$/&/;/|/\\, JSON.stringify 的字符串必被 2005 Invalid characters 拒掉——页面保存设备/范围/分组/时段从来都没成功过。改 base64 传输+后端解码(兼容明文)。",
+    "releasenotes": "引擎端口改为页面可配(用户反馈\"8080端口没有监听\"——端口原先写死18080/18081/18082): 新增端口编辑区+set_proxy_ports动作(校验/去重/落ports.conf/自动重启引擎/重建规则), show 返回 transparentPort。设备手动设代理填「路由器IP:显式代理端口」。",
     "arch": [
         "x86_64"
     ],

@@ -63,6 +63,17 @@
                     <a class="btn btn_default rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
                     <button type="button" class="btn btn_default rounded height26" @click="loadInitData">刷新状态</button>
                 </div>
+                <div class="reqable-row" style="margin-top:10px; padding:8px 10px; background:#f8f9fb; border-radius:6px;">
+                    <label style="min-width:64px;">引擎端口</label>
+                    <span style="font-size:12px; color:#606266;">显式代理</span>
+                    <input v-model="proxyPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    <span style="font-size:12px; color:#606266;">API/界面</span>
+                    <input v-model="apiPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    <span style="font-size:12px; color:#606266;">透明监听</span>
+                    <input v-model="transparentPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    <button type="button" class="btn btn_default rounded height26" @click="savePorts">保存端口</button>
+                    <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备手动设代理填「路由器IP:显式代理端口」</span>
+                </div>
                 <div class="reqable-tip">
                     <b>使用步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>抓包设备</b>里勾选要调试的设备（不选=不抓任何设备，绝不全局）；3. 点<b>开启抓包</b>；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在下方界面查看解密后的请求/响应。<br>
                     <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
@@ -212,7 +223,7 @@ var app = new Vue({
         loading_text: '',
         status: 0, capture: 0, rulesOn: 0, autostart: 0, caok: 0, flows: 0,
         // autostart 同时用于复选框 v-model(0/1) 和 set_auto_start 传参(true/false)
-        proxyPort: 18080, apiPort: 18081, geoLoaded: 0, inWindow: 0,
+        proxyPort: 18080, apiPort: 18081, transparentPort: 18082, geoLoaded: 0, inWindow: 0,
         uiUrl: '', caUrl: '',
         // 设备
         lanDevices: [], selectedDevices: [], groups: [],
@@ -262,6 +273,7 @@ var app = new Vue({
                     this.inWindow = d.inWindow || 0;
                     if (d.proxyPort) this.proxyPort = d.proxyPort;
                     if (d.apiPort) this.apiPort = d.apiPort;
+                    if (d.transparentPort) this.transparentPort = d.transparentPort;
                     this.uiUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/';
                     this.caUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/api/ca.pem';
                     // 配置回填
@@ -331,6 +343,19 @@ var app = new Vue({
             if (!this.manualIp) { this.$message.error('请填 IP'); return; }
             this.selectedDevices.push({ip: this.manualIp, mac: this.manualMac, name: this.manualName});
             this.manualIp = ''; this.manualMac = ''; this.manualName = '';
+        },
+        // 引擎端口保存(改端口后端会重启引擎)
+        savePorts() {
+            this.callPlugin('set_proxy_ports', {
+                proxy: this.proxyPort, api: this.apiPort, transparent: this.transparentPort
+            }, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('端口已保存, 引擎已重启');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
         },
         saveDevices() {
             this.callPlugin('set_devices', {devices_b64: this.b64enc(JSON.stringify(this.selectedDevices))}, (response) => {
