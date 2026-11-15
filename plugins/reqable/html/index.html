@@ -16,6 +16,10 @@
         .reqable-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
         .reqable-row label { font-size: 12px; color: #606266; min-width: 64px; }
         .reqable-tip { background: #f4f4f5; border-left: 3px solid #409eff; padding: 10px 14px; font-size: 12px; color: #606266; line-height: 1.9; margin-top: 10px; }
+        /* [btn-fix] 固件 .btn_default 是灰底灰字+cursor:default(看着就是禁用的)。
+           功能按钮一律用次级样式: 白底+描边+指针, hover 变蓝, 明确可点击 */
+        .btn_default { background: #fff; border: 1px solid #dcdfe6; color: #606266; cursor: pointer; }
+        .btn_default:hover { background: #ecf5ff; border-color: #3e8cd4; color: #3e8cd4; }
         .reqable-devices { max-height: 180px; overflow-y: auto; border: 1px solid #ebeef5; border-radius: 4px; padding: 8px 10px; }
         .reqable-device-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px; }
         .reqable-device-item .ip { color: #909399; font-family: monospace; }
@@ -49,10 +53,10 @@
                     </label>
                     <button v-if="capture !== 1" type="button" class="btn btn_green rounded height26" @click="setCapture(true)">开启抓包</button>
                     <button v-else type="button" class="btn btn_red rounded height26" @click="setCapture(false)">关闭抓包</button>
-                    <a class="btn btn_blue rounded height26" :href="caUrl" target="_blank">下载 CA 证书</a>
-                    <button type="button" class="btn btn_gray rounded height26" @click="clearFlows">清空流量</button>
-                    <a class="btn btn_gray rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
-                    <button type="button" class="btn btn_gray rounded height26" @click="loadInitData">刷新状态</button>
+                    <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">下载 CA 证书</button>
+                    <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
+                    <a class="btn btn_default rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
+                    <button type="button" class="btn btn_default rounded height26" @click="loadInitData">刷新状态</button>
                 </div>
                 <div class="reqable-tip">
                     <b>使用步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>抓包设备</b>里勾选要调试的设备（不选=不抓任何设备，绝不全局）；3. 点<b>开启抓包</b>；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在下方界面查看解密后的请求/响应。<br>
@@ -66,7 +70,7 @@
                         <button type="button" class="btn btn_blue rounded height26" @click="loadDevices">刷新设备列表</button>
                         <span style="font-size:12px; color:#909399;">已选 {{ selectedDevices.length }} 台</span>
                         <span v-for="g in groups" :key="g.name" style="display:inline-flex; gap:4px; align-items:center;">
-                            <button type="button" class="btn btn_gray rounded height26" @click="applyGroup(g)">{{ g.name }}({{ g.devices.length }})</button>
+                            <button type="button" class="btn btn_default rounded height26" @click="applyGroup(g)">{{ g.name }}({{ g.devices.length }})</button>
                             <a href="javascript:void(0)" style="font-size:12px; color:#f56c6c;" @click="delGroup(g.name)">删</a>
                         </span>
                     </div>
@@ -88,10 +92,10 @@
                         <input v-model="manualIp" placeholder="IP" style="width:130px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
                         <input v-model="manualMac" placeholder="MAC(可选)" style="width:150px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
                         <input v-model="manualName" placeholder="名称(可选)" style="width:120px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <button type="button" class="btn btn_gray rounded height26" @click="addManual">添加</button>
+                        <button type="button" class="btn btn_default rounded height26" @click="addManual">添加</button>
                         <button type="button" class="btn btn_green rounded height26" @click="saveDevices">保存设备选择</button>
                         <input v-model="groupName" placeholder="分组名" style="width:100px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <button type="button" class="btn btn_gray rounded height26" @click="saveGroup">存为分组</button>
+                        <button type="button" class="btn btn_default rounded height26" @click="saveGroup">存为分组</button>
                     </div>
                 </div>
 
@@ -147,7 +151,7 @@
                         </el-radio-group>
                         <input v-model="countries" placeholder="CN,US（两位国别码）" style="width:220px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
                         <el-tag size="mini" :type="geoLoaded === 1 ? 'success' : 'warning'">{{ geoLoaded === 1 ? 'GEOIP已加载' : 'GEOIP未下载' }}</el-tag>
-                        <button type="button" class="btn btn_gray rounded height26" @click="updateGeoip">更新 GEOIP 数据</button>
+                        <button type="button" class="btn btn_default rounded height26" @click="updateGeoip">更新 GEOIP 数据</button>
                         <button type="button" class="btn btn_green rounded height26" @click="saveScope">保存解密范围</button>
                     </div>
                 </div>
@@ -382,6 +386,28 @@ var app = new Vue({
                 } else {
                     this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
                 }
+            });
+        },
+        downloadCa() {
+            // [混合内容修复] 页面是HTTPS, 直链引擎http端口会被浏览器拦(一闪而过)。
+            // 改走同源 show&TYPE=ca 取base64, 本地Blob下载
+            this.callPlugin('show', {TYPE: 'ca'}, (response) => {
+                const d = (response && (response.Data || response.results)) || {};
+                if (!d.ca_b64) { alert('CA 尚未生成, 请先启动引擎'); return; }
+                try {
+                    const bin = atob(d.ca_b64);
+                    const buf = new Uint8Array(bin.length);
+                    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+                    const blob = new Blob([buf], {type: 'application/x-pem-file'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'reqable-ca.pem';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } catch (e) { alert('CA 下载失败: ' + e); }
             });
         },
         updateGeoip() {

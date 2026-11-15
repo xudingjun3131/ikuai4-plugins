@@ -21,7 +21,10 @@ SCOPE_FILE=$DATADIR/scope.json       # 引擎层范围(域名/IP/GEOIP/记录层
 SCHED_FILE=$DATADIR/schedule.json    # 时段 {enabled,start,stop,days:[1-7]}
 GROUPS_DIR=$DATADIR/groups           # 设备分组(命名快捷选择)
 SCHED_PIDFILE=$DATADIR/scheduler.pid # 时段调度循环
-GEOIP_URL="https://download.db-ip.com/db/downloads/ip-to-country-lite/dbip-country-lite-latest.csv.gz"
+# [geo-url-fix] db-ip 旧地址已404(目录结构变更), 换 jsdelivr 镜像的 geolite2-country
+# (同格式 起IP,止IP,国家码, 明文CSV免解压); 失败再试 dbip-country 镜像
+GEOIP_URL="https://cdn.jsdelivr.net/gh/sapics/ip-location-db@main/geolite2-country/geolite2-country-ipv4.csv"
+GEOIP_URL2="https://cdn.jsdelivr.net/gh/sapics/ip-location-db@main/dbip-country/dbip-country-ipv4.csv"
 
 # 确保目录存在(配置动作可能先于 start 被调用)
 mkdir -p $DATADIR $LOGDIR $GROUPS_DIR 2>/dev/null
@@ -283,17 +286,26 @@ del_group()
 update_geoip()
 {
 	echo "正在下载 GEOIP 数据..."
-	if wget -q -O $DATADIR/geoip.csv.gz "$GEOIP_URL" -T 30 2>/dev/null && gunzip -f $DATADIR/geoip.csv.gz 2>/dev/null; then
+	# 明文CSV直落(免解压); 主源失败自动试备用源; 临时文件原子替换防半截文件
+	local ok=0 __u
+	for __u in "$GEOIP_URL" "$GEOIP_URL2"; do
+		if wget -q -O $DATADIR/geoip.csv.tmp "$__u" -T 60 2>/dev/null && [ -s $DATADIR/geoip.csv.tmp ]; then
+			ok=1
+			break
+		fi
+		rm -f $DATADIR/geoip.csv.tmp
+	done
+	if [ "$ok" = "1" ]; then
+		mv -f $DATADIR/geoip.csv.tmp $DATADIR/geoip.csv
 		# SIGHUP 让引擎重载
 		[ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null && kill -HUP $(cat $PIDFILE) 2>/dev/null
 		local lines=$(wc -l < $DATADIR/geoip.csv 2>/dev/null)
 		echo "GEOIP 数据已更新($lines 条)"
-	else
-		rm -f $DATADIR/geoip.csv.gz
-		echo "GEOIP 下载失败, 请检查网络"
-		return 1
+		return 0
 	fi
-	return 0
+	rm -f $DATADIR/geoip.csv.tmp
+	echo "GEOIP 下载失败, 请检查网络(两个源均不可达)"
+	return 1
 }
 
 set_auto_start()
@@ -317,6 +329,24 @@ clear_flows()
 show()
 {
 	Show __json_result__
+}
+
+# [CA下载通道] 页面是HTTPS(路由器Web UI), 直链 http://IP:18081/api/ca.pem 会被
+# 浏览器当混合内容拦掉(现象: 点了一闪而过没下载)。改走同源的 show&TYPE=ca:
+# CA 内容经本接口(base64)回传, 页面端 Blob 下载, 全程同源无混合内容。
+__show_ca()
+{
+	local caf="" f
+	for f in $DATADIR/ca.pem $DATADIR/mitmproxy-ca-cert.pem $DATADIR/ca-cert.pem; do
+		[ -f "$f" ] && caf="$f" && break
+	done
+	if [ -z "$caf" ]; then
+		__json_result__='{"ca_b64":""}'
+		return 0
+	fi
+	local b64=$(base64 "$caf" 2>/dev/null | tr -d '\n')
+	__json_result__="{\"ca_b64\":\"$b64\"}"
+	return 0
 }
 
 __show_data()

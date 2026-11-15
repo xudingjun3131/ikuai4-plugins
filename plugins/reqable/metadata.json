@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "页面卡片圆角对齐 iKuai4 规范(8px+20px 内距), 与插件管理页卡片风格统一",
+    "releasenotes": "1) 按钮样式修复: 功能按钮从灰底灰字的 btn_gray(光标default, 看着像禁用)改为白底描边次级按钮 btn_default(hover变蓝, 明确可点击), 涉及清空流量/新窗口全屏打开/刷新状态/添加/存为分组/更新GEOIP数据/分组按钮等8处; 2) CA下载修复: 原 <a href=\"http://IP:18081/api/ca.pem\"> 在HTTPS管理页面下被浏览器混合内容策略拦截(点了一闪而过没下载), 改为同源 show&TYPE=ca 取base64后Blob本地下载; 3) GEOIP更新修复: db-ip旧下载地址已404(目录结构变更), 换jsdelivr镜像(geolite2-country-ipv4.csv, 同格式明文免解压), 并加备用源自动重试与临时文件原子替换",
     "arch": [
         "x86_64"
     ],
