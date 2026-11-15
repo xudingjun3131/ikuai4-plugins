@@ -50,6 +50,16 @@ jobs:
           echo "IPK directory contents:"
           ls -lah build/ipk/
           
+      - name: Fetch GEOIP data for plugins (reqable)
+        run: |
+          mkdir -p build/geoip
+          # 从 jsdelivr 镜像取 geolite2-country-ipv4.csv(起,止,国家码),
+          # 随本仓库 Pages 一起发布 → 设备从下载 ipk 的同一 CDN 取, 必然可达
+          curl -sL --retry 3 --max-time 300 -o build/geoip/geolite2-country-ipv4.csv \
+            https://cdn.jsdelivr.net/gh/sapics/ip-location-db@main/geolite2-country/geolite2-country-ipv4.csv
+          ls -lah build/geoip/
+          head -2 build/geoip/geolite2-country-ipv4.csv
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:

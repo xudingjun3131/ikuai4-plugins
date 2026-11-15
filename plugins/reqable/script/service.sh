@@ -23,8 +23,11 @@ GROUPS_DIR=$DATADIR/groups           # 设备分组(命名快捷选择)
 SCHED_PIDFILE=$DATADIR/scheduler.pid # 时段调度循环
 # [geo-url-fix] db-ip 旧地址已404(目录结构变更), 换 jsdelivr 镜像的 geolite2-country
 # (同格式 起IP,止IP,国家码, 明文CSV免解压); 失败再试 dbip-country 镜像
-GEOIP_URL="https://cdn.jsdelivr.net/gh/sapics/ip-location-db@main/geolite2-country/geolite2-country-ipv4.csv"
-GEOIP_URL2="https://cdn.jsdelivr.net/gh/sapics/ip-location-db@main/dbip-country/dbip-country-ipv4.csv"
+# [geo-url-fix2] 设备访问不了 cdn.jsdelivr.net(实测两源均不可达, 但同设备能正常
+# 下载本仓库 Pages 上的 ipk)。主源改为随本仓库 Pages 发布的 GEOIP 数据(CI 构建时
+# 从 jsdelivr 抓取并部署), 与 ipk 同 CDN 必然可达; jsdelivr 保留作兜底。
+GEOIP_URL="https://xudingjun3131.github.io/ikuai4-plugins/geoip/geolite2-country-ipv4.csv"
+GEOIP_URL2="https://cdn.jsdelivr.net/gh/sapics/ip-location-db@main/geolite2-country/geolite2-country-ipv4.csv"
 
 # 确保目录存在(配置动作可能先于 start 被调用)
 mkdir -p $DATADIR $LOGDIR $GROUPS_DIR 2>/dev/null
