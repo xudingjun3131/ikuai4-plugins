@@ -102,6 +102,25 @@ __show_data() {
 
 }
 
+# [规则清理] 删掉本插件加过的所有 INPUT 规则(含旧版无 -d 的一刀切 DROP), 幂等可重入
+__clean_adguard_rules()
+{
+	local __iface=$1 __cidr __wip
+	for __cidr in 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12 100.64.0.0/10; do
+		while iptables -C INPUT -i "$__iface" -p tcp --dport 3000 -s $__cidr -j ACCEPT 2>/dev/null; do iptables -D INPUT -i "$__iface" -p tcp --dport 3000 -s $__cidr -j ACCEPT 2>/dev/null; done
+		while iptables -C INPUT -i "$__iface" -p tcp --dport 53 -s $__cidr -j ACCEPT 2>/dev/null; do iptables -D INPUT -i "$__iface" -p tcp --dport 53 -s $__cidr -j ACCEPT 2>/dev/null; done
+	done
+	for __wip in $(ip -4 addr show dev $__iface 2>/dev/null | grep inet | awk '{print($2)}' | cut -d/ -f1); do
+		while iptables -C INPUT -i "$__iface" -p tcp --dport 3000 -d $__wip -j DROP 2>/dev/null; do iptables -D INPUT -i "$__iface" -p tcp --dport 3000 -d $__wip -j DROP 2>/dev/null; done
+		while iptables -C INPUT -i "$__iface" -p tcp --dport 53 -d $__wip -j DROP 2>/dev/null; do iptables -D INPUT -i "$__iface" -p tcp --dport 53 -d $__wip -j DROP 2>/dev/null; done
+	done
+	# 旧版(≤2.0.6)遗留: 不带 -d 的一刀切 DROP
+	while iptables -C INPUT -i "$__iface" -p tcp --dport 3000 -j DROP 2>/dev/null; do iptables -D INPUT -i "$__iface" -p tcp --dport 3000 -j DROP 2>/dev/null; done
+	while iptables -C INPUT -i "$__iface" -p tcp --dport 53 -j DROP 2>/dev/null; do iptables -D INPUT -i "$__iface" -p tcp --dport 53 -j DROP 2>/dev/null; done
+	return 0
+}
+
+
 start() {
 
 	PID=$(pidof AdGuardHome 2>/dev/null | awk '{print $NF}')
@@ -166,18 +185,22 @@ start() {
 		__do_dns_hijacking start
 	fi
 
-	# 禁止外网访问(幂等: -C 探测后追加, 防重复 start 堆规则)
-	# [wan-fix] 内网私有段必须放行: 企业网络(如 10.10.10.0/24 管理网)可能就从
-	# wan 口接入, 一刀切 DROP 会把管理网全挡住(现象: 本机回环正常/外网访问超时,
-	# 误判为"端口没起来")。私有段 ACCEPT 插在规则链最前(-I 1), 公网才 DROP。
-	for iface in $(ip link show 2>/dev/null | awk -F: '/: wan[0-9]+:/{print $2}' | tr -d ' '); do
-		for cidr in 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12 100.64.0.0/10; do
-			iptables -C INPUT -i "$iface" -p tcp --dport 3000 -s $cidr -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -i "$iface" -p tcp --dport 3000 -s $cidr -j ACCEPT
-			iptables -C INPUT -i "$iface" -p tcp --dport 53 -s $cidr -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -i "$iface" -p tcp --dport 53 -s $cidr -j ACCEPT
+		# [访问控制架构] 公网直连挡 / NAT 映射放 / LAN 全开 / 私有来源放行:
+		#   ① 私有段(10/8,192.168/16,172.16/12,100.64/10)来源 → ACCEPT(管理网从 wan 口接入)
+		#   ② 只挡"公网直连本机 WAN IP"(-d $wip): NAT 端口映射经 DNAT 后目标被改写为
+		#      LAN IP, 不打 -d wan_ip, 自然放行; LAN 口(lanX)不进本规则, 全开
+		#   ③ 先清旧规则再装(版本过渡: 旧版 DROP 不带 -d, 会把 NAT 映射一起挡掉)
+		for iface in $(ip link show 2>/dev/null | awk -F: '/: wan[0-9]+:/{print $2}' | tr -d ' '); do
+			__clean_adguard_rules "$iface"
+			for cidr in 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12 100.64.0.0/10; do
+				iptables -C INPUT -i "$iface" -p tcp --dport 3000 -s $cidr -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -i "$iface" -p tcp --dport 3000 -s $cidr -j ACCEPT
+				iptables -C INPUT -i "$iface" -p tcp --dport 53 -s $cidr -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -i "$iface" -p tcp --dport 53 -s $cidr -j ACCEPT
+			done
+			for wip in $(ip -4 addr show dev $iface 2>/dev/null | grep inet | awk '{print($2)}' | cut -d/ -f1); do
+				iptables -C INPUT -i "$iface" -p tcp --dport 3000 -d $wip -j DROP 2>/dev/null || iptables -A INPUT -i "$iface" -p tcp --dport 3000 -d $wip -j DROP
+				iptables -C INPUT -i "$iface" -p tcp --dport 53 -d $wip -j DROP 2>/dev/null || iptables -A INPUT -i "$iface" -p tcp --dport 53 -d $wip -j DROP
+			done
 		done
-		iptables -C INPUT -i "$iface" -p tcp --dport 3000 -j DROP 2>/dev/null || iptables -A INPUT -i "$iface" -p tcp --dport 3000 -j DROP
-		iptables -C INPUT -i "$iface" -p tcp --dport 53 -j DROP 2>/dev/null || iptables -A INPUT -i "$iface" -p tcp --dport 53 -j DROP
-	done
 
 	echo `date +%s` > $WORK_DIR/adguards_start_time
 	echo "AdGuardHome 已启动(Web 管理端口: $webPort)"
@@ -221,15 +244,10 @@ stop() {
 
 	__do_dns_hijacking stop
 
-	# 恢复外网对3000端口的访问(ACCEPT 和 DROP 都清, 防规则泄漏)
-	for iface in $(ip link show | awk -F: '/: wan[0-9]+:/{print $2}' | tr -d ' '); do
-		for cidr in 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12 100.64.0.0/10; do
-			iptables -D INPUT -i "$iface" -p tcp --dport 3000 -s $cidr -j ACCEPT 2>/dev/null
-			iptables -D INPUT -i "$iface" -p tcp --dport 53 -s $cidr -j ACCEPT 2>/dev/null
+		# 恢复外网对3000端口的访问(全部规则清掉, 防泄漏)
+		for iface in $(ip link show | awk -F: '/: wan[0-9]+:/{print $2}' | tr -d ' '); do
+			__clean_adguard_rules "$iface"
 		done
-		iptables -D INPUT -i "$iface" -p tcp --dport 3000 -j DROP 2>/dev/null
-		iptables -D INPUT -i "$iface" -p tcp --dport 53 -j DROP 2>/dev/null
-	done
 
 	return 0
 }
