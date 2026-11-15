@@ -72,7 +72,7 @@
                     <span style="font-size:12px; color:#606266;">透明监听</span>
                     <input v-model="transparentPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
                     <button type="button" class="btn btn_default rounded height26" @click="savePorts">保存端口</button>
-                    <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备手动设代理填「路由器IP:显式代理端口」</span>
+                    <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。引擎自带界面(18081)里显示的 proxy 地址是写死的默认值，以本页端口为准</span>
                 </div>
                 <div class="reqable-tip">
                     <b>使用步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>抓包设备</b>里勾选要调试的设备（不选=不抓任何设备，绝不全局）；3. 点<b>开启抓包</b>；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在下方界面查看解密后的请求/响应。<br>

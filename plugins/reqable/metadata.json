@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "引擎端口改为页面可配(用户反馈\"8080端口没有监听\"——端口原先写死18080/18081/18082): 新增端口编辑区+set_proxy_ports动作(校验/去重/落ports.conf/自动重启引擎/重建规则), show 返回 transparentPort。设备手动设代理填「路由器IP:显式代理端口」。",
+    "releasenotes": "修复引擎界面(18081)显示的 proxy 地址错误: 引擎二进制内嵌 Web UI 的 JS 把 proxyHint 写死为默认参数 127.0.0.1:8080 且无任何地方传值, 导致界面永远显示这个(实际监听 0.0.0.0:18080 正常)。已等长修补二进制为 RouterIP:18080(不动 Go 默认监听地址), 本地冒烟验证引擎正常起、提供的 JS 已是新值; 插件页补说明「引擎界面显示的是写死默认值, 以本页端口为准」。",
     "arch": [
         "x86_64"
     ],
