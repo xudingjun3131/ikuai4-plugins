@@ -18,6 +18,11 @@
         .reqable-card { border: 1px solid #ebeef5; border-radius: 8px; padding: 20px; margin-top: 12px; background: #fff; }  /* 对齐 iKuai4 .setting: 8px 圆角+20px 内距 */
         .reqable-card h4 { margin: 0 0 10px 0; font-size: 13px; color: #303133; }
         .reqable-card h4 span { font-weight: normal; color: #909399; font-size: 12px; padding-left: 8px; }
+        .rq-collapsible { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 5px; }
+        .rq-collapsible:hover { color: #409eff; }
+        .rq-caret { font-style: normal; font-size: 11px; color: #909399; transition: transform .15s; display: inline-block; }
+        .rq-caret.open { transform: rotate(90deg); }
+        .rq-collapsible .rq-count { font-weight: normal; color: #409eff; font-size: 12px; padding-left: 6px; }
         .reqable-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
         .reqable-row label { font-size: 12px; color: #606266; min-width: 64px; }
         .reqable-tip { background: #f4f4f5; border-left: 3px solid #409eff; padding: 10px 14px; font-size: 12px; color: #606266; line-height: 1.9; margin-top: 10px; }
@@ -117,7 +122,8 @@
 
                 <!-- 2. 网络范围 -->
                 <div class="reqable-card">
-                    <h4>2. 网络范围<span>限定从哪个口/VLAN、哪些端口进代理（iptables 层）</span></h4>
+                    <h4 class="rq-collapsible" @click="collapsed.net = !collapsed.net"><i class="rq-caret" :class="{open: !collapsed.net}">&#9656;</i>2. 网络范围<span>限定从哪个口/VLAN、哪些端口进代理（iptables 层）</span><span class="rq-count" v-if="collapsed.net">已折叠，点击展开</span></h4>
+                    <div v-show="!collapsed.net">
                     <div class="reqable-row">
                         <label>接口/VLAN</label>
                         <input v-model="interfaces" placeholder="留空=全部；如 lan1,lan2" style="width:220px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
@@ -137,11 +143,12 @@
                         <button type="button" class="btn btn_green rounded height26" @click="saveSchedule">保存时段</button>
                         <el-tag size="mini" :type="inWindow === 1 ? 'success' : 'info'">{{ inWindow === 1 ? '当前在时段内' : '当前不在时段内' }}</el-tag>
                     </div>
-                </div>
+                </div></div>
 
                 <!-- 3. 解密范围 -->
                 <div class="reqable-card">
-                    <h4>3. 解密范围<span>命中规则的连接只隧道不解密（引擎层，SIGHUP 热重载不中断抓包）</span></h4>
+                    <h4 class="rq-collapsible" @click="collapsed.dec = !collapsed.dec"><i class="rq-caret" :class="{open: !collapsed.dec}">&#9656;</i>3. 解密范围<span>命中规则的连接只隧道不解密（引擎层，SIGHUP 热重载不中断抓包）</span><span class="rq-count" v-if="collapsed.dec">已折叠，点击展开</span></h4>
+                    <div v-show="!collapsed.dec">
                     <div class="reqable-row">
                         <label>域名</label>
                         <el-radio-group v-model="domainMode" size="mini">
@@ -170,11 +177,12 @@
                         <button type="button" class="btn btn_default rounded height26" @click="updateGeoip">更新 GEOIP 数据</button>
                         <button type="button" class="btn btn_green rounded height26" @click="saveScope">保存解密范围</button>
                     </div>
-                </div>
+                </div></div>
 
                 <!-- 4. 记录范围 -->
                 <div class="reqable-card">
-                    <h4>4. 记录范围<span>MITM 之后决定哪些流量入库展示（排噪；不配=全记录）</span></h4>
+                    <h4 class="rq-collapsible" @click="collapsed.rec = !collapsed.rec"><i class="rq-caret" :class="{open: !collapsed.rec}">&#9656;</i>4. 记录范围<span>MITM 之后决定哪些流量入库展示（排噪；不配=全记录）</span><span class="rq-count" v-if="collapsed.rec">已折叠，点击展开</span></h4>
+                    <div v-show="!collapsed.rec">
                     <div class="reqable-row">
                         <label>匹配模式</label>
                         <el-radio-group v-model="recordMode" size="mini">
@@ -206,7 +214,7 @@
                         <input v-model="sizeMax" placeholder="最大B(0=不限)" style="width:110px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
                         <button type="button" class="btn btn_green rounded height26" @click="saveScope">保存记录范围</button>
                     </div>
-                </div>
+                </div></div>
 
                 <div class="h20"></div>
                 <iframe class="reqable-frame" :src="uiUrl"></iframe>
@@ -225,6 +233,8 @@ var app = new Vue({
         // autostart 同时用于复选框 v-model(0/1) 和 set_auto_start 传参(true/false)
         proxyPort: 18080, apiPort: 18081, transparentPort: 18082, geoLoaded: 0, inWindow: 0,
         uiUrl: '', caUrl: '',
+        // 布局折叠态: 2/3/4 是高级筛选, 默认收起省屏幕; 第1段抓包设备始终展开
+        collapsed: { net: true, dec: true, rec: true },
         // 设备
         lanDevices: [], selectedDevices: [], groups: [],
         manualIp: '', manualMac: '', manualName: '', groupName: '',

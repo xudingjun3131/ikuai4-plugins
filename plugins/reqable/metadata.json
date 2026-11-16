@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.20",
+    "version": "1.0.21",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "引擎 Web UI(18081)全界面中文化: 该 UI 无任何 i18n 框架, 60 处界面串全硬编码英文。把二进制内嵌的 JS 整包抽出翻译(按钮/导航/表格列名/表单标签/提示与错误信息)后按原长度垫回写回, 二进制大小与结构零变动; 已避开并修复键盘映射表(Clear/Pause/Delete)和 React capture 事件检测 endsWith(Capture) 等代码位。本地冒烟: 引擎正常起、JS 大小不变、中文在位、代码位英文完好、node --check 通过。",
+    "releasenotes": "布局优化: 四个配置段改为可折叠卡片。第1段「抓包设备」始终展开(必用); 第2/3/4段「网络范围/解密范围/记录范围」是高级筛选, 默认收起只留标题栏, 点击标题展开/收起, 带旋转箭头和「已折叠,点击展开」提示。原来四段全展开占满整屏, 用户实踩「布局乱、占屏幕空间」。",
     "arch": [
         "x86_64"
     ],
