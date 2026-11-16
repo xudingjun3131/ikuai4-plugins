@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.26",
+    "version": "1.0.27",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "引擎 UI 汉化补全: 把剩余英文界面文本全部中文化——左侧 Explorer 面板的 Hosts/Columns 标签页改为「主机/栏目」, 右侧 Inspector 面板改为「详情」, 流量列表表头 Code/Host path/Time 改为「状态码/主机/路径/耗时」, 顶部 LIVE 徽标与 flows 单位改为「实时/条」, HAR 按钮改为「HAR导出」, CA 按钮改为「CA证书」。",
+    "releasenotes": "一劳永逸: 把全部汉化写回引擎源码(/opt/reqable/web/src/*.tsx), 以后 make build-web 直接产出中文 UI, 不再需要补丁二进制或 dist。本次共 67 处既有翻译 + 补上原先漏掉的 Search/AND/OR/Conditions/No hosts yet/PAUSED/Click Send 提示/规则与 REST 面板 placeholder, 并把 v1.0.19 的 RouterIP 修复也从二进制 port 回源码(app-header.tsx proxyHint 默认值)。",
     "arch": [
         "x86_64"
     ],
