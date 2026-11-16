@@ -155,6 +155,27 @@ start()
 	if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null; then
 		return 0
 	fi
+	# [bin-preflight] 安装时 tar 解压错误被框架静默(2>/dev/null 且不查退出码),
+	# 磁盘不足时小文件(html/script)解压成功、唯独末尾 19MB 的 bins/ 失败,
+	# 结果插件页正常渲染但一起机就 "No such file or directory", 完全看不出原因。
+	# 这里先把最常见的原因摆出来。
+	if [ ! -f "$BIN" ]; then
+		echo "引擎启动失败: 找不到引擎二进制 $BIN"
+		echo "  插件目录内容: $(ls -la $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/ 2>/dev/null | tr '\n' ' ')"
+		echo "  常见原因: ① 安装时磁盘空间不足, tar 解压到末尾的 bins/ 时失败"
+		echo "            (框架会静默解压错误, 所以安装显示成功但文件不全)"
+		echo "            ② 插件包没下载完整"
+		echo "  处理: 到「系统管理 → 磁盘管理」看插件存储分区剩余空间, 清理后重装/更新插件"
+		df -h 2>/dev/null | head -20
+		return 1
+	fi
+	if [ ! -x "$BIN" ]; then
+		echo "引擎启动失败: $BIN 存在但没有可执行权限"
+		ls -la "$BIN" 2>/dev/null
+		chmod +x "$BIN" 2>/dev/null
+		[ -x "$BIN" ] || { echo "  chmod 失败, 请检查文件系统是否只读"; return 1; }
+		echo "  已自动补上可执行权限, 重试启动"
+	fi
 	$BIN -proxy-addr 0.0.0.0:$PROXY_PORT -transparent-addr 0.0.0.0:$TRANSPARENT_PORT \
 		-api-addr 0.0.0.0:$API_PORT \
 		-data-dir $DATADIR -transparent -scope-file $SCOPE_FILE \

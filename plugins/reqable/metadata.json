@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.28",
+    "version": "1.0.29",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "修复响应乱码: 部分接口返回的 response 显示成乱码。根因是显示层只解 gzip 且其余一律按 UTF-8 解释。现在支持 gzip/deflate/br/zstd(含叠加编码)解压, 并按 Content-Type charset、HTML meta、BOM 探测编码转 UTF-8,额外对「不发 charset 却是 GBK」的老接口加保守兜底; 二进制内容(含 NUL)原样返回不搅烂。",
+    "releasenotes": "新增安装/启动自检: 若引擎二进制缺失(常见于安装时磁盘空间不足, 框架会静默解压错误), 启动时直接给出原因和处置建议, 不再只甩一句 No such file or directory。",
     "arch": [
         "x86_64"
     ],

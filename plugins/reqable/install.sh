@@ -4,6 +4,15 @@ INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_NAME="$(jq -r '.name' $INSTALL_DIR/html/metadata.json)"
 chmod +x $INSTALL_DIR/script/* $INSTALL_DIR/bins/*
 . /etc/mnt/plugins/configs/config.sh
+# [bin-preflight] 框架解压 ipk 时把 tar 错误静默了(2>/dev/null 且不查退出码),
+# 磁盘不足时小文件解压成功、末尾的 bins/ 失败, 安装却显示成功 —— 后果是插件页
+# 能打开但一启动就 "No such file or directory", 极难排查。这里装完立即自检。
+if [ ! -s "$INSTALL_DIR/bins/reqable-x86_64" ]; then
+	echo "reqable 安装异常: 引擎二进制缺失或为空($INSTALL_DIR/bins/reqable-x86_64)"
+	echo "  已解压出来的文件: $(ls -la $INSTALL_DIR/ 2>/dev/null | tr '\n' ' ')"
+	echo "  最可能原因是插件存储分区空间不足, 请清理后重新安装"
+	df -h 2>/dev/null | head -20
+fi
 install()
 {
 	# 安装类型: new 新装 / upgrade 保留配置更新 / reinstall 不保留配置更新 / boot 开机
