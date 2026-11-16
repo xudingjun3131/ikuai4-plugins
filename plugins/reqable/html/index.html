@@ -74,7 +74,7 @@
                     <button v-else type="button" class="btn btn_red rounded height26" @click="setCapture(false)">关闭抓包</button>
                     <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">下载 CA 证书</button>
                     <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
-                    <a class="btn btn_default rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
+                    <a v-if="status === 1" class="btn btn_default rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
                     <button type="button" class="btn btn_default rounded height26" @click="loadInitData">刷新状态</button>
                 </div>
                 <div class="reqable-row" style="margin-top:10px; padding:8px 10px; background:#f8f9fb; border-radius:6px;">
@@ -227,9 +227,14 @@
                     </div>
                 </div>
 
+                <!-- [iKuaiPatch] 引擎未启动时 apiPort 无监听, iframe 会渲染出 Chromium
+                     的「xxx 拒绝了我们的连接请求」错误页; 用户要求"要么隐藏, 不要出现
+                     这个提示"。故整块(含上下间距)只在引擎运行时出现。 -->
+                <template v-if="status === 1">
                 <div class="h20"></div>
                 <iframe class="reqable-frame" :src="uiUrl"></iframe>
                 <div class="h20"></div>
+                </template>
             </div>
         </div>
     </div>
