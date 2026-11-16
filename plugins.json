@@ -7,7 +7,7 @@
         "type": "external",
         "description": "smartdns - 一个本地DNS服务器，获取最快的网站IP，获得最佳上网体验，支持DoH，DoT。<br>详情查看:<a>https://github.com/pymumu/smartdns</a>",
         "releasenotes": "smartdns 2023.08.11 → Release48.5-RC1; 内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -22,7 +22,7 @@
         "type": "external",
         "description": "ShellClash <br>Github地址：<a>https://github.com/juewuy/ShellCrash</a>",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -37,7 +37,7 @@
         "type": "external",
         "description": "扫描 PPPoE 服务器",
         "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "x86_64"
         ]
@@ -50,7 +50,7 @@
         "type": "external",
         "description": "Socks5 插件支持连接远程多个socks5服务器，同时支持本地设备进行分流",
         "releasenotes": "CrashCore(mihomo) v1.19.3 → v1.19.34; 内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -65,7 +65,7 @@
         "type": "external",
         "description": "本插件可以实现屏蔽视频类网站或APP的视频流量而不影响点赞、评论、收藏等操作。",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -80,7 +80,7 @@
         "type": "external",
         "description": "网易UU网游加速器是由网易公司推出的游戏加速工具，于2013年3月正式上线。网易UU网游加速器提供游戏加速服务，支持3000余款手游加速，涵盖吃鸡类、MOBA类等多种游戏，可一键加速。",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -95,7 +95,7 @@
         "type": "external",
         "description": "‌DDNSTO是一种远程控制工具，支持多种设备和应用，无需公网IP，提供多种远程控制功能。。<br>地址：<a>https://www.kooldns.cn/</a>",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -110,7 +110,7 @@
         "type": "external",
         "description": "Lucky(万吉)是软硬路由公网神器,功能包括：ipv6/ipv4端口转发、反向代理、DDNS、WOL、ipv4 stun内网穿透、cron、ACME证书自动续签,阿里云盘、ftp、webdav、filebrowser等众多功能  <br>详情访问：<a>https://lucky666.cn/</a>",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -125,7 +125,7 @@
         "type": "external",
         "description": "FRPC 客户端用于连接 FRP 服务器（FRPS），将本地服务（如 Web 服务、SSH、RDP 等）暴露给外部网络。FRPC 会主动连接 FRPS，并通过隧道将内网的流量转发到 FRPS",
         "releasenotes": "frp v0.62.1 → v0.72.0; 内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -140,7 +140,7 @@
         "type": "external",
         "description": "GecoOS 集客 AC 是 GecoOS 操作系统中的一部分，主要用于提供集成管理的 无线局域网控制器(AC, Access Controller)。",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "x86_64"
         ]
@@ -153,7 +153,7 @@
         "type": "external",
         "description": "Tailscale 是一个基于 WireGuard 协议的 零配置 虚拟专用网络（VPN）解决方案，旨在为用户提供安全、简单和高效的网络连接。",
         "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "x86_64"
         ]
@@ -166,7 +166,7 @@
         "type": "external",
         "description": "本插件允许将本地日志上传至指定的syslog服务器，或兼容syslog协议的腾讯云、阿里云等云服务的日志收集器。",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "all"
         ]
@@ -179,7 +179,7 @@
         "type": "external",
         "description": "VNT是一个简便高效的异地组网、内网穿透工具。<br>详情访问：<a>https://rustvnt.com/</a>",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -194,7 +194,7 @@
         "type": "external",
         "description": "扩展API插件可以提供扩展API接口，用于外部系统调用来实现自动化功能。",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "all"
         ]
@@ -207,7 +207,7 @@
         "type": "external",
         "description": "Socat (Socket CAT) 是一个功能强大的网络工具，它可以在不同类型的套接字（sockets）之间进行数据转发和代理。本插件可以实现将IPV6的端口转发到IPV4的端口。",
         "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "x86_64"
         ]
@@ -220,7 +220,7 @@
         "type": "external",
         "description": "VRemote服务配合相应的移动端App，可实现对路由器远程管理及网络共享等功能。",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "all"
         ]
@@ -233,7 +233,7 @@
         "type": "external",
         "description": "ZeroTier 是一款开源的虚拟局域网（VPN）解决方案，旨在通过软件定义的网络技术让设备跨越不同的网络环境（如局域网、广域网、互联网等）进行无缝连接。<br>详情访问：<a>https://www.zerotier.com/</a>",
         "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160419",
         "compatibility": [
             "x86_64"
         ]
@@ -246,7 +246,7 @@
         "type": "external",
         "description": "OpenP2P是一个开源、免费、轻量级的P2P共享网络。你的设备将组成一个私有P2P网络，里面的设备可以直接访问其它成员，或者通过其它成员转发数据间接访问。 如果私有网络无法完成通信，将会到公有P2P网络寻找共享节点协助通信。 相比BT网络用来共享文件，OpenP2P网络用来共享带宽。<br>地址：<a>https://www.openp2p.cn/</a>",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160420",
         "compatibility": [
             "x86_64"
         ]
@@ -259,7 +259,7 @@
         "type": "external",
         "description": "易有云（Yiyouyun）是一个提供 企业级云服务 的平台，主要面向 企业、政府机构以及开发者，提供包括 云计算、云存储、云数据库、云安全 等一系列云服务解决方案。",
         "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160420",
         "compatibility": [
             "x86_64"
         ]
@@ -272,7 +272,7 @@
         "type": "external",
         "description": "VNT是一个简便高效的异地组网、内网穿透工具。<br>详情访问：<a>https://rustvnt.com/</a>",
         "releasenotes": "内容页内距修正(漏网户): 帮助提示框(.readme)/API文档框(.apidoc)还带着 col-lg-11 col-xs-12, 只占 91.67% 宽且与表单左右不齐——去掉网格类, 与表单项对齐撑满内容区。",
-        "build": "202611152326",
+        "build": "202611160420",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -287,7 +287,7 @@
         "type": "external",
         "description": "NPS (Nginx Proxy Switcher)是一种流行的工具，通常用于通过反向代理管理和切换不同的网络代理设置。它允许用户在同一台机器上管理不同的代理服务器，轻松切换和配置。</a>",
         "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160420",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -302,7 +302,7 @@
         "type": "external",
         "description": "frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP、UDP、HTTP、HTTPS 等多种协议。可以将内网服务以安全、便捷的方式通过具有公网 IP 节点的中转暴露到公网。",
         "releasenotes": "frp v0.62.1 → v0.72.0; 内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160420",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -317,7 +317,7 @@
         "type": "external",
         "description": "msd_lite - 轻量级多流守护进程。 这是一个轻量级的Multi Stream守护进程（msd）程序，用于通过HTTP在网络上组织IP电视流媒体。<br>详情查看：<a>https://github.com/rozhuk-im/msd_lite</a>",
         "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160420",
         "compatibility": [
             "x86_64"
         ]
@@ -330,7 +330,7 @@
         "type": "external",
         "description": "NPC (Nginx Proxy Switcher)是一种流行的工具，通常用于通过反向代理管理和切换不同的网络代理设置。它允许用户在同一台机器上管理不同的代理服务器，轻松切换和配置。</a>",
         "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160420",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -345,7 +345,7 @@
         "type": "external",
         "description": "AdGuard Home是一个用于拦截广告和跟踪的 DNS 服务器，使您网络冲浪更快速，更安全，更便捷！<br>官网地址：<a>https://adguard.com/</a>",
         "releasenotes": "①diag 文件检查扩展到全部 6 个(含 /proc/ikuai/stats/remote_if_stats——本地实测确认 while(getline<缺失文件) 会 100% CPU 死循环); ②新增 kill_stuck_gawk 动作: 杀掉累计 >50000 ticks 的失控 gawk 立即降压(根治需固件补丁)。",
-        "build": "202611152326",
+        "build": "202611160420",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -360,7 +360,7 @@
         "type": "external",
         "description": "KMS 激活是微软的一种 批量激活 技术，允许通过公司或组织的内部服务器进行操作系统和软件的激活，而不是依赖微软的官方激活服务器。",
         "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px",
-        "build": "202611152326",
+        "build": "202611160420",
         "compatibility": [
             "x86_64"
         ]
@@ -369,11 +369,11 @@
         "name": "reqable",
         "alias": "小黄鸟抓包",
         "manufacturer": "iKuai",
-        "version": "1.0.20",
+        "version": "1.0.21",
         "type": "external",
         "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-        "releasenotes": "引擎 Web UI(18081)全界面中文化: 该 UI 无任何 i18n 框架, 60 处界面串全硬编码英文。把二进制内嵌的 JS 整包抽出翻译(按钮/导航/表格列名/表单标签/提示与错误信息)后按原长度垫回写回, 二进制大小与结构零变动; 已避开并修复键盘映射表(Clear/Pause/Delete)和 React capture 事件检测 endsWith(Capture) 等代码位。本地冒烟: 引擎正常起、JS 大小不变、中文在位、代码位英文完好、node --check 通过。",
-        "build": "202611152326",
+        "releasenotes": "布局优化: 四个配置段改为可折叠卡片。第1段「抓包设备」始终展开(必用); 第2/3/4段「网络范围/解密范围/记录范围」是高级筛选, 默认收起只留标题栏, 点击标题展开/收起, 带旋转箭头和「已折叠,点击展开」提示。原来四段全展开占满整屏, 用户实踩「布局乱、占屏幕空间」。",
+        "build": "202611160420",
         "compatibility": [
             "x86_64"
         ]
