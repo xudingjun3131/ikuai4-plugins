@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.23",
+    "version": "1.0.24",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "修复显示问题: 引擎未启动时, 页面底部的小黄鸟界面 iframe 会渲染出 Chromium 的「192.168.x.x 拒绝了我们的连接请求」错误页(apiPort 无监听)。现在整块 iframe(含上下间距)只在引擎运行时出现, 引擎未启动时完全隐藏; 同时隐藏「新窗口全屏打开」链接(否则点开是死链)。",
+    "releasenotes": "修复严重 bug: 点已选设备标签上的 ✕ 不但删不掉, 反而不断新增空标签。根因是 ✕ 复用了 toggleDevice(d), 而后者按 lanDevices 的字段(ip_addr/termname/hostname)匹配, 标签云遍历的 selectedDevices 条目却是 {ip,mac,name} 形状, 字段名不同导致 findIndex 恒为 -1, 于是走 else 分支又 push 一个空条目。改为专用的 removeSelected(i) 按索引删除并立即落盘。",
     "arch": [
         "x86_64"
     ],

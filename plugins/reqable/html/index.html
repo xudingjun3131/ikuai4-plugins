@@ -107,7 +107,11 @@
                         <span v-if="selectedDevices.length" style="display:inline-flex; flex-wrap:wrap; gap:6px; width:100%; margin-top:6px;">
                             <span v-for="(d,i) in selectedDevices" :key="i" style="display:inline-flex; align-items:center; gap:5px; background:#ecf5ff; border:1px solid #b3d8ff; color:#409eff; border-radius:4px; padding:2px 9px; font-size:12px;">
                                 {{ d.name || d.ip }}<span v-if="d.mac" style="color:#909399;">{{ d.mac }}</span>
-                                <a href="javascript:void(0)" style="color:#909399; text-decoration:none;" @click="toggleDevice(d)">✕</a>
+                                <!-- [iKuaiPatch] 必须用 removeSelected(i) 按索引删: toggleDevice(d)
+                                     按 lanDevices 形状匹配(d.ip_addr/d.termname), 而这里遍历的是
+                                     selectedDevices(形状 {ip,mac,name}), 字段名不同 -> findIndex
+                                     恒为 -1 -> 掉进 else 分支反而 push 一个空条目, 越点越多。 -->
+                                <a href="javascript:void(0)" style="color:#909399; text-decoration:none;" @click="removeSelected(i)">✕</a>
                             </span>
                         </span>
                         <span v-for="g in groups" :key="g.name" style="display:inline-flex; gap:4px; align-items:center;">
@@ -356,6 +360,14 @@ var app = new Vue({
         },
         isSelected(d) {
             return this.selectedDevices.some(s => (d.mac && s.mac === d.mac) || (d.ip_addr && s.ip === d.ip_addr));
+        },
+        // [iKuaiPatch] 标签云的 ✕ 专用: 按索引直接删, 并立即落盘。
+        // 不能复用 toggleDevice(d)——它按 lanDevices 的字段(ip_addr/termname/hostname)
+        // 匹配, 而 selectedDevices 的条目是 {ip,mac,name}, 字段名不同导致 findIndex
+        // 恒为 -1, 于是走 else 分支又 push 一个空条目(用户实踩: 点✕越点越多)。
+        removeSelected(i) {
+            this.selectedDevices.splice(i, 1);
+            this.saveDevices();
         },
         toggleDevice(d) {
             const idx = this.selectedDevices.findIndex(s => (d.mac && s.mac === d.mac) || (d.ip_addr && s.ip === d.ip_addr));
