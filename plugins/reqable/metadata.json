@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.32",
+    "version": "1.0.33",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "★ 修复引擎启动报「No such file or directory」的根本原因: 引擎二进制此前是动态链接(PT_INTERP=/lib64/ld-linux-x86-64.so.2, glibc 加载器), 而 iKuai 固件只有 uClibc(/lib64/ld64-uClibc.so.1), 系统里根本没有 glibc loader —— 所以文件明明存在、[ -f ] 检测也通过, 一执行就 ENOENT。重装/升级/改存储路径全都无效, 因为问题从不在文件在不在。现改用 CGO_ENABLED=0 全静态编译, 彻底不依赖任何动态加载器。",
+    "releasenotes": "二进制响应体改为 hex dump 显示, 不再渲染成乱码: 此前含 NUL 或高位字节的响应体被原样当字符串返回, 详情面板显示成一堆不可读字符, 容易被误判成\"解密失败/数据被加密\"。现在会明确标注「二进制内容 N 字节 — 非文本数据」并给出 偏移+hex+ASCII 三栏 dump, 超过 1KB 自动截断。文本/JSON/GBK 等行为完全不变。",
     "arch": [
         "x86_64"
     ],
