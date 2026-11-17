@@ -7,6 +7,28 @@
 PLUGIN_NAME=reqable
 . /etc/mnt/plugins/configs/config.sh
 
+# [self-locate] 用脚本自身位置反推插件安装目录, 不盲信 config.sh 的 EXT_PLUGIN_INSTALL_DIR。
+# 实踩: 用户把插件存储从 /etc/mnt/plugin_store 改成 /etc/disk_user/plugins 后,
+# /usr/ikuai/function/plugin_reqable 这个软链接和 config.sh 仍指向旧位置, 启动报
+# ".../bins/reqable-x86_64: No such file or directory", 而文件其实在新位置完好无损
+# —— 现象和"磁盘不足导致解压失败"一模一样, 但原因完全相反(这边是文件在、路径错)。
+# 框架是经软链接调用本脚本的, 所以必须先解析链接再取目录(readlink 取一级目标即可,
+# install.sh 建链时用的就是绝对路径)。
+# 目录关系: <EXT_PLUGIN_INSTALL_DIR>/<PLUGIN_NAME>/script/service.sh
+#           ^^^ 要的就是这一级          ^^^ 插件自己的目录(含 bins/)
+# 所以脚本目录要往上退两层才是 EXT_PLUGIN_INSTALL_DIR, 退一层是插件目录。
+__slf="$0"
+if [ -L "$__slf" ]; then __slf=$(readlink "$__slf" 2>/dev/null); fi
+[ -n "$__slf" ] || __slf="$0"
+__slfdir=$(cd "$(dirname "$__slf")" 2>/dev/null && pwd)
+__pdir=$(cd "$__slfdir/.." 2>/dev/null && pwd)        # 插件自己的目录
+__idir=$(cd "$__slfdir/../.." 2>/dev/null && pwd)     # EXT_PLUGIN_INSTALL_DIR
+if [ -n "$__pdir" ] && [ -f "$__pdir/bins/reqable-x86_64" ]; then
+	[ -n "$__idir" ] && [ "$__idir" != "$EXT_PLUGIN_INSTALL_DIR" ] && EXT_PLUGIN_INSTALL_DIR="$__idir"
+	[ -f "$__pdir/../plugins" ] || EXT_PLUGIN_IPK_DIR="$__pdir/../plugins"
+fi
+unset __slf __slfdir __pdir __idir
+
 BIN=$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/reqable-x86_64
 DATADIR=$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME
 PROXY_PORT=18080       # 显式代理(设备手动设代理 router:18080)
@@ -162,10 +184,28 @@ start()
 	if [ ! -f "$BIN" ]; then
 		echo "引擎启动失败: 找不到引擎二进制 $BIN"
 		echo "  插件目录内容: $(ls -la $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/ 2>/dev/null | tr '\n' ' ')"
-		echo "  常见原因: ① 安装时磁盘空间不足, tar 解压到末尾的 bins/ 时失败"
-		echo "            (框架会静默解压错误, 所以安装显示成功但文件不全)"
-		echo "            ② 插件包没下载完整"
-		echo "  处理: 到「系统管理 → 磁盘管理」看插件存储分区剩余空间, 清理后重装/更新插件"
+		# [self-locate] 区分两种完全相反的原因, 别都归成"磁盘不足"
+		__alt=""
+		for __d in /etc/disk_user/*/plugins_installed /etc/mnt/plugin_store/plugins_installed /etc/log/plugins_installed; do
+			[ -d "$__d" ] || continue
+			for __p in "$__d"/*; do
+				[ -d "$__p" ] || continue
+				[ -f "$__p/bins/reqable-x86_64" ] || continue
+				[ "$__p" = "$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME" ] && continue
+				__alt="$__p"
+			done
+		done
+		if [ -n "$__alt" ]; then
+			echo "  ★ 在 $__alt 找到了完整的插件(含二进制)!"
+			echo "    原因: 插件存储路径改过, 但 /usr/ikuai/function/plugin_reqable 软链接"
+			echo "          和 config.sh 还指向旧位置 $EXT_PLUGIN_INSTALL_DIR"
+			echo "    处理: 重新安装/更新一次本插件即可(install.sh 会重建软链接), 无需卸载数据"
+		else
+			echo "  常见原因: ① 安装时磁盘空间不足, tar 解压到末尾的 bins/ 时失败"
+			echo "            (框架会静默解压错误, 所以安装显示成功但文件不全)"
+			echo "            ② 插件包没下载完整"
+			echo "  处理: 到「系统管理 → 磁盘管理」看插件存储分区剩余空间, 清理后重装/更新插件"
+		fi
 		df -h 2>/dev/null | head -20
 		return 1
 	fi
