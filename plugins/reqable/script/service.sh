@@ -402,7 +402,12 @@ PROXY_PORT=$p
 API_PORT=$a
 TRANSPARENT_PORT=$t
 EOT
-	# 重启引擎使新端口生效(端口在启动命令行里)
+	# [ports-reread] 端口变量是**脚本加载时** source 进内存的(见文件头 PORTS_CONF 那行),
+	# 光写文件不重读的话下面 start 用的还是旧端口 —— 引擎确实重启了但还听在老端口上,
+	# 而框架下次重新跑脚本(用户手动点启动/开机)又读到新端口, 表现就是"改端口当时不
+	# 生效, 手动点一次启动才生效"(2026-11-17 测试 agent 实踩, 一度误记成"不会自动重启")。
+	. $PORTS_CONF 2>/dev/null
+	# 重启引擎使新端口生效(端口在引擎启动命令行里)
 	stop
 	sleep 1
 	start
@@ -417,8 +422,17 @@ set_ports()
 {
 	echo "$ports" | grep -qE '^[0-9]+(,[0-9]+)*$' || { echo "ports 格式: 80,443"; return 1; }
 	echo "$ports" > $DATADIR/ports
-	[ -f $CAPTURE_FLAG ] && [ -f $RULES_FLAG ] && iptables_add
-	echo "端口已更新: $ports"
+	# [ports-restart] 端口是引擎的**启动参数**, 只落文件不重启的话引擎还在旧端口上听,
+	# 而 iptables REDIRECT 已经按新端口改了 → 透明流量打到一个没人的端口, 页面探活
+	# 也显示"已停止"(用户视角: 改了端口引擎就死了)。文档承诺"改端口自动重启、新端口
+	# 立即可用", 这里补上: 在跑才停+起, 不在跑只落配置等下次 start 生效。
+	if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null; then
+		stop >/dev/null 2>&1
+		start >/dev/null 2>&1
+		echo "端口已更新并重启引擎: $ports"
+	else
+		echo "端口已更新(引擎未运行, 下次启动生效): $ports"
+	fi
 	return 0
 }
 
