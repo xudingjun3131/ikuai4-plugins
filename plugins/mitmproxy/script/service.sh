@@ -1,10 +1,15 @@
 #!/bin/bash /etc/ikcommon
 # Mitmproxy 抓包插件 service.sh
-# 架构: 层1 显式代理(客户端手动设代理 router_ip:18070, v1 不做 iptables 透明引流)
-#       层2 mitmproxy 自身 MITM 解密 + addons
-#       层3 mitmweb Web 界面(18071)查看/改写/断点
+# 架构: 层1 显式代理(客户端手动设代理 router_ip:18070, regular 模式)
+#       层2 iptables(本脚本): 按设备(MAC/IP)精确 REDIRECT 到透明端口(transparent 模式),
+#           绝不全局; UDP443(QUIC) 对选中设备 DROP, 强制回退 TCP 才能 MITM
+#       层3 mitmproxy 自身 MITM 解密 + addons
+#       层4 mitmweb Web 界面(18071)查看/改写/断点
 # 运行时: 自带 Alpine(musl) Python3.14 + mitmproxy 11(bins/runtime), 经自带 musl
 #         loader 启动 —— 固件是 uClibc 且无 Python, 与宿主 libc 完全无关。
+# [transparent] v1.0.2 起两个监听并存: regular@显式端口 + transparent@透明端口
+#         (mitmweb --mode 可多次传递, @host:port 逐模式指定), 透明监听常开,
+#         流量由 iptables 规则按设备精确导入; 无规则时透明端口空转无害。
 PLUGIN_NAME=mitmproxy
 . /etc/release
 # [storage-anchor] 环境变量由框架 helper 解析(存储卷上的 config.sh / p5 默认值),
@@ -35,17 +40,24 @@ LOGDIR=$EXT_PLUGIN_LOG_DIR
 LOGFILE=$LOGDIR/mitmproxy.log
 DEF_PROXY=18070
 DEF_WEB=18071
+DEF_TPROXY=18072     # 透明监听(iptables REDIRECT 的目标)
 PORTS_FILE=$CONFDIR/ports
+CAPTURE_FLAG=$CONFDIR/capture_on    # 抓包总开关(iptables 规则)
+RULES_FLAG=$CONFDIR/rules_on        # iptables 规则当前是否生效
+DEVICES_FILE=$CONFDIR/devices.json  # 选中的设备 [{ip,mac,name}]
+DPORTS_FILE=$CONFDIR/dports         # 透明拦截的端口(默认 80,443)
 
-# 读端口配置(文件格式: "代理端口 Web端口"); 没配过用默认值
+# 读端口配置(文件格式: "代理端口 Web端口 透明端口"); 没配过用默认值
 __ports()
 {
-	local p w
+	local p w t
 	p=$(cut -d' ' -f1 $PORTS_FILE 2>/dev/null)
 	w=$(cut -d' ' -f2 $PORTS_FILE 2>/dev/null)
+	t=$(cut -d' ' -f3 $PORTS_FILE 2>/dev/null)
 	[ -n "$p" ] || p=$DEF_PROXY
 	[ -n "$w" ] || w=$DEF_WEB
-	echo "$p $w"
+	[ -n "$t" ] || t=$DEF_TPROXY
+	echo "$p $w $t"
 }
 
 __engine_pid()
@@ -55,6 +67,15 @@ __engine_pid()
 	[ -n "$pid" ] || return 1
 	kill -0 $pid 2>/dev/null || return 1
 	echo $pid
+}
+
+# [fd-limit] mitmweb 是 Python 进程, 连接数一样吃 nofile; 启动前把软限制尽量
+# 抬高(抬不过硬限制就静默失败, 不影响启动)。reqable 引擎同款兜底。
+__raise_nofile()
+{
+	local n
+	for n in 65536 32768 8192 4096; do ulimit -n $n 2>/dev/null && break; done
+	return 0
 }
 
 start()
@@ -71,20 +92,27 @@ start()
 	fi
 	mkdir -p $CONFDIR $LOGDIR 2>/dev/null
 	local ports=$(__ports)
-	local proxy=${ports%% *} web=${ports##* }
+	local proxy=${ports%% *}
+	local rest=${ports#* }
+	local web=${rest%% *}
+	local tproxy=${rest##* }
 	# 端口被别的进程占着要先报出来(否则 mitmweb 起不来但看不出原因)
 	local i
-	for i in $proxy $web; do
+	for i in $proxy $web $tproxy; do
 		if netstat -tln 2>/dev/null | grep -q ":$i "; then
 			echo "端口 $i 已被占用, 请到页面改端口或停止占用该端口的程序"
 			return 1
 		fi
 	done
+	__raise_nofile
 	# [musl-loader] 显式代理 + mitmweb; confdir 落存储卷(CA/配置); 不弹浏览器
 	# web_open_browser=false: 路由器上没有浏览器
-	$RUNNER --listen-host 0.0.0.0 --listen-port $proxy \
-		--web-host 0.0.0.0 --web-port $web \
+	# [transparent] 双模式并存: regular(显式代理) + transparent(iptables REDIRECT
+	# 目标)。--mode 可传多次, @host:port 逐模式指定监听地址; 不再用全局
+	# --listen-port(两个模式会抢同一个端口)。
+	$RUNNER --web-host 0.0.0.0 --web-port $web \
 		--set confdir=$CONFDIR --set web_open_browser=false \
+		--mode "regular@0.0.0.0:$proxy" --mode "transparent@0.0.0.0:$tproxy" \
 		>>$LOGFILE 2>&1 &
 	echo $! > $PIDFILE
 	# 健康检查: Python 启动要几秒, 轮询 web 端口(最多 ~15s)
@@ -95,7 +123,10 @@ start()
 		__engine_pid >/dev/null || break
 	done
 	if [ "$ok" = "1" ]; then
-		echo "mitmweb 已启动: 代理 $proxy / Web $web"
+		echo "mitmweb 已启动: 显式代理 $proxy / 透明 $tproxy / Web $web"
+		# [boot-heal] 开机/重启后规则自愈: 总开关开着就把规则补上
+		# (否则重启引擎后 iptables 规则没了, 用户视角"重启后抓不到包")
+		[ -f $CAPTURE_FLAG ] && iptables_add >/dev/null 2>&1
 		return 0
 	fi
 	echo "mitmweb 启动异常(等了 15 秒 Web 端口没起来), 日志尾部:"
@@ -109,32 +140,116 @@ stop()
 	local pid=$(__engine_pid)
 	if [ -n "$pid" ]; then
 		kill $pid 2>/dev/null
-		sleep 1
-		kill -0 $pid 2>/dev/null && kill -9 $pid 2>/dev/null
+		# [stop-wait] kill 只是发信号, 进程退出和端口释放是异步的 —— 紧接着
+		# start 会 bind 失败(reqable 设备实踩竞态)。轮询等到真消失再 -9 兜底。
+		local i=0
+		while kill -0 $pid 2>/dev/null && [ $i -lt 50 ]; do
+			sleep 0.1
+			i=$((i+1))
+		done
+		kill -9 $pid 2>/dev/null
 	fi
 	rm -f $PIDFILE
+	# [stop-rules] 停引擎必须同时撤 iptables 规则: 规则指向没监听的端口会把
+	# 选中设备的 80/443 全弄断(用户视角"停了插件结果断网")
+	iptables_del
 	echo "mitmweb 已停止"
 	return 0
 }
 
-# 端口配置: set_ports proxy=18070 web=18071(改了自动重启引擎)
+# ============ 层2: iptables 规则生成(按设备精确匹配, 幂等) ============
+# 从 devices.json 读设备列表, 生成 nat REDIRECT 规则(每设备一条)
+# 匹配优先级: MAC 优先(DHCP 换 IP 不失效), 无 MAC 用 -s IP
+iptables_add()
+{
+	local ports="80,443"
+	[ -f $DPORTS_FILE ] && ports=$(cat $DPORTS_FILE)
+	local devs="[]"
+	[ -f $DEVICES_FILE ] && devs=$(cat $DEVICES_FILE)
+
+	local tproxy=$(__ports | cut -d' ' -f3)
+
+	# 链(幂等)。链名带 MITMPROXY 前缀, 与 reqable 插件的 REQABLE_* 互不干扰
+	# (两个抓包插件可能同时启用)
+	iptables -t nat -N MITMPROXY_REDIRECT 2>/dev/null
+	iptables -t nat -C PREROUTING -j MITMPROXY_REDIRECT 2>/dev/null || iptables -t nat -I PREROUTING -j MITMPROXY_REDIRECT
+	iptables -t nat -F MITMPROXY_REDIRECT
+	iptables -N MITMPROXY_QUIC 2>/dev/null
+	iptables -C FORWARD -j MITMPROXY_QUIC 2>/dev/null || iptables -I FORWARD -j MITMPROXY_QUIC
+	iptables -F MITMPROXY_QUIC
+
+	# 排除路由器自身全部 IP(否则 LAN 访问路由器管理页也会被截)
+	local lip
+	for lip in $(ip -o -4 addr show 2>/dev/null | awk '{print $4}' | cut -d/ -f1); do
+		iptables -t nat -A MITMPROXY_REDIRECT -d $lip -j RETURN
+	done
+
+	# 逐设备生成规则
+	local count=0
+	while read -r d; do
+		[ -z "$d" ] && continue
+		local mac=$(echo "$d" | jq -r '.mac // empty' 2>/dev/null)
+		local ip=$(echo "$d" | jq -r '.ip // empty' 2>/dev/null)
+		local match=""
+		[ -n "$mac" ] && [ "$mac" != "null" ] && match="-m mac --mac-source $mac"
+		[ -z "$match" ] && [ -n "$ip" ] && [ "$ip" != "null" ] && match="-s $ip"
+		[ -z "$match" ] && continue
+		iptables -t nat -A MITMPROXY_REDIRECT -p tcp -m multiport --dports $ports $match -j REDIRECT --to-ports $tproxy
+		# QUIC(UDP443) 阻断, 强制浏览器回退 TCP(否则 HTTP/3 绕过 MITM)
+		iptables -A MITMPROXY_QUIC -p udp --dport 443 $match -j DROP
+		count=$((count+1))
+	done < <(echo "$devs" | jq -c '.[]' 2>/dev/null)
+	touch $RULES_FLAG
+	echo "规则已生效: $count 台设备 -> 透明端口 $tproxy"
+	return 0
+}
+
+iptables_del()
+{
+	iptables -t nat -D PREROUTING -j MITMPROXY_REDIRECT 2>/dev/null
+	iptables -t nat -F MITMPROXY_REDIRECT 2>/dev/null
+	iptables -t nat -X MITMPROXY_REDIRECT 2>/dev/null
+	iptables -D FORWARD -j MITMPROXY_QUIC 2>/dev/null
+	iptables -F MITMPROXY_QUIC 2>/dev/null
+	iptables -X MITMPROXY_QUIC 2>/dev/null
+	rm -f $RULES_FLAG
+	return 0
+}
+
+# 端口配置: set_ports proxy=18070 web=18071 tproxy=18072(改了自动重启引擎)
 set_ports()
 {
-	local p=${proxy:-$DEF_PROXY} w=${web:-$DEF_WEB}
-	case "$p" in ''|*[!0-9]*) echo "代理端口必须是数字: $p"; return 1;; esac
-	case "$w" in ''|*[!0-9]*) echo "Web 端口必须是数字: $w"; return 1;; esac
-	[ "$p" -ge 1 ] && [ "$p" -le 65535 ] || { echo "代理端口超出范围: $p"; return 1; }
-	[ "$w" -ge 1 ] && [ "$w" -le 65535 ] || { echo "Web 端口超出范围: $w"; return 1; }
-	[ "$p" != "$w" ] || { echo "代理端口与 Web 端口不能相同"; return 1; }
+	local p=${proxy:-$DEF_PROXY} w=${web:-$DEF_WEB} t=${tproxy:-$DEF_TPROXY}
+	local x
+	for x in "$p" "$w" "$t"; do
+		case "$x" in ''|*[!0-9]*) echo "端口必须是数字: $x"; return 1;; esac
+		[ "$x" -ge 1 ] && [ "$x" -le 65535 ] || { echo "端口超出范围: $x"; return 1; }
+	done
+	if [ "$p" = "$w" ] || [ "$p" = "$t" ] || [ "$w" = "$t" ]; then
+		echo "三个端口不能相同"
+		return 1
+	fi
 	mkdir -p $CONFDIR 2>/dev/null
-	echo "$p $w" > $PORTS_FILE
+	echo "$p $w $t" > $PORTS_FILE
 	local was=0
 	__engine_pid >/dev/null && was=1
 	if [ "$was" = "1" ]; then
 		stop >/dev/null 2>&1
 		start >/dev/null 2>&1 || { echo "端口已保存, 但引擎重启失败, 请手动启动"; return 1; }
+		# 规则按新透明端口热更新(总开关开着才重建)
+		[ -f $CAPTURE_FLAG ] && iptables_add >/dev/null 2>&1
 	fi
-	echo "端口已保存: 代理 $p / Web $w"
+	echo "端口已保存: 显式代理 $p / Web $w / 透明 $t"
+	return 0
+}
+
+# 透明拦截端口: set_dports ports='80,443'
+set_dports()
+{
+	echo "$ports" | grep -qE '^[0-9]+(,[0-9]+)*$' || { echo "ports 格式: 80,443"; return 1; }
+	echo "$ports" > $DPORTS_FILE
+	[ -f $CAPTURE_FLAG ] && iptables_add >/dev/null 2>&1
+	echo "拦截端口已更新: $ports"
 	return 0
 }
 
@@ -152,11 +267,57 @@ set_auto_start()
 	return 0
 }
 
+# 抓包总开关: set_capture capture=true|false
+# 开着: 引擎没跑先拉起来(规则指向没监听的端口会把勾选设备的 80/443 全弄断),
+#       再上 iptables 规则; 关着: 撤规则。
+set_capture()
+{
+	if [ "$capture" = "true" ]; then
+		if [ ! -f $PIDFILE ] || ! kill -0 $(cat $PIDFILE) 2>/dev/null; then
+			start || { echo "引擎未运行且启动失败, 抓包无法开启"; return 1; }
+		fi
+		touch $CAPTURE_FLAG
+		iptables_add
+	else
+		rm -f $CAPTURE_FLAG
+		iptables_del
+		echo "抓包已关闭, 网络规则已撤"
+	fi
+	return 0
+}
+
+# [param-b64] 框架 /Action/call 的参数值禁含 引号/空格/$/&/;/|/\ (ikngx.lua 的
+# __rest_check_illegality_char), 明文 JSON 必被 2005 拒掉 —— 设备列表一律 base64。
+__param_decode()
+{
+	local v="${!1}"
+	if [ -n "$v" ]; then
+		echo "$v" | base64 -d 2>/dev/null && return
+	fi
+	echo "${!2}"
+}
+
+# 设备选择: set_devices devices='[{"ip":"..","mac":"..","name":".."}]'
+set_devices()
+{
+	local dj=$(__param_decode devices_b64 devices)
+	echo "$dj" | jq -e 'type == "array"' >/dev/null 2>&1 || { echo "devices 参数必须是 JSON 数组"; return 1; }
+	echo "$dj" | jq '.' > $DEVICES_FILE
+	# 规则热更新(总开关开着才重建)
+	if [ -f $CAPTURE_FLAG ]; then
+		iptables_add
+	fi
+	local n=$(jq 'length' $DEVICES_FILE)
+	echo "已更新设备列表($n 台)"
+	return 0
+}
+
 # 清空 mitmweb 里的流量(POST /clear)
 clear_flows()
 {
 	local ports=$(__ports)
-	local web=${ports##* }
+	local rest=${ports#* }
+	local web=${rest%% *}
 	wget -q -O /dev/null -T3 --method=POST http://127.0.0.1:$web/clear 2>/dev/null
 	echo "已清空"
 	return 0
@@ -180,13 +341,34 @@ __show_ca()
 	return 0
 }
 
+# [netdiag] 网络层诊断: iptables 规则/设备表/引擎日志一次带回。
+# 排查"设备勾选了却断网+无流量"类问题: 规则没匹配上 / 引擎隧道失败。
+# [netdiag-json] 所有字段必须 tr 掉裸换行再拼 JSON 字符串 —— reqable 实测教训:
+# devices.json 原文含裸换行, 拼进去整个 /Action/call 响应就是非法 JSON,
+# 前端 JSON.parse 直接抛异常, 诊断面板整个打不开。
+__show_netdiag()
+{
+	local nat_rules fwd_rules devs logtail lanip
+	nat_rules=$(iptables -t nat -S MITMPROXY_REDIRECT 2>&1 | tr '\n' ';' | tr -d '"\\\r	')
+	nat_rules="$nat_rules PREROUTING: $(iptables -t nat -S PREROUTING 2>&1 | grep MITMPROXY | tr '\n' ',')"
+	fwd_rules=$(iptables -S MITMPROXY_QUIC 2>&1 | tr '\n' ';' | tr -d '"\\\r	')
+	fwd_rules="$fwd_rules FORWARD: $(iptables -S FORWARD 2>&1 | grep MITMPROXY | tr '\n' ',')"
+	devs=$(cat $DEVICES_FILE 2>/dev/null | tr -d '"\\\n\r	' | head -c 400)
+	logtail=$(tail -12 $LOGFILE 2>/dev/null | tr '\n' '|' | tr -d '"\\\r	')
+	lanip=$(ip route 2>/dev/null | awk '/src/ {for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
+	__json_result__="{\"mark\":\"netdiag\",\"nat\":\"$nat_rules\",\"filter\":\"$fwd_rules\",\"devices\":\"$devs\",\"logtail\":\"$logtail\",\"lanip\":\"$lanip\",\"rules_flag\":\"$([ -f $RULES_FLAG ] && echo on || echo off)\",\"capture\":\"$([ -f $CAPTURE_FLAG ] && echo on || echo off)\"}"
+	return 0
+}
+
 __show_data()
 {
 	local status=0
 	__engine_pid >/dev/null && status=1
 	local ports=$(__ports)
 	local proxyPort=${ports%% *}
-	local webPort=${ports##* }
+	local rest=${ports#* }
+	local webPort=${rest%% *}
+	local transparentPort=${rest##* }
 	local autostart=0
 	[ -f $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart ] && autostart=1
 	local caok=0
@@ -196,11 +378,20 @@ __show_data()
 		flows=$(wget -q -O - -T3 http://127.0.0.1:$webPort/flows 2>/dev/null | jq 'length' 2>/dev/null)
 		[ -z "$flows" ] && flows=0
 	fi
-	local uiUrl="http://$(cat /etc/hostname 2>/dev/null):$webPort/"
-	json_append __json_result__ status:int proxyPort:int webPort:int autostart:int caok:int flows:int
+	local capture=0
+	[ -f $CAPTURE_FLAG ] && capture=1
+	local rulesOn=0
+	[ -f $RULES_FLAG ] && rulesOn=1
+	local devices='[]'
+	[ -f $DEVICES_FILE ] && devices=$(cat $DEVICES_FILE 2>/dev/null | tr -d '\n\r\t')
+	local dports='80,443'
+	[ -f $DPORTS_FILE ] && dports=$(cat $DPORTS_FILE)
+	json_append __json_result__ status:int proxyPort:int webPort:int transparentPort:int autostart:int caok:int flows:int capture:int rulesOn:int
+	json_append __json_result__ devices:json dports:str
 	return 0
 }
 
+# Show 由 /etc/ikcommon 提供: 按 TYPE 分发 __show_<TYPE>(data/ca/netdiag)
 show()
 {
 	Show __json_result__
