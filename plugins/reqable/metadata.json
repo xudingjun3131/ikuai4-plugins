@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.33",
+    "version": "1.0.34",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "二进制响应体改为 hex dump 显示, 不再渲染成乱码: 此前含 NUL 或高位字节的响应体被原样当字符串返回, 详情面板显示成一堆不可读字符, 容易被误判成\"解密失败/数据被加密\"。现在会明确标注「二进制内容 N 字节 — 非文本数据」并给出 偏移+hex+ASCII 三栏 dump, 超过 1KB 自动截断。文本/JSON/GBK 等行为完全不变。",
+    "releasenotes": "★ 修复引擎数据写爆配置分区(sda3)的大bug: 插件管理页设置的存储路径只搬 INSTALL_DIR/IPK_DIR, 搬不走 EXT_PLUGIN_CONFIG_DIR(恒为/etc/mnt/plugins/configs, 仅43MB), 而旧版把引擎 -data-dir 指向配置目录, 抓包flows/sessions/history/CA/规则全落sda3, 实测39.3MB直接吃到100%满——用户视角就是'设了存储路径也没用'。现在引擎 data-dir 改到安装目录同级 .reqable_data(数据分区, adguard work同款模式), 首次启动自动迁移旧数据(含CA, 客户端不用重装证书), 配置类小文件仍留配置分区。文本/JSON/GBK/hex显示等行为不变。",
     "arch": [
         "x86_64"
     ],

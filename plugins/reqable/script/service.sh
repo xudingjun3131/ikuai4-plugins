@@ -31,6 +31,17 @@ unset __slf __slfdir __pdir __idir
 
 BIN=$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/reqable-x86_64
 DATADIR=$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME
+# [data-dir-fix] 引擎 data-dir(flows/sessions/history/CA/rules/env)必须搬出配置分区:
+# EXT_PLUGIN_CONFIG_DIR 恒为 /etc/mnt/plugins/configs(sda3 仅43MB), 而 set_storage 只搬
+# INSTALL_DIR/IPK_DIR、不搬 CONFIG_DIR —— 旧代码把引擎 -data-dir 指向 DATADIR, 会话数据
+# 全落 sda3, 实测39.3MB直接把配置分区吃到100%, 用户视角就是"插件管理页设了存储路径也没用"。
+# 修法(adguard .adguard_work 同款): data-dir 放安装目录同级 .reqable_data(数据分区),
+# 配置类小文件(ports/devices/scope/schedule/groups/flag/pid)仍留配置分区。
+# 兜底: 用户若把存储指到 /etc/mnt 下(配置分区), 退到 /etc/log(sda5, 973MB)。
+case "$EXT_PLUGIN_INSTALL_DIR" in
+	/etc/mnt/*) DATA_DIR=/etc/log/.reqable_data ;;
+	*)          DATA_DIR=$EXT_PLUGIN_INSTALL_DIR/../.reqable_data ;;
+esac
 PROXY_PORT=18080       # 显式代理(设备手动设代理 router:18080)
 TRANSPARENT_PORT=18082 # 透明监听(iptables REDIRECT 的目标)
 API_PORT=18081         # Web 界面/API
@@ -56,7 +67,26 @@ GEOIP_URL="https://xudingjun3131.github.io/ikuai4-plugins/geoip/geolite2-country
 GEOIP_URL2="https://cdn.jsdelivr.net/gh/sapics/ip-location-db@main/geolite2-country/geolite2-country-ipv4.csv"
 
 # 确保目录存在(配置动作可能先于 start 被调用)
-mkdir -p $DATADIR $LOGDIR $GROUPS_DIR 2>/dev/null
+mkdir -p $DATADIR $DATA_DIR $LOGDIR $GROUPS_DIR 2>/dev/null
+
+# [data-dir-fix] 一次性迁移: 旧版引擎数据在配置分区(DATADIR), 搬到 DATA_DIR。
+# 用 mv 不用 cp —— 搬完 sda3 才真腾出空间。CA 必须搬: 用户客户端上装的是旧 CA 根证书,
+# 删了重建会导致全部设备证书不受信、要逐个重装。rules/env 是用户建的改写规则/REST 环境,
+# 同样必须保留。sessions/history 是抓包记录, 一并搬(用户可能要回看)。
+__migrate_data_dir()
+{
+	local f moved=0
+	for f in sessions.json history.json token.json rules.json env.json \
+		ca.pem ca.key mitmproxy-ca-cert.pem mitmproxy-ca-cert.p12 ca-cert.pem; do
+		if [ -f "$DATADIR/$f" ] && [ ! -e "$DATA_DIR/$f" ]; then
+			mv -f "$DATADIR/$f" "$DATA_DIR/$f" 2>/dev/null && moved=1
+		fi
+	done
+	# geoip 符号链接改链到 DATA_DIR(引擎从 data-dir 读 geoip.csv), 旧链接删掉重建即可
+	[ -L "$DATADIR/geoip.csv" ] && rm -f "$DATADIR/geoip.csv"
+	[ $moved -eq 1 ] && { command -v debug >/dev/null 2>&1 && debug "reqable 引擎数据已迁移: $DATADIR -> $DATA_DIR(释放配置分区)"; }
+	return 0
+}
 
 # ============ 层1: iptables 规则生成(按维度精确匹配, 幂等) ============
 
@@ -171,9 +201,9 @@ scheduler_loop()
 
 start()
 {
-	mkdir -p $DATADIR $LOGDIR $GROUPS_DIR
+	mkdir -p $DATADIR $DATA_DIR $LOGDIR $GROUPS_DIR
 	# GEOIP 数据在大容量分区(配置分区空间不足), 保持软链到引擎 dataDir
-	[ -s $EXT_PLUGIN_INSTALL_DIR/../.geoip_cache/geoip.csv ] && ln -sf $EXT_PLUGIN_INSTALL_DIR/../.geoip_cache/geoip.csv $DATADIR/geoip.csv
+	[ -s $EXT_PLUGIN_INSTALL_DIR/../.geoip_cache/geoip.csv ] && ln -sf $EXT_PLUGIN_INSTALL_DIR/../.geoip_cache/geoip.csv $DATA_DIR/geoip.csv
 	if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null; then
 		return 0
 	fi
@@ -216,9 +246,11 @@ start()
 		[ -x "$BIN" ] || { echo "  chmod 失败, 请检查文件系统是否只读"; return 1; }
 		echo "  已自动补上可执行权限, 重试启动"
 	fi
+	# [data-dir-fix] 旧版数据搬迁(幂等, 搬完即不再触发) + 引擎 data-dir 指向数据分区
+	__migrate_data_dir
 	$BIN -proxy-addr 0.0.0.0:$PROXY_PORT -transparent-addr 0.0.0.0:$TRANSPARENT_PORT \
 		-api-addr 0.0.0.0:$API_PORT \
-		-data-dir $DATADIR -transparent -scope-file $SCOPE_FILE \
+		-data-dir $DATA_DIR -transparent -scope-file $SCOPE_FILE \
 		>>$LOGDIR/reqable.log 2>&1 </dev/null &
 	echo $! > $PIDFILE
 	sleep 1
@@ -426,14 +458,14 @@ update_geoip()
 	done
 	if [ "$ok" = "1" ]; then
 		mv -f $GEO_STORE/geoip.csv.tmp $GEO_STORE/geoip.csv
-		ln -sf $GEO_STORE/geoip.csv $DATADIR/geoip.csv
+		ln -sf $GEO_STORE/geoip.csv $DATA_DIR/geoip.csv
 		# SIGHUP 让引擎重载
 		[ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null && kill -HUP $(cat $PIDFILE) 2>/dev/null
-		local lines=$(wc -l < $DATADIR/geoip.csv 2>/dev/null)
+		local lines=$(wc -l < $DATA_DIR/geoip.csv 2>/dev/null)
 		echo "GEOIP 数据已更新($lines 条)"
 		return 0
 	fi
-	rm -f $DATADIR/geoip.csv.tmp
+	rm -f $GEO_STORE/geoip.csv.tmp
 	echo "GEOIP 下载失败, 请检查网络(两个源均不可达)"
 	return 1
 }
@@ -501,7 +533,10 @@ __show_netdiag()
 __show_ca()
 {
 	local caf="" f
-	for f in $DATADIR/ca.pem $DATADIR/mitmproxy-ca-cert.pem $DATADIR/ca-cert.pem; do
+	# [data-dir-fix] CA 随引擎 data-dir 落在数据分区(DATA_DIR), 旧版在配置分区(DATADIR)——
+	# 两者都探, 兼容升级过渡期
+	for f in $DATA_DIR/ca.pem $DATA_DIR/mitmproxy-ca-cert.pem $DATA_DIR/ca-cert.pem \
+		$DATADIR/ca.pem $DATADIR/mitmproxy-ca-cert.pem $DATADIR/ca-cert.pem; do
 		[ -f "$f" ] && caf="$f" && break
 	done
 	if [ -z "$caf" ]; then
@@ -525,7 +560,7 @@ __show_data()
 	local autostart=0
 	[ -f $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart ] && autostart=1
 	local caok=0
-	{ [ -f $DATADIR/ca.pem ] || [ -f $DATADIR/mitmproxy-ca-cert.pem ] || [ -f $DATADIR/ca-cert.pem ]; } && caok=1
+	{ [ -f $DATA_DIR/ca.pem ] || [ -f $DATA_DIR/mitmproxy-ca-cert.pem ] || [ -f $DATA_DIR/ca-cert.pem ] || [ -f $DATADIR/ca.pem ] || [ -f $DATADIR/mitmproxy-ca-cert.pem ] || [ -f $DATADIR/ca-cert.pem ]; } && caok=1
 	local flows=0
 	flows=$(wget -q -O - http://127.0.0.1:$API_PORT/api/flows 2>/dev/null | jq '.flows | length' 2>/dev/null)
 	[ -z "$flows" ] && flows=0
@@ -533,7 +568,7 @@ __show_data()
 	local apiPort=$API_PORT
 	local transparentPort=$TRANSPARENT_PORT
 	local geoLoaded=0
-	[ -s $DATADIR/geoip.csv ] && geoLoaded=1
+	[ -s $DATA_DIR/geoip.csv ] && geoLoaded=1
 	local inWindow=0
 	in_schedule && inWindow=1
 
