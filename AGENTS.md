@@ -200,9 +200,19 @@ exec "$B/lib/ld-musl-x86_64.so.1" --library-path "$B/lib:$B/usr/lib" \
 
 **坑**：① bundle 里的**悬空符号链接会让 build.py 崩**（`etc/mtab`→/proc/mounts、`etc/ssl1.1/cert.pem`）——打包前必须 `find . -xtype l` 清掉，否则 ipk 静默只打一半（31MB vs 102MB）；② mitmweb 有 **DNS rebind 保护**，但 LAN IP 访问放行（正则匹配 `[0-9.]+`）；③ `mitmweb` 是 console script 不是模块，入口用 `$B/usr/bin/mitmweb` 而非 `-m`；④ **ldap3/werkzeug 是硬依赖**（proxyauth addon import ldap3、werkzeug.security.safe_join），剪枝时删了会起不来；⑤ ipk 31MB >6MB，**只能在线安装**（页面上传必失败）；⑥ 启动要几秒（Python），start() 轮询 web 端口最多 15s；⑦ mitmweb API：`GET /flows`、`POST /clear`；CA 文件是 `confdir/mitmproxy-ca-cert.pem`（另有一对 `mitmproxy-ca.pem` 私钥，**严禁外发**）。
 
+**build.py 符号链接坑（2026-11-17 真机安装时踩实，已修）**：`add_file`/`add_dir`/`get_default_permission` 都会 `open()` 源路径，**open 会跟随符号链接**。Alpine bundle 里有 330 个**绝对路径**链接（busybox applet 链接，全是 `/bin/busybox` 这种）——打包机上恰好有 `/bin/busybox` 时构建成功，换台没有的机器（GitHub CI 的 ubuntu-latest）直接 FileNotFoundError 整个构建崩。**本地绿 CI 红就是这么来的**（一度误判成 CI 超时/gh-pages 体积超限）。修法：`add_file` 把 `info.islnk()/issym()` 判断**早于** `get_default_permission`（它也要 open 读 shebang，是第二个崩点）并直接 return；`add_dir` 把目录符号链接挪进 files（os.walk 默认不跟随，链接目录原来被静默整个丢掉）；bundle 侧同步删掉全部绝对/逃逸链接（库链接全是相对的，删了不影响 .so 加载）。**教训：凡打包第三方 rootfs，先清绝对符号链接再提交。**
+
+**真机验证（设备 192.168.9.1，2026-11-17，全部通过）**：在线安装 12s（31MB）→ start 3.3s → status=1/18070/18071/caok=1。过设备代理实测：`ifconfig.me/ip` 回显 **112.64.53.228（设备自己的公网 IP，证明流量真从设备出去）**、百度 200、**HTTPS 200（CONNECT+TLS 拦截通）**；mitmweb `/flows` 抓到 10 条；`show TYPE=ca` 返回 1564 字符 base64 PEM（字段名 **`ca_b64`**）；插件页 `GET /plugins/mitmproxy/` 200。
+
+**真机安装的两个坑**：① `install_online` **必须传 `repo_id`**（默认仓库 id 固件种死 `5f74366d-090d-4540-a04f-d1d885f0b93f`），不传报"未找到仓库:"直接返回——SDK 裸调极易漏；② 设备侧 `www/plugins/<插件>/html/metadata.json` 若是 **0 字节**（升级 `cp -rf` 被打断的残留），`__show_data` 的 `cat` 对空文件也返回 0 → installed 数组多一个裸逗号 → **整个插件管理页 JSON.parse 失败**。现场急救：`install_online` 重装该插件（`rm -rf`+重拷即修复，reqable 实测 4.6s）；根治靠 Build202611171400 的 `[ -n "$_json" ]` 守卫。
+
+**reqable 1.0.40/1.0.41 两个连在一起的升级链路 bug（测试 agent 验证时踩实，已修并上线）**：① **[stale-proc] 重装/升级插件不会重启引擎**——框架把新二进制拷到磁盘，但旧进程还在跑旧 inode（Linux 删运行中文件不影响已加载进程），`start()` 见到活 PID 直接 return 0 → 新功能要到重启才生效。用户/测试视角是"升级成功了但功能没变化"（实测：1.0.39 的断点全匹配修复装完后设备上仍不生效，一度被记成 FAIL）。修法：install.sh 对 new/upgrade/reinstall 三类安装先探活（`show TYPE=data | grep '"status":1'`），在跑才 stop+start，不在跑保持停止尊重用户状态；② **[stop-wait] stop() 发完 SIGTERM 立即返回**，进程退出和端口释放是异步的，紧接着 start 会 bind 失败（"引擎启动失败"，设备实踩竞态）→ 轮询等到进程真消失（≤5s）再 kill -9 兜底；③ **[ports-reread] 端口变量是脚本加载时 source 进内存的**，`set_proxy_ports` 写完 ports.conf 不重读，下面 start 用的还是旧端口（引擎重启了但还听老端口，用户视角"改端口要手动点一次启动才生效"）→ 写完立即 `. $PORTS_CONF`。**判据：凡"改启动参数"的 action，写完配置必须重读再重启；凡"升级"路径，必须处理在跑的旧进程。**
+
 ## 4. 当前状态（2026-11-17）
 
-- **27 个插件**：adguard clash ddnsgo frpc frps gecoos linkease lucky mds npc nps openp2p pppoe-scan reqable smartdns socat socks5 socks5-extapi syslog tailscale uu vidblock vlmcsd vnt vnts vremote zerotier（alist 已应用户要求下线）
+- **28 个插件**：adguard clash ddnsgo frpc frps gecoos linkease lucky mds **mitmproxy** npc nps openp2p pppoe-scan reqable smartdns socat socks5 socks5-extapi syslog tailscale uu vidblock vlmcsd vnt vnts vremote zerotier（alist 已应用户要求下线）
+- **两个自研/重型插件**：reqable（小黄鸟，Go 全静态引擎，当前 **1.0.41**，源码 `/opt/reqable`）+ **mitmproxy（1.0.1，自带 Alpine musl Python 运行时 102MB，见 3.8 节）**；设备实测双代理并行工作（reqable 18080/18081/18082，mitmproxy 18070/18071）
 - **全部已完成 storage-anchor 迁移**：54 处 `source /etc/mnt/plugins/configs/config.sh` 改为框架 helper（旧固件回退），version 全 +1（adguard 2.1.7 … zerotier 1.2.2）；需搭配固件 `Build202611171200` 及以上（boot() 会自愈旧版插件的硬编码 source 行，不升级插件也能用）
 - **15 个插件没有二进制**（tailscale/zerotier/openp2p/socat/linkease/vlmcsd/uu/vidblock/vremote/mds/pppoe-scan/syslog/socks5-extapi/gecoos/reqable 中部分为未完成的移植桩）——`service.sh` 引用的 `$plugin_dir/../bin/xxx` 在 ipk 里不存在，是移植桩；reqable 是自研引擎（源码 `/opt/reqable`，Go 全静态 + 汉化）
+- **验证报告**：`docs/小黄鸟插件验证报告.md`（18 条用例，复验后 PASS 17 / FAIL 0 / 受限 1）；`docs/reqable-testcases.md` 为用例清单
 - 固件侧插件框架的完整改动记录在 `/opt/ikuai4-enterprise/AGENTS.md`，坑位在 skill `ikuai-firmware-build`
