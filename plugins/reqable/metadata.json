@@ -2,10 +2,10 @@
   "name": "reqable",
   "alias": "小黄鸟抓包",
   "manufacturer": "iKuai",
-  "version": "1.0.36",
+  "version": "1.0.37",
   "type": "external",
   "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-  "releasenotes": "规则面板重做: 全部 12 种规则类型均可在页面增改停用(内容替换/头改写/本地映射/镜像远端/上游网关/二级代理/反向代理/访问控制/高亮等), 匹配条件支持域名通配+路径正则+方法; 新增 10 个 QuantumultX-Rewrite 转换脚本模板(Cubox/WPS/计算器HD/WallCraft/AudioMack/BedtimeFan/Emby/DayOne/Grammarly/TOKCAM); 修复 add-header/strip-cookie/log-url 三个原有模板因顶层代码未包函数而从未生效的问题",
+  "releasenotes": "新增 10 条内置规则(全新安装自动种子, 面板「内置」按钮可随时载入): 请求头禁用缓存+If-None-Match/If-Modified-Since、Accept-Encoding=identity(让内容替换能匹配明文)、响应头放宽 CORS、移除 CSP/X-Frame-Options、API/遥测/静态流量高亮; 修复 goproxy 默认删 Accept-Encoding 导致 identity 规则被 Transport 补回 gzip 的问题(KeepAcceptEncoding); 规则面板加「内置」按钮与内置角标",
   "arch": [
     "x86_64"
   ],

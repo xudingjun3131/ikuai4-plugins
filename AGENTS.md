@@ -167,6 +167,12 @@ mkdir -p /tmp/oneplug && cp -a plugins/reqable /tmp/oneplug/ && python3 build.py
 
 **脚本模板（internal/script/templates.go）**：goja 沙箱只注入 `flow` 对象——`flow.request.{method,url,headers,body}` / `flow.response.{status,headers,body}`，脚本定义 `function onRequest(flow){}` / `function onResponse(flow){}`，**直接改 flow 对象即生效，没有 `$done()`**；runner 对流**没有匹配过滤**，模板必须自查 URL（守卫）。QuantumultX-Rewrite（github.com/deezertidal/QuantumultX-Rewrite，277 个 rewrite conf）转换入库 10 个：Cubox/计算器HD/WallCraft/WPS/AudioMack/BedtimeFan/Emby/DayOne/Grammarly/TOKCAM。**QX→reqable 转换规则**：`$response.body`→`flow.response.body`、`$done({body})`→直接赋值、conf 里的 `^url` 匹配式→模板开头的 URL 守卫（**JS 正则字面量里的 `/` 必须转义**，否则提前终结正则）；带 `$tool`/`persistentStore`/`$prefs`/`$notify`/`require(`/sojson 混淆的脚本不可转（沙箱没有这些 API）。转换产物必须过两道验证：node 模拟沙箱跑"命中改写+未命中原样"（`/tmp/qxjs/test_templates.js` 模式）+ Go 回归测试 `Test_BundledTemplates_allValidGoja`/`Test_QXTemplates_guardBlocksNonMatching`（runner 真实执行守卫生效）。**顺修：原 3 个模板（add-header/strip-cookie/log-url）是顶层代码没包函数——runner 的 `AssertFunction(onResponse)` 取不到函数，从来就没生效过**，已全部包成函数。
 
+### 3.5 内置规则（2026-11-17，v1.0.37）
+
+`internal/rules/defaults.go` 的 `DefaultRules()` 返回 10 条内置规则：**请求头**禁用缓存（`Cache-Control/Pragma: no-cache` + 删 `If-None-Match`/`If-Modified-Since`，抓包不吃 304）、`Accept-Encoding: identity`、**响应头**放宽 CORS、移除 CSP/X-Frame-Options、**高亮** API（`^/api/` 蓝）/遥测（clarity、google-analytics、googletagmanager、doubleclick 红）/静态资源（灰）。**种子时机**：`NewChain` 发现 rules.json **不存在**才写入（全新 data-dir 首次启动自动有规则）；文件已存在**不覆盖**——用户删空的规则不会被开机复活；想随时找回来用规则面板「内置」按钮或 `PUT /api/rules`（整包替换）。内置规则 ID 一律 `builtin-` 前缀（面板打角标、`IsBuiltinID` 判定）。
+
+**最大的坑：goproxy 会删 Accept-Encoding**——`RemoveProxyHeaders` 在转发前 `r.Header.Del("Accept-Encoding")`（除非 `KeepAcceptEncoding`），删完 Go `http.Transport` 发现没有该头又自动补 `gzip`，规则里设的 `identity` 被这俩联手干掉，上游永远回压缩流，「内容替换」的明文永远匹配不上。修法：`e.px.KeepAcceptEncoding = true`（没规则时客户端原始值直传，行为与之前等价；有规则时 identity 才生效）。**判据**：上游回显收到的请求头，`Accept-Encoding` 必须是 `identity` 而不是 `gzip`。
+
 ## 4. 当前状态（2026-11-17）
 
 - **27 个插件**：adguard clash ddnsgo frpc frps gecoos linkease lucky mds npc nps openp2p pppoe-scan reqable smartdns socat socks5 socks5-extapi syslog tailscale uu vidblock vlmcsd vnt vnts vremote zerotier（alist 已应用户要求下线）
