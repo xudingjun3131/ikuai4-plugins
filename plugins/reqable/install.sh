@@ -27,7 +27,14 @@ install()
 	fi
 	debug "reqable 插件就绪(类型: ${type:-boot})"
 	# 开机自启: 用户在页面开过"开机自启"才拉引擎(与 lucky 等同构)
-	[ -f "$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart" ] && /usr/ikuai/function/plugin_$PLUGIN_NAME start
+	# [exit-code-fix] 原来写成 `[ -f ... ] && ... start` 收尾, 新装时 autostart 文件
+	# 不存在 → `[ -f ]` 返回 1 → && 短路 → install() 返回 1 → 框架判定"安装失败"。
+	# 但文件和软链接早已建好, 重进页面显示已安装 —— 就是用户遇到的
+	# "第一次安装提示失败, 重新进入又显示成功"。改为 if 块 + 显式 return 0。
+	if [ -f "$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart" ]; then
+		/usr/ikuai/function/plugin_$PLUGIN_NAME start || true
+	fi
+	return 0
 }
 __uninstall()
 {

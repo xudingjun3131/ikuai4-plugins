@@ -2,10 +2,10 @@
     "name": "reqable",
     "alias": "小黄鸟抓包",
     "manufacturer": "iKuai",
-    "version": "1.0.29",
+    "version": "1.0.30",
     "type": "external",
     "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-    "releasenotes": "新增安装/启动自检: 若引擎二进制缺失(常见于安装时磁盘空间不足, 框架会静默解压错误), 启动时直接给出原因和处置建议, 不再只甩一句 No such file or directory。",
+    "releasenotes": "修复安装后误报「插件安装失败」: install() 以 `[ -f autostart ] && start` 收尾, 新装时该文件不存在使函数返回 1, 框架据此判失败(实际文件已全部就位, 重进页面显示已安装)。改为 if 块 + 显式 return 0。",
     "arch": [
         "x86_64"
     ],
