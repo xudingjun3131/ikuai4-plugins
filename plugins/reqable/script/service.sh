@@ -161,6 +161,20 @@ iptables_del()
 	return 0
 }
 
+# [tz-fix] 路由器本地时区(小时, 8=UTC+8)。设备 shell 时钟是 UTC(系统时钟 UTC、
+# 环境无 TZ), 而用户按 UI 显示的本地时间填时段 —— 直接比 UTC 的话时段整体偏移
+# time_zone 小时(实测: 填 22:58-23:08, 设备 14:58 UTC 永远不在时段内, 规则
+# 到点不上)。从配置库 global_config.time_zone 读(固件自己的脚本也这么读),
+# 读不到兜底 8。
+__router_tz()
+{
+	local tz=$(sqlite3 ${IK_DB_CONFIG:-/etc/mnt/ikuai/config.db} \
+		"select time_zone from global_config limit 1" 2>/dev/null)
+	case "$tz" in ''|*[!0-9-]*) tz=8;; esac
+	[ "$tz" -ge -12 ] && [ "$tz" -le 14 ] || tz=8
+	echo "$tz"
+}
+
 # 当前是否在时段内(无时段配置=全天)
 in_schedule()
 {
@@ -170,8 +184,15 @@ in_schedule()
 	local start=$(jq -r '.start // "00:00"' $SCHED_FILE)
 	local stop=$(jq -r '.stop // "23:59"' $SCHED_FILE)
 	local days=$(jq -r '(.days // []) | join(",")' $SCHED_FILE 2>/dev/null)
-	local now=$(date +%H:%M)
-	local dow=$(date +%u) # 1=周一..7=周日
+	# [tz-fix] 把 UTC 现在时间迁到路由器本地时间再比(见 __router_tz)。
+	# 纯算术不依赖 libc 的 TZ 支持; 10# 防 08/09 被当八进制。
+	local tz=$(__router_tz)
+	local __h=$(date -u +%H) __m=$(date -u +%M)
+	local __t=$(( (10#$__h * 60 + 10#$__m + tz * 60 + 1440) % 1440 ))
+	local now
+	printf -v now '%02d:%02d' $((__t / 60)) $((__t % 60))
+	# 星期同样按本地日期算: 平移后的 epoch 天数 +3(1970-01-01 是周四) 取模
+	local dow=$(( ( ($(date -u +%s) + tz * 3600) / 86400 + 3 ) % 7 + 1 )) # 1=周一..7=周日
 	if [ -n "$days" ]; then
 		echo ",$days," | grep -q ",$dow," || return 1
 	fi
@@ -250,6 +271,13 @@ start()
 	fi
 	# [data-dir-fix] 旧版数据搬迁(幂等, 搬完即不再触发) + 引擎 data-dir 指向数据分区
 	__migrate_data_dir
+	# [fd-limit] 真机实测(2026-11-17): WebUI 18081 跑几小时后日志刷
+	# "accept tcp [::]:18081: accept4: too many open files; retrying in 1s" ——
+	# 浏览器/探针的 keep-alive 连接只增不减, 把默认 nofile(1024) 吃光, 之后
+	# WebUI 整个拒服。引擎侧已加 IdleTimeout(90s 回收空闲连接, 见 /opt/reqable
+	# internal/{api,proxy}), 这里再把 fd 软限制尽量抬高兜底(抬不过硬限制就
+	# 静默失败, 不影响启动)。
+	for __n in 65536 32768 8192 4096; do ulimit -n $__n 2>/dev/null && break; done
 	$BIN -proxy-addr 0.0.0.0:$PROXY_PORT -transparent-addr 0.0.0.0:$TRANSPARENT_PORT \
 		-api-addr 0.0.0.0:$API_PORT \
 		-data-dir $DATA_DIR -transparent -scope-file $SCOPE_FILE \
@@ -568,13 +596,17 @@ __show_diag()
 __show_netdiag()
 {
 	local nat_rules fwd_rules devs scope logtail sched lanip
-	nat_rules=$(iptables -t nat -S REQABLE_REDIRECT 2>&1 | tr '\n' ';' | tr -d '"\\')
+	nat_rules=$(iptables -t nat -S REQABLE_REDIRECT 2>&1 | tr '\n' ';' | tr -d '"\\\r	')
 	nat_rules="$nat_rules PREROUTING: $(iptables -t nat -S PREROUTING 2>&1 | grep REQABLE | tr '\n' ',')"
-	fwd_rules=$(iptables -S REQABLE_QUIC 2>&1 | tr '\n' ';' | tr -d '"\\')
+	fwd_rules=$(iptables -S REQABLE_QUIC 2>&1 | tr '\n' ';' | tr -d '"\\\r	')
 	fwd_rules="$fwd_rules FORWARD: $(iptables -S FORWARD 2>&1 | grep REQABLE | tr '\n' ',')"
-	devs=$(cat $DEVICES_FILE 2>/dev/null | tr -d '"\\' | head -c 400)
-	scope=$(cat $SCOPE_FILE 2>/dev/null | tr -d '"\\' | head -c 600)
-	logtail=$(tail -12 $LOGDIR/reqable.log 2>/dev/null | tr '\n' '|' | tr -d '"\\')
+	# [netdiag-json] devices/scope 是 JSON 文件原文, 含裸换行 —— 拼进 JSON 字符串后
+	# 整个 /Action/call 响应就是非法 JSON(控制字符), 前端 JSON.parse 直接抛异常,
+	# netdiag 面板整个打不开(2026-11-17 真机实测: requests 报 Invalid control
+	# character at char 763)。nat/filter/logtail 都做了 tr, 这两个漏了。
+	devs=$(cat $DEVICES_FILE 2>/dev/null | tr -d '"\\\n\r	' | head -c 400)
+	scope=$(cat $SCOPE_FILE 2>/dev/null | tr -d '"\\\n\r	' | head -c 600)
+	logtail=$(tail -12 $LOGDIR/reqable.log 2>/dev/null | tr '\n' '|' | tr -d '"\\\r	')
 	sched=$([ -f $SCHED_PIDFILE ] && echo "pid=$(cat $SCHED_PIDFILE 2>/dev/null) alive=$(kill -0 $(cat $SCHED_PIDFILE 2>/dev/null) 2>/dev/null && echo yes || echo no)" || echo none)
 	lanip=$(ip route 2>/dev/null | awk '/src/ {for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
 	__json_result__="{\"mark\":\"netdiag\",\"nat\":\"$nat_rules\",\"filter\":\"$fwd_rules\",\"devices\":\"$devs\",\"scope\":\"$scope\",\"logtail\":\"$logtail\",\"sched\":\"$sched\",\"lanip\":\"$lanip\",\"rules_flag\":\"$([ -f $RULES_FLAG ] && echo on || echo off)\"}"

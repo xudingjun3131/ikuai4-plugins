@@ -162,6 +162,7 @@
                         <button type="button" class="btn btn_default rounded height26" @click="setDays('work')">工作日</button>
                         <button type="button" class="btn btn_default rounded height26" @click="setDays('weekend')">周末</button>
                         <span style="font-size:12px; color:#909399;">已选 {{ schedDays.length }} 天</span>
+                        <span style="font-size:12px; color:#909399;">按路由器本地时间</span>
                         <button type="button" class="btn btn_green rounded height26" @click="saveSchedule">保存时段</button>
                         <el-tag size="mini" :type="inWindow === 1 ? 'success' : 'info'">{{ inWindow === 1 ? '当前在时段内' : '当前不在时段内' }}</el-tag>
                     </div>
