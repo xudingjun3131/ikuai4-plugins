@@ -183,6 +183,23 @@ mkdir -p /tmp/oneplug && cp -a plugins/reqable /tmp/oneplug/ && python3 build.py
 
 `docs/reqable-testcases.md`：18 条用例（TC-01~TC-18）覆盖引擎启停/抓包总开关真停/开关与启动对齐/三态显示/规则编辑器 12 类型/内置规则/改包再转发/压缩边界/QX 模板/原 3 模板/断点/设备选择/scope/CA/端口/数据目录 sda3/定时/暂停清空 HAR，附「已知边界（不是缺陷）」7 条与签收表。写测试文档本身就是最好的自查——本条 bug 就是写 TC-11 时实测发现的。
 
+## 3.8 mitmproxy 插件（2026-11-17，v1.0.0）——自带 musl Python 运行时
+
+**背景**：用户要把 mitmproxy（Python 应用）做成插件。**硬约束**：固件用户态是 uClibc，**没有 Python、没有 glibc loader、没有包管理器**（`find rootfs -name 'ld-linux*'` 命中 0，只有 `/lib/ld64-uClibc.so.0`）——PyPI wheel 直接扔上去跑不了；PyInstaller 产物链 glibc 同样起不来。
+
+**解法（已验证）**：**自带完整 Alpine(musl) 运行时**。`apk add mitmproxy` 装进 Alpine minirootfs（Python 3.14 + mitmproxy 11 + 全部依赖），剪枝后约 100MB，整棵树进 ipk 的 `bins/runtime/`。启动用**自带的 musl 动态链接器**（`lib/ld-musl-x86_64.so.1`，static-pie、不依赖宿主任何 libc）：
+
+```bash
+exec "$B/lib/ld-musl-x86_64.so.1" --library-path "$B/lib:$B/usr/lib" \
+    "$B/usr/bin/python3.14" "$B/usr/bin/mitmweb" "$@"
+```
+
+内核只认 PT_INTERP 指向的文件存在即可，显式调 loader 则完全绕开固件 libc——**与 uClibc/glibc 宿主无关**（原型在 glibc 宿主上验证：mitmweb HTTP 200 + 过代理抓到流 + 客户端收到断点改写的 body）。内存占用 RSS ~74MB。
+
+**插件结构**（与 reqable 同构）：`script/service.sh`（start/stop/set_ports/set_auto_start/clear_flows/show&TYPE=data|ca）、`html/index.html`（状态/启停/端口/CA 同源 base64 下载/内嵌 mitmweb iframe）、`metadata.json` 用 `include:["bins/runtime"]` 打包目录树。**端口**：代理 18070 / Web 18071（页面可配，改了自动重启）。**confdir**（CA/配置/pid）落 `$EXT_PLUGIN_CONFIG_DIR/mitmproxy`——存储卷，**不落 sda3**（用户硬性要求）。
+
+**坑**：① bundle 里的**悬空符号链接会让 build.py 崩**（`etc/mtab`→/proc/mounts、`etc/ssl1.1/cert.pem`）——打包前必须 `find . -xtype l` 清掉，否则 ipk 静默只打一半（31MB vs 102MB）；② mitmweb 有 **DNS rebind 保护**，但 LAN IP 访问放行（正则匹配 `[0-9.]+`）；③ `mitmweb` 是 console script 不是模块，入口用 `$B/usr/bin/mitmweb` 而非 `-m`；④ **ldap3/werkzeug 是硬依赖**（proxyauth addon import ldap3、werkzeug.security.safe_join），剪枝时删了会起不来；⑤ ipk 31MB >6MB，**只能在线安装**（页面上传必失败）；⑥ 启动要几秒（Python），start() 轮询 web 端口最多 15s；⑦ mitmweb API：`GET /flows`、`POST /clear`；CA 文件是 `confdir/mitmproxy-ca-cert.pem`（另有一对 `mitmproxy-ca.pem` 私钥，**严禁外发**）。
+
 ## 4. 当前状态（2026-11-17）
 
 - **27 个插件**：adguard clash ddnsgo frpc frps gecoos linkease lucky mds npc nps openp2p pppoe-scan reqable smartdns socat socks5 socks5-extapi syslog tailscale uu vidblock vlmcsd vnt vnts vremote zerotier（alist 已应用户要求下线）

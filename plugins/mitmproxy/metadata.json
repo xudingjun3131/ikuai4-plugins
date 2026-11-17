@@ -1,0 +1,15 @@
+{
+  "name": "mitmproxy",
+  "alias": "Mitmproxy抓包",
+  "manufacturer": "iKuai",
+  "version": "1.0.0",
+  "type": "external",
+  "description": "Mitmproxy 11 流量捕获与 HTTPS 解密插件：交互式 TLS 拦截代理，mitmweb Web 界面查看/分析/改写请求响应，支持插件化 addons、断点、脚本、HAR 导入导出。自带完整 Alpine(musl) Python 运行时，不依赖固件 libc。首次使用请在客户端安装并信任 CA 证书。",
+  "releasenotes": "首个版本: mitmproxy 11.0.0 + mitmweb; 自带 musl Python 运行时(固件无 Python/glibc, 经自带 musl loader 启动); 端口可配(默认代理 18070/Web 18071); CA 证书同源下载; 数据全部落存储卷不落 sda3",
+  "arch": [
+    "x86_64"
+  ],
+  "include": [
+    "bins/runtime"
+  ]
+}

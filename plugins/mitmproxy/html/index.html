@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>Mitmproxy抓包</title>
+    <script src="../../static/js/vue.js"></script>
+    <script src="../../static/js/plugin.js"></script>
+    <script src="../../static/js/element.js"></script>
+    <link rel="stylesheet" href="../../static/css/plugin.css">
+    <link rel="stylesheet" href="../../static/css/element.css">
+    <style>
+        body { padding: 0 20px; }
+        .mp-frame { width: 100%; height: calc(100vh - 320px); min-height: 520px; border: 1px solid #e4e7ed; border-radius: 4px; display: block; }
+        .mp-card { border: 1px solid #ebeef5; border-radius: 8px; padding: 20px; margin-top: 12px; background: #fff; }
+        .mp-card h4 { margin: 0 0 10px 0; font-size: 13px; color: #303133; }
+        .mp-card h4 span { font-weight: normal; color: #909399; font-size: 12px; padding-left: 8px; }
+        .mp-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+        .mp-row label { font-size: 12px; color: #606266; min-width: 64px; }
+        .mp-tip { background: #f4f4f5; border-left: 3px solid #409eff; padding: 10px 14px; font-size: 12px; color: #606266; line-height: 1.9; margin-top: 10px; }
+        .btn_default { background: #fff; border: 1px solid #dcdfe6; color: #606266; cursor: pointer; }
+        .btn_default:hover { background: #ecf5ff; border-color: #3e8cd4; color: #3e8cd4; }
+        .mp-port-input { width: 90px; height: 26px; border: 1px solid #dcdfe6; border-radius: 4px; padding: 0 8px; font-size: 12px; }
+    </style>
+</head>
+<body>
+<div id="app" class="wrapper row" v-loading="loading" :element-loading-text="loading_text">
+    <div class="box clearfix">
+        <div class="box_block">
+            <div class="clearfix margin_phone">
+                <div class="h20"></div>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <b style="font-size:15px;">Mitmproxy抓包</b>
+                        <span style="font-size:12px; color:#909399; padding-left:10px;">交互式 TLS 拦截代理 · mitmweb Web 界面</span>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <el-tag size="small" :type="status === 1 ? 'success' : 'info'">{{ status === 1 ? '运行中' : '已停止' }}</el-tag>
+                        <el-tag size="small" :type="caok === 1 ? 'success' : 'warning'">{{ caok === 1 ? 'CA已生成' : 'CA未生成' }}</el-tag>
+                        <span style="font-size:12px; color:#909399;">已捕获 {{ flows }} 条</span>
+                    </div>
+                </div>
+                <div class="h20"></div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    <button v-if="status !== 1" type="button" class="btn btn_green rounded height26" @click="startEngine">启动引擎</button>
+                    <button v-else type="button" class="btn btn_red rounded height26" @click="stopEngine">停止引擎</button>
+                    <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#606266; cursor:pointer;">
+                        <input type="checkbox" v-model="autostart" @change="setAutostart">开机自启
+                    </label>
+                    <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">下载 CA 证书</button>
+                    <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
+                    <a v-if="status === 1" class="btn btn_default rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
+                    <button type="button" class="btn btn_default rounded height26" @click="loadInitData">刷新状态</button>
+                </div>
+
+                <div class="mp-card">
+                    <h4>端口配置<span>改端口会自动重启引擎</span></h4>
+                    <div class="mp-row">
+                        <label>显式代理端口</label>
+                        <input v-model="proxyPort" type="number" class="mp-port-input">
+                        <span style="font-size:12px; color:#909399;">客户端手动设代理: 路由器IP:该端口</span>
+                    </div>
+                    <div class="mp-row">
+                        <label>Web 界面端口</label>
+                        <input v-model="webPort" type="number" class="mp-port-input">
+                        <span style="font-size:12px; color:#909399;">mitmweb 界面, 即下方嵌入的窗口</span>
+                    </div>
+                    <div class="mp-row">
+                        <button type="button" class="btn btn_blue rounded height26" @click="savePorts">保存端口</button>
+                    </div>
+                    <div class="mp-tip">
+                        <b>使用步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 点<b>下载 CA 证书</b>，在要抓包的设备上安装并<b>信任</b>（iOS: 设置→通用→关于本机→证书信任；Android: 用户证书）；3. 把该设备的 Wi-Fi 代理手动设为 <b>路由器IP:{{ proxyPort }}</b>；4. 在下方 mitmweb 界面里查看解密后的请求/响应，可改写、可断点、可脚本。<br>
+                        <b>说明：</b>本插件自带完整 Python 运行时（约 100MB，装在数据卷，不占系统分区）；HTTPS 解密需要客户端信任 CA，未信任的域名会握手失败；v1 仅支持显式代理（手动设代理），透明引流后续版本加。
+                    </div>
+                </div>
+
+                <div class="mp-card" v-if="status === 1">
+                    <h4>mitmweb 界面<span>打不开就点右上角“新窗口全屏打开”</span></h4>
+                    <iframe class="mp-frame" :src="uiUrl"></iframe>
+                </div>
+                <div class="mp-card" v-else style="color:#909399; font-size:12px;">
+                    引擎未启动，启动后这里会内嵌显示 mitmweb 界面。
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="module">
+var app = new Vue({
+    el: '#app',
+    data: {
+        loading: false,
+        loading_text: '',
+        status: 0, caok: 0, autostart: 0, flows: 0,
+        proxyPort: 18070, webPort: 18071,
+        uiUrl: '',
+    },
+    mounted() {
+        this.loadInitData();
+    },
+    methods: {
+        // [param-b64] 框架 /Action/call 的参数值禁含 引号/空格/$/&/;/|/\ (ikngx.lua 的
+        // __rest_check_illegality_char), 明文 JSON 必被 2005 拒掉。端口是纯数字无碍,
+        // 其余参数一律 base64(仅 [A-Za-z0-9+/=] 全合法)。
+        callPlugin(action, param, cb) {
+            AjaxPost('/Action/call', {func_name: 'plugin_mitmproxy', action: action, param: param}, (response) => {
+                cb(response);
+            });
+        },
+        loadInitData() {
+            this.callPlugin('show', {TYPE: 'data'}, (response) => {
+                if (response.Result % 10000 == 0 && response.Data) {
+                    const d = response.Data;
+                    this.status = d.status || 0;
+                    this.caok = d.caok || 0;
+                    this.autostart = d.autostart || 0;
+                    this.flows = d.flows || 0;
+                    if (d.proxyPort) this.proxyPort = d.proxyPort;
+                    if (d.webPort) this.webPort = d.webPort;
+                    this.uiUrl = 'http://' + window.location.hostname + ':' + this.webPort + '/';
+                }
+            });
+        },
+        startEngine() {
+            this.loading = true; this.loading_text = '正在启动(Python 运行时, 约需几秒)...';
+            this.callPlugin('start', {}, (response) => {
+                this.loading = false;
+                if (response.Result % 10000 == 0) {
+                    this.$message({message: '引擎已启动', type: 'success'});
+                } else {
+                    this.$message.error('启动失败: ' + (response.ErrMsg || response.Data || '未知错误'));
+                }
+                this.loadInitData();
+            });
+        },
+        stopEngine() {
+            this.callPlugin('stop', {}, (response) => {
+                this.$message({message: '引擎已停止', type: 'success'});
+                this.loadInitData();
+            });
+        },
+        setAutostart() {
+            this.callPlugin('set_auto_start', {autostart: this.autostart ? 'true' : 'false'}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success(this.autostart ? '已开启开机自启' : '已关闭开机自启');
+                } else {
+                    this.$message.error('设置失败: ' + (response.ErrMsg || '未知错误'));
+                }
+                this.loadInitData();
+            });
+        },
+        savePorts() {
+            this.callPlugin('set_ports', {proxy: String(this.proxyPort), web: String(this.webPort)}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message({message: '端口已保存' + (this.status === 1 ? '(引擎已重启)' : ''), type: 'success'});
+                } else {
+                    this.$message.error('保存失败: ' + (response.ErrMsg || '未知错误'));
+                }
+                this.loadInitData();
+            });
+        },
+        clearFlows() {
+            this.callPlugin('clear_flows', {}, (response) => {
+                this.$message({message: '已清空', type: 'success'});
+                this.loadInitData();
+            });
+        },
+        // [CA通道] 页面是 HTTPS, 直链 http://IP:web端口 下载 CA 会被浏览器当混合内容
+        // 拦掉(点了一闪而过)。走同源 show&TYPE=ca: CA 经 base64 回传, Blob 下载。
+        downloadCa() {
+            this.callPlugin('show', {TYPE: 'ca'}, (response) => {
+                if (response.Result % 10000 == 0 && response.Data && response.Data.ca_b64) {
+                    const bin = atob(response.Data.ca_b64);
+                    const buf = new Uint8Array(bin.length);
+                    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+                    const blob = new Blob([buf], {type: 'application/x-x509-ca-cert'});
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'mitmproxy-ca-cert.pem';
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                    this.$message({message: 'CA 已下载, 请到设备上安装并信任', type: 'success'});
+                } else {
+                    this.$message.error('CA 还没生成: 先启动引擎跑一会儿(或发起一次请求)再下载');
+                }
+            });
+        }
+    }
+});
+</script>
+</body>
+</html>
