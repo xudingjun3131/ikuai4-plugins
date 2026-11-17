@@ -161,6 +161,12 @@ mkdir -p /tmp/oneplug && cp -a plugins/reqable /tmp/oneplug/ && python3 build.py
 
 ---
 
+## 3.4 规则面板与脚本模板（2026-11-17 重做）
+
+**规则面板（web/src/components/rules-panel.tsx）已从"只有 host_block"扩成完整编辑器**：12 种规则类型全部可页面增/改/停用/删——类型下拉 → 按类型动态字段表单（内容替换的查找/替换/阶段、头改写的键值对行编辑器、本地映射的状态码+文件、镜像远端 URL、上游网关、二级代理、反向代理监听+目标、访问控制 CIDR+动作、高亮颜色+标签）→ 匹配条件（域名 `*` 通配 / 路径**正则** / 方法逗号分隔）→ 保存走现有 `POST/PUT/DELETE /api/rules`（后端零改动，Save 原子写 rules.json + 热重载即时生效）。**最大坑：压缩响应**——`internal/api/display.go` 只在**显示层**解压 gzip/br/zstd，hook 层（rules/script/breakpoint）拿到的是**原始压缩字节**，明文替换匹配不上；解法是先加一条 request 阶段 header 规则把 `Accept-Encoding` 改 `identity`。
+
+**脚本模板（internal/script/templates.go）**：goja 沙箱只注入 `flow` 对象——`flow.request.{method,url,headers,body}` / `flow.response.{status,headers,body}`，脚本定义 `function onRequest(flow){}` / `function onResponse(flow){}`，**直接改 flow 对象即生效，没有 `$done()`**；runner 对流**没有匹配过滤**，模板必须自查 URL（守卫）。QuantumultX-Rewrite（github.com/deezertidal/QuantumultX-Rewrite，277 个 rewrite conf）转换入库 10 个：Cubox/计算器HD/WallCraft/WPS/AudioMack/BedtimeFan/Emby/DayOne/Grammarly/TOKCAM。**QX→reqable 转换规则**：`$response.body`→`flow.response.body`、`$done({body})`→直接赋值、conf 里的 `^url` 匹配式→模板开头的 URL 守卫（**JS 正则字面量里的 `/` 必须转义**，否则提前终结正则）；带 `$tool`/`persistentStore`/`$prefs`/`$notify`/`require(`/sojson 混淆的脚本不可转（沙箱没有这些 API）。转换产物必须过两道验证：node 模拟沙箱跑"命中改写+未命中原样"（`/tmp/qxjs/test_templates.js` 模式）+ Go 回归测试 `Test_BundledTemplates_allValidGoja`/`Test_QXTemplates_guardBlocksNonMatching`（runner 真实执行守卫生效）。**顺修：原 3 个模板（add-header/strip-cookie/log-url）是顶层代码没包函数——runner 的 `AssertFunction(onResponse)` 取不到函数，从来就没生效过**，已全部包成函数。
+
 ## 4. 当前状态（2026-11-17）
 
 - **27 个插件**：adguard clash ddnsgo frpc frps gecoos linkease lucky mds npc nps openp2p pppoe-scan reqable smartdns socat socks5 socks5-extapi syslog tailscale uu vidblock vlmcsd vnt vnts vremote zerotier（alist 已应用户要求下线）
