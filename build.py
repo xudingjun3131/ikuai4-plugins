@@ -43,26 +43,33 @@ def add_raw(tar: tarfile.TarFile, path: str, data: str | bytes, mode: int | None
     tar.addfile(tarinfo=info, fileobj=fileobj)
 
 def add_dir(tar: tarfile.TarFile, dir_path: str, dest_path: str, mode: int | None = None):
-    for root, _dirs, files in os.walk(dir_path):
+    # [symlink-fix] 目录符号链接要当链接打包: os.walk 默认不跟随符号链接, 链接到目录的
+    # 会出现在 dirs 里但不会被 descend, 也不会进 files —— 静默整个丢掉。这里把链接
+    # 目录挪进 files 交给 add_file(add_file 对 islnk/issym 只写 linkname 不 open 目标)。
+    for root, dirs, files in os.walk(dir_path):
+        for d in [d for d in dirs if os.path.islink(os.path.join(root, d))]:
+            dirs.remove(d)
+            files.append(d)
         for file in files:
             full_path = os.path.join(root, file)
             arcname = os.path.relpath(full_path, start=dir_path)
             arcname = os.path.join(dest_path, arcname)
-
-            info = tar.gettarinfo(full_path, arcname=arcname)
-            if mode is None:
-                info.mode = get_default_permission(full_path)
-            else:
-                info.mode = mode
-
-            with open(full_path, "rb") as f:
-                tar.addfile(info, f)
+            add_file(tar, full_path, arcname, mode)
 
 def add_file(tar: tarfile.TarFile, src_path: str, dest_path: str, mode: int | None = None):
+    # [symlink-fix] 符号链接必须在最前面处理并直接返回: 后面两处都会跟随链接 ——
+    # get_default_permission() 要 open() 读 shebang、addfile 要 open() 读内容, 目标
+    # 若是绝对路径(Alpine busybox applet 链接全是 /bin/busybox)就在**打包机**上解析:
+    # 打包机恰好有该文件时构建成功, 换台没有的(GitHub CI ubuntu-latest)直接
+    # FileNotFoundError 整个构建崩。链接只写 linkname 不带内容, 与目标在不在无关。
+    info = tar.gettarinfo(src_path, arcname=dest_path)
+    if info.islnk() or info.issym():
+        info.mode = mode if mode is not None else 0o777
+        tar.addfile(info)
+        return
+
     if mode is None:
         mode = get_default_permission(src_path)
-
-    info = tar.gettarinfo(src_path, arcname=dest_path)
     info.mode = mode
 
     with open(src_path, "rb") as f:
