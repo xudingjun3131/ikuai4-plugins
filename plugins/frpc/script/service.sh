@@ -10,6 +10,9 @@ fi
 # 读取某个键的值
 # 参数: section 键名
 CONFIG_FILE="$EXT_PLUGIN_CONFIG_DIR/frpc/frpc.ini"
+# [config-relocate] 框架 set_storage 会把 EXT_PLUGIN_CONFIG_DIR 整体迁到存储路径,
+# 此文件必须跟着变量走 —— 旧版硬编码 /etc/mnt/frpc.config 写在配置分区(sda3), 不随存储走
+FRPC_ECHO="$EXT_PLUGIN_CONFIG_DIR/frpc/frpc.config"
 read_ini_value() {
     local section=$1 key=$2
     awk -F' *= *' -v section="[$section]" -v key="$key" '
@@ -80,14 +83,15 @@ update_config() {
     local_type=$(echo "$local_type" | sed 's/%20/-/g')
     target=$(echo "$target" | sed 's/%20/-/g')
 
-    echo "${server}" >/etc/mnt/frpc.config
-    echo "${vkey}" >>/etc/mnt/frpc.config
-    echo "${password}" >>/etc/mnt/frpc.config
-    echo "${target}" >>/etc/mnt/frpc.config
-    echo "${local_type}" >>/etc/mnt/frpc.config
+    mkdir -p "$EXT_PLUGIN_CONFIG_DIR/frpc" 2>/dev/null
+    echo "${server}" >"$FRPC_ECHO"
+    echo "${vkey}" >>"$FRPC_ECHO"
+    echo "${password}" >>"$FRPC_ECHO"
+    echo "${target}" >>"$FRPC_ECHO"
+    echo "${local_type}" >>"$FRPC_ECHO"
 
     echo "配置文件已更新："
-    cat /etc/mnt/frpc.config
+    cat "$FRPC_ECHO"
     if killall -q -0 frpc; then
         killall frpc
     fi

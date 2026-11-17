@@ -137,13 +137,17 @@ start_monitor() {
     [ "$?" != "0" ] && return 1
 
     chmod u+x "${MONITOR_FILE}"
-	mkdir /etc/mnt/uu -p
-	if [ -f /etc/mnt/.uuplugin_uuid ];then
-		ln -s /etc/mnt/uu/.uuplugin_uuid ${INSTALL_DIR}/.uuplugin_uuid
-	 else
-		 touch /etc/mnt/uu/.uuplugin_uuid
-		 ln -s /etc/mnt/uu/.uuplugin_uuid ${INSTALL_DIR}/.uuplugin_uuid
+	# [config-relocate] UUID 落点跟配置目录变量走(框架 set_storage 会把 EXT_PLUGIN_CONFIG_DIR
+	# 迁到存储路径), 不再硬编码 /etc/mnt/uu(sda3 配置分区)。旧位置已有 UUID 先迁移保留——
+	# 这是 UU 加速器的设备标识, 换文件要重新绑定。顺带修旧代码 if 判断写错路径的死分支
+	# (查 /etc/mnt/.uuplugin_uuid 但文件实际在 /etc/mnt/uu/ 下, 永远走 else)。
+	local uuiddir="$EXT_PLUGIN_CONFIG_DIR/uu"
+	mkdir -p "$uuiddir" 2>/dev/null
+	if [ -f /etc/mnt/uu/.uuplugin_uuid ] && [ ! -f "$uuiddir/.uuplugin_uuid" ]; then
+		cp -f /etc/mnt/uu/.uuplugin_uuid "$uuiddir/.uuplugin_uuid" 2>/dev/null
 	fi
+	[ -f "$uuiddir/.uuplugin_uuid" ] || touch "$uuiddir/.uuplugin_uuid"
+	ln -sf "$uuiddir/.uuplugin_uuid" ${INSTALL_DIR}/.uuplugin_uuid
     /bin/sh "${MONITOR_FILE}" 1>/dev/null 2>&1 &
 	
 	rm /usr/sbin/uu/uu.tar.gz -rf
