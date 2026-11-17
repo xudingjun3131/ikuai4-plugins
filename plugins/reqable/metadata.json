@@ -2,10 +2,10 @@
   "name": "reqable",
   "alias": "小黄鸟抓包",
   "manufacturer": "iKuai",
-  "version": "1.0.38",
+  "version": "1.0.39",
   "type": "external",
   "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-  "releasenotes": "修复: 页面「关闭抓包」只撤了 iptables 透明转发规则, 没停引擎记录层 —— 显式代理(18080)的设备流量照样落库, WebUI 里持续涨(关了还在抓)。现在关闭抓包=撤规则+引擎暂停记录, 开启抓包=上规则+恢复记录; 引擎启动时也会按开关状态对齐(关着启动不再是暂停态被静默重置); 页面抓包状态改三态显示: 抓包中/已暂停(引擎)/抓包已关",
+  "releasenotes": "修复: 断点拦截 match.host 为 * (全匹配)时从来挂不住任何请求 —— breakpoint 的 hostMatch 漏了 * 特判, * 落到 strings.Contains(host,\"*\") 恒 false。rules 包一直有这条特判, breakpoint 包漏了; 已补并加回归测试(行为级: host=* 必须挂住/不匹配不挂)",
   "arch": [
     "x86_64"
   ],

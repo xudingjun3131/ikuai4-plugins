@@ -177,6 +177,12 @@ mkdir -p /tmp/oneplug && cp -a plugins/reqable /tmp/oneplug/ && python3 build.py
 
 用户实踩：页面点「关闭抓包」后 proxy 还在抓、WebUI 里流量还在涨。**根因**：router 页的 `set_capture` 只撤了 iptables 透明转发规则（`iptables_del`），**引擎的记录层根本没停**——手动设了显式代理（18080）的设备流量照样进引擎照样落库，而 iptables 规则对显式代理流量毫无约束力。引擎自带的暂停能力（`PUT /api/capture {paused:true}`，store 的 `Add` 在 paused 时直接返回不存）router 页从来没调用过。**修法**：`__engine_capture()` 用 GNU wget（`/usr/bin/wget-ssl`，支持 `--method=PUT --body-data`；**不是 busybox wget**，别用 `--post-data`）调引擎 API，`set_capture` 两个分支都调；`start()` 启动后按 `$CAPTURE_FLAG` 有无对齐暂停态（引擎每次启动 paused 默认 false，不对齐的话"关了抓包再重启引擎"会静默恢复记录）。**页面三态**：`__show_data` 增加 `enginePaused`（GET /api/capture 的 `.paused`），标签显示 抓包中/已暂停(引擎)/抓包已关——总开关开着但引擎暂停时以前也显示"抓包中"，用户看着"在抓"却一条不记，和"关了还在抓"是同一类状态不透明。
 
+### 3.7 断点全匹配失效 + 测试用例文档（2026-11-17，v1.0.39）
+
+写测试文档时实测发现的真 bug：**断点拦截 `match.host:"*"`（全匹配）从来挂不住任何请求**——`internal/breakpoint/manager.go` 的 `hostMatch` 漏了 `*`/空 的特判，`*` 一路落到末尾 `strings.Contains(host, "*")`，host 里不可能含星号 → 恒 false → shouldHold 永假。`internal/rules/rule.go` 的同名函数一直有这条特判，breakpoint 包漏抄了。**判据**：同一种"匹配语义"在两个包里各有一份实现时，逐个对齐特判（`*`/空/`*.` 前缀）。另：断点开启后**一个流会先后挂两次**（请求阶段+响应阶段，match 不区分阶段），**每个 session 都要单独 resume**，客户端只有响应阶段放行后才收到内容——测试时只放请求阶段会看到"客户端拿到空响应"，不是 bug。
+
+`docs/reqable-testcases.md`：18 条用例（TC-01~TC-18）覆盖引擎启停/抓包总开关真停/开关与启动对齐/三态显示/规则编辑器 12 类型/内置规则/改包再转发/压缩边界/QX 模板/原 3 模板/断点/设备选择/scope/CA/端口/数据目录 sda3/定时/暂停清空 HAR，附「已知边界（不是缺陷）」7 条与签收表。写测试文档本身就是最好的自查——本条 bug 就是写 TC-11 时实测发现的。
+
 ## 4. 当前状态（2026-11-17）
 
 - **27 个插件**：adguard clash ddnsgo frpc frps gecoos linkease lucky mds npc nps openp2p pppoe-scan reqable smartdns socat socks5 socks5-extapi syslog tailscale uu vidblock vlmcsd vnt vnts vremote zerotier（alist 已应用户要求下线）
