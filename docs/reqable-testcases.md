@@ -167,7 +167,7 @@ EOF
 - **结果**：□ PASS □ FAIL　实际：
 
 ### TC-14 CA 证书
-- **步骤**：a) 插件页点「下载 CA 证书」；b) 引擎 WebUI 点「CA证书」；c) `curl -s $A/api/ca` 看 base64
+- **步骤**：a) 插件页点「下载 CA 证书」；b) 引擎 WebUI 点「CA证书」；c) `curl -s $A/ca.pem`（`$A` 已含 `/api/`，端点是 `/api/ca.pem`，**不是** `/api/ca`）
 - **预期**：三条路都能拿到 CA（router 页走同源 base64 通道，不被混合内容拦）；安装并信任后 HTTPS 解密正常（能看到明文请求/响应）
 - **结果**：□ PASS □ FAIL　实际：
 
