@@ -27,6 +27,20 @@ install()
 	if [ "$type" = "new" -o "$type" = "reinstall" ]; then
 		mkdir -p $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME
 	fi
+	# [stale-proc-fix] 升级(upgrade/new/reinstall)时框架已把新二进制拷到磁盘, 但**旧引擎
+	# 进程还在跑旧 inode**(Linux 删运行中文件不影响已加载的进程)——service.sh 的 start()
+	# 见到活 PID 直接 return 0, 于是新二进制要到重启才生效。用户视角: "升级成功了但
+	# 功能没变化"(2026-11-17 实测: 1.0.39 的断点全匹配修复装完后仍不生效, 重启引擎才好)。
+	# 修法: 升级类安装前先探活, 在跑就停+起(不在跑则保持停止, 尊重用户关掉引擎的状态)。
+	if [ "$type" = "new" -o "$type" = "upgrade" -o "$type" = "reinstall" ]; then
+		local __svc=/usr/ikuai/function/plugin_$PLUGIN_NAME
+		if [ -x "$__svc" ] && "$__svc" show TYPE=data 2>/dev/null | grep -q '"status":1'; then
+			debug "检测到引擎在运行, 升级后重启以加载新二进制"
+			"$__svc" stop >/dev/null 2>&1
+			sleep 1
+			"$__svc" start >/dev/null 2>&1 || true
+		fi
+	fi
 	debug "reqable 插件就绪(类型: ${type:-boot})"
 	# 开机自启: 用户在页面开过"开机自启"才拉引擎(与 lucky 等同构)
 	# [exit-code-fix] 原来写成 `[ -f ... ] && ... start` 收尾, 新装时 autostart 文件

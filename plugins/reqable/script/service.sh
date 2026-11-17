@@ -284,7 +284,20 @@ stop()
 {
 	[ -f $SCHED_PIDFILE ] && kill $(cat $SCHED_PIDFILE) 2>/dev/null
 	rm -f $SCHED_PIDFILE
-	[ -f $PIDFILE ] && kill $(cat $PIDFILE) 2>/dev/null
+	# [stop-wait] kill 只是发信号, 进程退出和端口释放是异步的。原来 stop 发完信号
+	# 立即返回, 调用方紧接着 start 时新进程 bind 不上同一端口 → 起即死 → "引擎启动
+	# 失败"(2026-11-17 设备实踩: stop→start 竞态, 第二次 start 才成)。这里等到进程
+	# 真消失(最多 5s)再返回, 让 stop/start 成为可依赖的原子对。
+	if [ -f $PIDFILE ]; then
+		local __p=$(cat $PIDFILE)
+		kill $__p 2>/dev/null
+		local __i=0
+		while kill -0 $__p 2>/dev/null && [ $__i -lt 50 ]; do
+			sleep 0.1
+			__i=$((__i+1))
+		done
+		kill -9 $__p 2>/dev/null
+	fi
 	rm -f $PIDFILE
 	iptables_del
 	return 0

@@ -2,10 +2,10 @@
   "name": "reqable",
   "alias": "小黄鸟抓包",
   "manufacturer": "iKuai",
-  "version": "1.0.39",
+  "version": "1.0.40",
   "type": "external",
   "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-  "releasenotes": "修复: 断点拦截 match.host 为 * (全匹配)时从来挂不住任何请求 —— breakpoint 的 hostMatch 漏了 * 特判, * 落到 strings.Contains(host,\"*\") 恒 false。rules 包一直有这条特判, breakpoint 包漏了; 已补并加回归测试(行为级: host=* 必须挂住/不匹配不挂)",
+  "releasenotes": "修复: ① 升级插件后引擎还在跑旧二进制(Linux 删运行中文件 inode 仍存活, start 见到活 PID 直接返回), 新功能要到重启才生效 —— install.sh 升级类安装现在会检测并在跑时自动停+起; ② stop() 发完信号立即返回, 紧接着 start 会因端口没释放而 bind 失败(设备实踩竞态), 现在等到进程真消失(最多5s)再返回",
   "arch": [
     "x86_64"
   ],
