@@ -258,6 +258,14 @@ start()
 	sleep 1
 	# 健康检查 + CA 预热
 	wget -q -O /dev/null -T3 http://127.0.0.1:$API_PORT/api/ca.pem 2>/dev/null
+	# [capture-pause] 启动后把引擎记录层对齐总开关: 开关关着(无 flag)时引擎必须
+	# 是暂停态 —— 否则"关了抓包再重启引擎"会静默恢复记录, 又变成关了还在抓。
+	# (引擎每次启动 paused 默认 false, 不对齐就等于拿用户的开关状态开玩笑)
+	if [ -f $CAPTURE_FLAG ]; then
+		__engine_capture 1
+	else
+		__engine_capture 0
+	fi
 	# 启动自检: 进程或端口不在要报出来(否则用户看到"已启动"但端口没监听)
 	if ! kill -0 $(cat $PIDFILE) 2>/dev/null; then
 		echo "引擎启动失败, 日志尾部:"
@@ -299,6 +307,18 @@ __param_decode()
 # ============ 配置动作(页面调用) ============
 
 # 总开关: set_capture capture=true|false
+# [capture-pause] 总开关必须同时管住引擎的记录层。以前只撤 iptables 透明转发,
+# 显式代理(18080)的流量照样进引擎照样落库 —— 用户实踩"关了抓包还在抓, WebUI
+# 里流量还在涨"(手动设了代理的设备根本不受 iptables 规则影响)。
+__engine_capture()
+{
+	local on=$1 paused=true
+	[ "$on" = "1" ] && paused=false
+	wget -q -O /dev/null -T3 --method=PUT --body-data="{\"paused\":$paused}" \
+		http://127.0.0.1:$API_PORT/api/capture 2>/dev/null
+	return 0
+}
+
 set_capture()
 {
 	if [ "$capture" = "true" ]; then
@@ -307,6 +327,7 @@ set_capture()
 			start || { echo "引擎未运行且启动失败, 抓包无法开启"; return 1; }
 		fi
 		touch $CAPTURE_FLAG
+		__engine_capture 1
 		if in_schedule; then
 			iptables_add
 		else
@@ -315,7 +336,8 @@ set_capture()
 	else
 		rm -f $CAPTURE_FLAG
 		iptables_del
-		echo "抓包已关闭, 网络规则已撤"
+		__engine_capture 0
+		echo "抓包已关闭, 网络规则已撤, 引擎已暂停记录"
 	fi
 	return 0
 }
@@ -566,6 +588,12 @@ __show_data()
 	local flows=0
 	flows=$(wget -q -O - http://127.0.0.1:$API_PORT/api/flows 2>/dev/null | jq '.flows | length' 2>/dev/null)
 	[ -z "$flows" ] && flows=0
+	# [capture-pause] 引擎记录层是否暂停(WebUI 里点过"暂停"即为 1)。
+	# 总开关开着但引擎暂停时页面要显示"已暂停"—— 否则用户看着"抓包中"却
+	# 一条不记, 又以为是坏了(和"关了还在抓"是同一类状态不透明)。
+	local enginePaused=0
+	local __paused=$(wget -q -O - http://127.0.0.1:$API_PORT/api/capture 2>/dev/null | jq -r '.paused' 2>/dev/null)
+	[ "$__paused" = "true" ] && enginePaused=1
 	local proxyPort=$PROXY_PORT
 	local apiPort=$API_PORT
 	local transparentPort=$TRANSPARENT_PORT
@@ -592,7 +620,7 @@ __show_data()
 	fi
 	[ -z "$groups" ] && groups='[]'
 
-	json_append __json_result__ status:int capture:int rulesOn:int autostart:int caok:int flows:int
+	json_append __json_result__ status:int capture:int enginePaused:int rulesOn:int autostart:int caok:int flows:int
 	json_append __json_result__ proxyPort:int apiPort:int transparentPort:int geoLoaded:int inWindow:int
 	json_append __json_result__ devices:json scope:json schedule:json ports:str interfaces:str groups:json
 	return 0

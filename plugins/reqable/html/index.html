@@ -57,7 +57,7 @@
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                         <el-tag size="small" :type="status === 1 ? 'success' : 'info'">{{ status === 1 ? '运行中' : '已停止' }}</el-tag>
-                        <el-tag size="small" :type="capture === 1 ? 'danger' : 'info'">{{ capture === 1 ? '抓包中' : '抓包已关' }}</el-tag>
+                        <el-tag size="small" :type="captureTag.type">{{ captureTag.text }}</el-tag>
                         <el-tag size="small" :type="rulesOn === 1 ? 'warning' : 'info'">{{ rulesOn === 1 ? '规则生效' : '规则未生效' }}</el-tag>
                         <el-tag size="small" :type="caok === 1 ? 'success' : 'warning'">{{ caok === 1 ? 'CA已生成' : 'CA未生成' }}</el-tag>
                         <span style="font-size:12px; color:#909399;">已捕获 {{ flows }} 条</span>
@@ -72,6 +72,7 @@
                     </label>
                     <button v-if="capture !== 1" type="button" class="btn btn_green rounded height26" @click="setCapture(true)">开启抓包</button>
                     <button v-else type="button" class="btn btn_red rounded height26" @click="setCapture(false)">关闭抓包</button>
+                    <span style="font-size:11px; color:#909399;">关闭抓包 = 撤网络规则 + 引擎暂停记录(显式代理的设备也不再落库)</span>
                     <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">下载 CA 证书</button>
                     <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
                     <a v-if="status === 1" class="btn btn_default rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
@@ -251,7 +252,7 @@ var app = new Vue({
         loading_text: '',
         status: 0, capture: 0, rulesOn: 0, autostart: 0, caok: 0, flows: 0,
         // autostart 同时用于复选框 v-model(0/1) 和 set_auto_start 传参(true/false)
-        proxyPort: 18080, apiPort: 18081, transparentPort: 18082, geoLoaded: 0, inWindow: 0,
+        proxyPort: 18080, apiPort: 18081, transparentPort: 18082, geoLoaded: 0, inWindow: 0, enginePaused: 0,
         uiUrl: '', caUrl: '',
         // 布局折叠态: 2/3/4 是高级筛选, 默认收起省屏幕; 第1段抓包设备始终展开
         activeTab: 'devices',
@@ -269,6 +270,15 @@ var app = new Vue({
         // 记录范围
         recordMode: 'all_except', paths: '', methods: '', userAgents: '', ja3: '',
         contentTypes: '', sizeMin: '', sizeMax: ''
+    },
+    computed: {
+        // [capture-pause] 三态: 总开关关=抓包已关; 开着但引擎暂停(WebUI 里点过暂停)=
+        // 已暂停; 否则抓包中。以前只有两态, 引擎暂停时页面仍显示"抓包中"却一条不记。
+        captureTag() {
+            if (this.capture !== 1) return { type: 'info', text: '抓包已关' };
+            if (this.enginePaused === 1) return { type: 'warning', text: '已暂停(引擎)' };
+            return { type: 'danger', text: '抓包中' };
+        }
     },
     mounted() {
         this.uiUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/';
@@ -299,6 +309,7 @@ var app = new Vue({
                     this.autostart = d.autostart || 0;
                     this.caok = d.caok || 0;
                     this.flows = d.flows || 0;
+                    this.enginePaused = d.enginePaused || 0;
                     this.geoLoaded = d.geoLoaded || 0;
                     this.inWindow = d.inWindow || 0;
                     if (d.proxyPort) this.proxyPort = d.proxyPort;

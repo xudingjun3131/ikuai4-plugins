@@ -2,10 +2,10 @@
   "name": "reqable",
   "alias": "小黄鸟抓包",
   "manufacturer": "iKuai",
-  "version": "1.0.37",
+  "version": "1.0.38",
   "type": "external",
   "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-  "releasenotes": "新增 10 条内置规则(全新安装自动种子, 面板「内置」按钮可随时载入): 请求头禁用缓存+If-None-Match/If-Modified-Since、Accept-Encoding=identity(让内容替换能匹配明文)、响应头放宽 CORS、移除 CSP/X-Frame-Options、API/遥测/静态流量高亮; 修复 goproxy 默认删 Accept-Encoding 导致 identity 规则被 Transport 补回 gzip 的问题(KeepAcceptEncoding); 规则面板加「内置」按钮与内置角标",
+  "releasenotes": "修复: 页面「关闭抓包」只撤了 iptables 透明转发规则, 没停引擎记录层 —— 显式代理(18080)的设备流量照样落库, WebUI 里持续涨(关了还在抓)。现在关闭抓包=撤规则+引擎暂停记录, 开启抓包=上规则+恢复记录; 引擎启动时也会按开关状态对齐(关着启动不再是暂停态被静默重置); 页面抓包状态改三态显示: 抓包中/已暂停(引擎)/抓包已关",
   "arch": [
     "x86_64"
   ],

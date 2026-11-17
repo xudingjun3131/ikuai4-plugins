@@ -173,6 +173,10 @@ mkdir -p /tmp/oneplug && cp -a plugins/reqable /tmp/oneplug/ && python3 build.py
 
 **最大的坑：goproxy 会删 Accept-Encoding**——`RemoveProxyHeaders` 在转发前 `r.Header.Del("Accept-Encoding")`（除非 `KeepAcceptEncoding`），删完 Go `http.Transport` 发现没有该头又自动补 `gzip`，规则里设的 `identity` 被这俩联手干掉，上游永远回压缩流，「内容替换」的明文永远匹配不上。修法：`e.px.KeepAcceptEncoding = true`（没规则时客户端原始值直传，行为与之前等价；有规则时 identity 才生效）。**判据**：上游回显收到的请求头，`Accept-Encoding` 必须是 `identity` 而不是 `gzip`。
 
+### 3.6 抓包总开关必须同时管住引擎记录层（2026-11-17，v1.0.38）
+
+用户实踩：页面点「关闭抓包」后 proxy 还在抓、WebUI 里流量还在涨。**根因**：router 页的 `set_capture` 只撤了 iptables 透明转发规则（`iptables_del`），**引擎的记录层根本没停**——手动设了显式代理（18080）的设备流量照样进引擎照样落库，而 iptables 规则对显式代理流量毫无约束力。引擎自带的暂停能力（`PUT /api/capture {paused:true}`，store 的 `Add` 在 paused 时直接返回不存）router 页从来没调用过。**修法**：`__engine_capture()` 用 GNU wget（`/usr/bin/wget-ssl`，支持 `--method=PUT --body-data`；**不是 busybox wget**，别用 `--post-data`）调引擎 API，`set_capture` 两个分支都调；`start()` 启动后按 `$CAPTURE_FLAG` 有无对齐暂停态（引擎每次启动 paused 默认 false，不对齐的话"关了抓包再重启引擎"会静默恢复记录）。**页面三态**：`__show_data` 增加 `enginePaused`（GET /api/capture 的 `.paused`），标签显示 抓包中/已暂停(引擎)/抓包已关——总开关开着但引擎暂停时以前也显示"抓包中"，用户看着"在抓"却一条不记，和"关了还在抓"是同一类状态不透明。
+
 ## 4. 当前状态（2026-11-17）
 
 - **27 个插件**：adguard clash ddnsgo frpc frps gecoos linkease lucky mds npc nps openp2p pppoe-scan reqable smartdns socat socks5 socks5-extapi syslog tailscale uu vidblock vlmcsd vnt vnts vremote zerotier（alist 已应用户要求下线）
