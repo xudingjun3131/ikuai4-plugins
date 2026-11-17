@@ -2,11 +2,11 @@
     "name": "socat",
     "alias": "IPV6转发",
     "manufacturer": "iKuai",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "type": "external",
     "description": "Socat (Socket CAT) 是一个功能强大的网络工具，它可以在不同类型的套接字（sockets）之间进行数据转发和代理。本插件可以实现将IPV6的端口转发到IPV4的端口。",
     "arch": [
         "x86_64"
     ],
-    "releasenotes": "内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px"
+    "releasenotes": "\u2605 \u5b89\u88c5/\u914d\u7f6e\u6587\u4ef6\u5168\u90e8\u6539\u5b58\u6307\u5b9a\u5b58\u50a8\u8def\u5f84, \u914d\u7f6e\u5206\u533a(sda3)\u96f6\u63d2\u4ef6\u6570\u636e: \u73af\u5883\u53d8\u91cf\u4e0d\u518d\u786c\u7f16\u7801 source /etc/mnt/plugins/configs/config.sh, \u6539\u7531\u6846\u67b6 helper(plugin_env.sh)\u89e3\u6790\u2014\u2014\u6709\u5b58\u50a8\u5377\u65f6\u8bfb\u5377\u4e0a plugins_fw/config.sh, \u65e0\u5b58\u50a8\u65f6\u7528 p5(/etc/log)\u9ed8\u8ba4\u503c; \u9700\u642d\u914d Build20261117xxxx \u56fa\u4ef6\u3002"
 }

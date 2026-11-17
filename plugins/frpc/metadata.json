@@ -2,7 +2,7 @@
     "name": "frpc",
     "alias": "frpc客户端",
     "manufacturer": "iKuai",
-    "version": "1.3.1",
+    "version": "1.3.2",
     "type": "external",
     "description": "FRPC 客户端用于连接 FRP 服务器（FRPS），将本地服务（如 Web 服务、SSH、RDP 等）暴露给外部网络。FRPC 会主动连接 FRPS，并通过隧道将内网的流量转发到 FRPS",
     "arch": [
@@ -21,5 +21,5 @@
             "bins/frpc-x86_64": "bin/frpc"
         }
     },
-    "releasenotes": "修复回显文件硬编码写在配置分区(sda3)的问题: update_config 的 /etc/mnt/frpc.config 不随插件存储路径走, 现改到配置目录下随 EXT_PLUGIN_CONFIG_DIR 变量迁移(框架 v2 会把配置目录整体迁到存储路径)。frp v0.62.1 → v0.72.0; 内容页左右内距修正: 去掉 col-lg-offset-1 的左边8.33%缩进/右边0的不对称, 统一 body 左右各20px"
+    "releasenotes": "\u2605 \u5b89\u88c5/\u914d\u7f6e\u6587\u4ef6\u5168\u90e8\u6539\u5b58\u6307\u5b9a\u5b58\u50a8\u8def\u5f84, \u914d\u7f6e\u5206\u533a(sda3)\u96f6\u63d2\u4ef6\u6570\u636e: \u73af\u5883\u53d8\u91cf\u4e0d\u518d\u786c\u7f16\u7801 source /etc/mnt/plugins/configs/config.sh, \u6539\u7531\u6846\u67b6 helper(plugin_env.sh)\u89e3\u6790\u2014\u2014\u6709\u5b58\u50a8\u5377\u65f6\u8bfb\u5377\u4e0a plugins_fw/config.sh, \u65e0\u5b58\u50a8\u65f6\u7528 p5(/etc/log)\u9ed8\u8ba4\u503c; \u9700\u642d\u914d Build20261117xxxx \u56fa\u4ef6\u3002"
 }

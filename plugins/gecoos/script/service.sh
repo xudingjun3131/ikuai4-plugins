@@ -2,7 +2,9 @@
 FEATURE_ID=0
 ENABLE_FEATURE_CHECK=1
 PLUGIN_NAME="gecoos"
-. /etc/mnt/plugins/configs/config.sh
+# [storage-anchor] 环境变量由框架 helper 解析(存储卷上的 config.sh / p5 默认值),
+# 旧固件(无 helper)回退 sda3 引导文件
+. /usr/ikuai/script/plugin_env.sh 2>/dev/null || . /etc/mnt/plugins/configs/config.sh 2>/dev/null
 
 CONFIG_DIR=$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME
 GECOOS_BIN=$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin/gecoos

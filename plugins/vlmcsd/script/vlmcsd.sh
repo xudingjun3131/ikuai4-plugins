@@ -1,5 +1,7 @@
 #!/bin/bash /etc/ikcommon 
-. /etc/mnt/plugins/configs/config.sh
+# [storage-anchor] 环境变量由框架 helper 解析(存储卷上的 config.sh / p5 默认值),
+# 旧固件(无 helper)回退 sda3 引导文件
+. /usr/ikuai/script/plugin_env.sh 2>/dev/null || . /etc/mnt/plugins/configs/config.sh 2>/dev/null
 script_path=$(readlink -f "${BASH_SOURCE[0]}")
 plugin_dir=$(dirname "$script_path")
 

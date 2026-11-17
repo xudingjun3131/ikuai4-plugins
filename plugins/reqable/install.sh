@@ -3,7 +3,9 @@ BASH_SOURCE=$0
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_NAME="$(jq -r '.name' $INSTALL_DIR/html/metadata.json)"
 chmod +x $INSTALL_DIR/script/* $INSTALL_DIR/bins/*
-. /etc/mnt/plugins/configs/config.sh
+# [storage-anchor] 环境变量由框架 helper 解析(存储卷上的 config.sh / p5 默认值),
+# 旧固件(无 helper)回退 sda3 引导文件
+. /usr/ikuai/script/plugin_env.sh 2>/dev/null || . /etc/mnt/plugins/configs/config.sh 2>/dev/null
 # [bin-preflight] 框架解压 ipk 时把 tar 错误静默了(2>/dev/null 且不查退出码),
 # 磁盘不足时小文件解压成功、末尾的 bins/ 失败, 安装却显示成功 —— 后果是插件页
 # 能打开但一启动就 "No such file or directory", 极难排查。这里装完立即自检。

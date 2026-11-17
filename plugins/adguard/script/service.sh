@@ -1,6 +1,8 @@
 #!/bin/bash /etc/ikcommon
 PLUGIN_NAME="adguard"
-. /etc/mnt/plugins/configs/config.sh
+# [storage-anchor] 环境变量由框架 helper 解析(存储卷上的 config.sh / p5 默认值),
+# 旧固件(无 helper)回退 sda3 引导文件
+. /usr/ikuai/script/plugin_env.sh 2>/dev/null || . /etc/mnt/plugins/configs/config.sh 2>/dev/null
 
 # [rootfs空间修复] 工作目录放存储分区: /tmp 在 rootfs RAM 盘(仅剩~6MB),
 # AdGuardHome 解压后 ~20MB, 解压到 /tmp 必 ENOSPC → 二进制起不来 → 3000 端口从不监听

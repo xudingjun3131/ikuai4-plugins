@@ -1,5 +1,7 @@
 #!/bin/sh
-. /etc/mnt/plugins/configs/config.sh
+# [storage-anchor] 环境变量由框架 helper 解析(存储卷上的 config.sh / p5 默认值),
+# 旧固件(无 helper)回退 sda3 引导文件
+. /usr/ikuai/script/plugin_env.sh 2>/dev/null || . /etc/mnt/plugins/configs/config.sh 2>/dev/null
 touch /tmp/install.log
 chmod a+rw /tmp/install.log
 exec 2>/tmp/install.log || true

@@ -5,7 +5,9 @@
 #   层2 引擎 scope.json:  按域名+目标IP+GEOIP 决定是否 MITM 解密
 #   层3 引擎记录层:       按路径/方法/UA/JA3/内容类型/大小 决定是否保存
 PLUGIN_NAME=reqable
-. /etc/mnt/plugins/configs/config.sh
+# [storage-anchor] 环境变量由框架 helper 解析(存储卷上的 config.sh / p5 默认值),
+# 旧固件(无 helper)回退 sda3 引导文件
+. /usr/ikuai/script/plugin_env.sh 2>/dev/null || . /etc/mnt/plugins/configs/config.sh 2>/dev/null
 
 # [self-locate] 用脚本自身位置反推插件安装目录, 不盲信 config.sh 的 EXT_PLUGIN_INSTALL_DIR。
 # 实踩: 用户把插件存储从 /etc/mnt/plugin_store 改成 /etc/disk_user/plugins 后,
