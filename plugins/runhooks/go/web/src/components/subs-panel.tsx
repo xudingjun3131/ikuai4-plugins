@@ -79,8 +79,8 @@ export function SubsPanel() {
       const res = await fetch("/api/subscriptions")
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const body = (await res.json()) as { subs: Sub[]; effective: Effective }
-      setSubs(body.subs)
-      setEffective(body.effective)
+      setSubs(body.subs || [])
+      setEffective(body.effective || null)
       setError("")
     } catch (e) {
       setError(String(e))
@@ -161,15 +161,15 @@ export function SubsPanel() {
           <div className="mb-3 rounded-lg border border-border/70 bg-card/60 p-3 text-[11px] text-muted-foreground shadow-sm ring-1 ring-black/20">
             <p className="mb-1 font-medium text-foreground/80">当前生效(全部启用订阅的并集)</p>
             <p>
-              解密域名 <b className="text-foreground">{effective.domains.length}</b> · 引擎规则{" "}
-              <b className="text-foreground">{effective.rules}</b> · 脚本{" "}
-              <b className="text-foreground">{effective.scripts}</b>
-              {effective.dst_ips.length ? <> · IP 段 {effective.dst_ips.length}</> : null}
-              {effective.countries.length ? <> · 国家 {effective.countries.length}</> : null}
+              解密域名 <b className="text-foreground">{(effective.domains || []).length}</b> · 引擎规则{" "}
+              <b className="text-foreground">{effective.rules || 0}</b> · 脚本{" "}
+              <b className="text-foreground">{effective.scripts || 0}</b>
+              {(effective.dst_ips || []).length ? <> · IP 段 {effective.dst_ips.length}</> : null}
+              {(effective.countries || []).length ? <> · 国家 {effective.countries.length}</> : null}
             </p>
-            {effective.domains.length > 0 ? (
+            {(effective.domains || []).length > 0 ? (
               <p className="mt-1 max-h-16 overflow-auto font-mono text-[10px] leading-relaxed text-emerald-100/80">
-                {effective.domains.slice(0, 40).join("  ")}
+                {(effective.domains || []).slice(0, 40).join("  ")}
                 {effective.domains.length > 40 ? `  …共 ${effective.domains.length} 个` : ""}
               </p>
             ) : null}
@@ -326,17 +326,17 @@ export function SubsPanel() {
                   <p className="font-medium text-foreground/70">
                     解析明细(格式 {detail.parsed.format}, 跳过 {detail.parsed.skipped} 行)
                   </p>
-                  {detail.parsed.mitm_hosts.length > 0 ? (
+                  {(detail.parsed.mitm_hosts || []).length > 0 ? (
                     <p>
                       <span className="text-muted-foreground">[mitm] 主机: </span>
                       <span className="font-mono text-emerald-100/80">{detail.parsed.mitm_hosts.join(", ")}</span>
                     </p>
                   ) : null}
-                  {detail.parsed.rules.length > 0 ? (
+                  {(detail.parsed.rules || []).length > 0 ? (
                     <div>
                       <p className="text-muted-foreground">规则(前 50 条):</p>
                       <ul className="ml-3 list-disc space-y-0.5 font-mono">
-                        {detail.parsed.rules.slice(0, 50).map((r, i) => (
+                        {(detail.parsed.rules || []).slice(0, 50).map((r, i) => (
                           <li key={i}>
                             {r.type},{r.value},{r.policy}
                           </li>
@@ -344,11 +344,11 @@ export function SubsPanel() {
                       </ul>
                     </div>
                   ) : null}
-                  {detail.parsed.rewrites.length > 0 ? (
+                  {(detail.parsed.rewrites || []).length > 0 ? (
                     <div>
                       <p className="text-muted-foreground">改写指令(前 30 条):</p>
                       <ul className="ml-3 list-disc space-y-0.5 font-mono">
-                        {detail.parsed.rewrites.slice(0, 30).map((r, i) => (
+                        {(detail.parsed.rewrites || []).slice(0, 30).map((r, i) => (
                           <li key={i}>
                             {r.kind} ← {r.pattern}
                           </li>
@@ -356,19 +356,19 @@ export function SubsPanel() {
                       </ul>
                     </div>
                   ) : null}
-                  {detail.parsed.scripts.length > 0 ? (
+                  {(detail.parsed.scripts || []).length > 0 ? (
                     <p>
                       <span className="text-muted-foreground">脚本: </span>
                       <span className="font-mono">
-                        {detail.parsed.scripts.map((s2) => `${s2.name}${s2.fetch_err ? "(未取到)" : ""}`).join(", ")}
+                        {(detail.parsed.scripts || []).map((s2) => `${s2.name}${s2.fetch_err ? "(未取到)" : ""}`).join(", ")}
                       </span>
                     </p>
                   ) : null}
-                  {detail.parsed.warnings.length > 0 ? (
+                  {(detail.parsed.warnings || []).length > 0 ? (
                     <div>
                       <p className="text-amber-300">适配说明({detail.parsed.warnings.length}):</p>
                       <ul className="ml-3 list-disc space-y-0.5 text-amber-200/80">
-                        {detail.parsed.warnings.slice(0, 20).map((w, i) => (
+                        {(detail.parsed.warnings || []).slice(0, 20).map((w, i) => (
                           <li key={i}>{w}</li>
                         ))}
                       </ul>

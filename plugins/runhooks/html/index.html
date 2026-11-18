@@ -264,11 +264,11 @@
                             <button type="button" class="btn btn_green rounded height26" :disabled="subBusy || !subUrl" @click="addSub">添加订阅</button>
                         </div>
                         <div v-if="subEffective" class="runhooks-tip">
-                            当前生效(启用订阅的并集): 解密域名 <b>{{ subEffective.domains.length }}</b> ·
-                            引擎规则 <b>{{ subEffective.rules }}</b> · 脚本 <b>{{ subEffective.scripts }}</b>
-                            <span v-if="subEffective.dst_ips.length"> · IP 段 {{ subEffective.dst_ips.length }}</span>
-                            <span v-if="subEffective.countries.length"> · 国家 {{ subEffective.countries.length }}</span>
-                            <div v-if="subEffective.domains.length" style="margin-top:4px; font-family:monospace; font-size:11px; color:#67c23a; word-break:break-all;">
+                            当前生效(启用订阅的并集): 解密域名 <b>{{ (subEffective.domains || []).length }}</b> ·
+                            引擎规则 <b>{{ subEffective.rules || 0 }}</b> · 脚本 <b>{{ subEffective.scripts || 0 }}</b>
+                            <span v-if="(subEffective.dst_ips || []).length"> · IP 段 {{ subEffective.dst_ips.length }}</span>
+                            <span v-if="(subEffective.countries || []).length"> · 国家 {{ subEffective.countries.length }}</span>
+                            <div v-if="(subEffective.domains || []).length" style="margin-top:4px; font-family:monospace; font-size:11px; color:#67c23a; word-break:break-all;">
                                 {{ subEffective.domains.slice(0, 30).join('  ') }}{{ subEffective.domains.length > 30 ? '  …共 ' + subEffective.domains.length + ' 个' : '' }}
                             </div>
                         </div>
@@ -689,8 +689,16 @@ var app = new Vue({
             this.callPlugin('show', {TYPE: 'subs'}, (response) => {
                 if (response.Result % 10000 == 0 && response.Data) {
                     const d = response.Data;
+                    // 引擎空数组可能回 null(Go nil slice), 归一成 [] 防模板 .length 崩
                     this.subs = d.subs || [];
                     this.subEffective = d.effective || null;
+                    if (this.subEffective) {
+                        this.subEffective.domains = this.subEffective.domains || [];
+                        this.subEffective.dst_ips = this.subEffective.dst_ips || [];
+                        this.subEffective.countries = this.subEffective.countries || [];
+                        this.subEffective.paths = this.subEffective.paths || [];
+                        this.subEffective.user_agents = this.subEffective.user_agents || [];
+                    }
                     this.subEngine = d.engine === true;
                 } else {
                     this.subs = [];

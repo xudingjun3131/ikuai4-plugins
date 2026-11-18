@@ -18,8 +18,29 @@ func subscriptionsCollection(m *subscription.Manager) http.HandlerFunc {
 		switch r.Method {
 		case http.MethodGet:
 			patch, ruleN, scriptN := m.Effective()
+			// [nil-slice] Go 的 nil slice 编成 null, 前端 .length/.map 直接崩
+			// (React 整个 app 白屏、Vue 面板失灵)——归一成 [] 再出站
+			if patch.Domains == nil {
+				patch.Domains = []string{}
+			}
+			if patch.DstIPs == nil {
+				patch.DstIPs = []string{}
+			}
+			if patch.Countries == nil {
+				patch.Countries = []string{}
+			}
+			if patch.Paths == nil {
+				patch.Paths = []string{}
+			}
+			if patch.UserAgents == nil {
+				patch.UserAgents = []string{}
+			}
+			list := m.List()
+			if list == nil {
+				list = []subscription.Sub{}
+			}
 			writeJSON(w, http.StatusOK, map[string]any{
-				"subs": m.List(),
+				"subs": list,
 				"effective": map[string]any{
 					"domains":     patch.Domains,
 					"dst_ips":     patch.DstIPs,

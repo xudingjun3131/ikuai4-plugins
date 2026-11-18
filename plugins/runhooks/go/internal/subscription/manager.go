@@ -139,6 +139,22 @@ func (m *Manager) ParsedOf(id string) (*Parsed, error) {
 	if err := json.Unmarshal(b, &p); err != nil {
 		return nil, err
 	}
+	// [nil-slice] 空数组在 JSON 里是 null, 前端 .length/.map 会崩——归一成 []
+	if p.MitmHosts == nil {
+		p.MitmHosts = []string{}
+	}
+	if p.Rules == nil {
+		p.Rules = []Rule{}
+	}
+	if p.Rewrites == nil {
+		p.Rewrites = []Rewrite{}
+	}
+	if p.Scripts == nil {
+		p.Scripts = []Script{}
+	}
+	if p.Warnings == nil {
+		p.Warnings = []string{}
+	}
 	return &p, nil
 }
 

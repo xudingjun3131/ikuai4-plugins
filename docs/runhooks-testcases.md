@@ -88,7 +88,35 @@ tar -tzf /tmp/rhout/ipk/plugin-runhooks-*.ipk
 - metadata: name=runhooks version=1.0.0 alias=Runhooks抓包
 - ipk 7.45MB > 6MB → **只能在线安装**(页面上传必失败, 已知边界)
 
-## 六、设备验收(待用户真机验证, TC-01~TC-18)
+## 六、浏览器渲染自测(2026-11-18, chromium headless + agent-browser)
+
+```bash
+cd /opt/runhooks-engine
+bash scripts/uitest_engine.sh        # 引擎 WebUI: 订阅面板全流程
+bash scripts/uitest_subs_flow.sh     # 引擎 WebUI: 暂停/启用/更新/删除(面板内选择器)
+bash scripts/uitest_plugin_page.sh   # 插件页(mock /Action/call + 固件静态资源)
+bash scripts/uitest_clean.sh         # 干净浏览器上下文零错误核查
+```
+
+**引擎 WebUI(React)**: 初始渲染正常(导航/流量列表/详情空态); 订阅 tab 面板/空态/表单渲染;
+添加订阅→卡片+生效总览+域名数; 明细六段(格式/mitm/规则/改写/脚本/适配说明)全渲染;
+暂停→已暂停+生效域名归零; 启用→恢复; 更新; 删除→空态; 5 个 tab 回归正常。
+**插件页(Vue, iKuai iframe)**: mock 服务(ThreadingHTTPServer + .gz 原始字节回灌)下
+Vue 正常挂载; 单按钮态(仅"停止引擎"); tab 计数(抓包设备(1)/规则订阅(1));
+设备列表 DHCP+ARP 合并(3 行, wan 侧过滤)且勾选落标签云; 订阅 tab 卡片/总览(域名2·规则5·脚本1)/
+明细/适配说明全渲染; 4 个配置 tab 切换正常。**干净浏览器上下文下两端 0 console 错误 0 page 错误**。
+
+**自测抓出并已修复的严重 bug(v1.0.1)**: 引擎 `/api/subscriptions` 空数组回 `null`
+(Go nil slice), WebUI 订阅面板 `.length/.map` 抛 TypeError → **React 整个 app 白屏、
+Vue 订阅面板失灵**(真实浏览器点"订阅"tab 复现: `Cannot read properties of undefined
+(reading 'map')`)。修复: Go 侧 subs/effective/parsed 三处 nil slice 归一成 []
+(manager.ParsedOf + api handler), React/Vue 两端同步加 `|| []` 防御。
+**教训: 任何 Go slice 出站给前端前必须归一成 []**(空数组编成 null 是 Go 默认行为)。
+
+mock 环境已知现象(非缺陷): 页面底部引擎 UI iframe 在 mock 下 404(mock 不代管
+/plugin_proxy/); agent-browser 对 SSE 连接误报 "WS error"(EventSource 探针实测 OPEN ok)。
+
+## 七、设备验收(待用户真机验证, TC-01~TC-18)
 
 | # | 用例 | 命令/操作 |
 |---|---|---|
