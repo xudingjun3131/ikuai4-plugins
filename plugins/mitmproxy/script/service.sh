@@ -117,6 +117,12 @@ start()
 		fi
 	done
 	__raise_nofile
+	# [web-i18n] lang.json 在启动引擎之前就落盘: ① 随 bundle 发货的默认值是 zh,
+	# 这里按 LANG_FILE 覆盖(用户切过 en 的话); ② 绝不能放到健康检查之后 —— 设备实锤
+	# (2026-11-18): mitmweb 冷启动超过 15 秒, 健康检查误报"启动异常"直接 return,
+	# __sync_web_lang 被跳过, 引擎虽随后起来但 lang.json 缺失, i18n-zh.js fetch 404
+	# 静默保持英文 —— 用户视角"界面全是英文"。只写磁盘文件, 不需要引擎在场。
+	__sync_web_lang
 	# [musl-loader] 显式代理 + mitmweb; confdir 落存储卷(CA/配置); 不弹浏览器
 	# web_open_browser=false: 路由器上没有浏览器
 	# [transparent] 双模式并存: regular(显式代理) + transparent(iptables REDIRECT
@@ -127,9 +133,12 @@ start()
 		--mode "regular@0.0.0.0:$proxy" --mode "transparent@0.0.0.0:$tproxy" \
 		>>$LOGFILE 2>&1 &
 	echo $! > $PIDFILE
-	# 健康检查: Python 启动要几秒, 轮询 web 端口(最多 ~15s)
-	local ok=0
-	for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+	# 健康检查: Python(Alpine runtime)启动要几秒, 冷启动/存储卷刚挂载时更慢,
+	# 轮询 web 端口(最多 60s)。设备实锤(2026-11-18): 只等 15 秒会把慢启动误报成
+	# "启动异常"(引擎随后自己起来了), 而误报路径会跳过 lang.json 同步 → 界面变英文。
+	local ok=0 i=0
+	while [ $i -lt 60 ]; do
+		i=$((i+1))
 		sleep 1
 		if wget -q -O /dev/null -T2 http://127.0.0.1:$web/ 2>/dev/null; then ok=1; break; fi
 		[ -n "$(__engine_pids)" ] || break
@@ -138,14 +147,17 @@ start()
 		echo "mitmweb 已启动: 显式代理 $proxy / 透明 $tproxy / Web $web"
 		# [web-i18n] 升级会整个换掉 bundle, 设备上 mitmweb 前端的 lang.json
 		# 会丢 —— 启动时按 LANG_FILE 重新同步, 否则升级后界面静默变回英文
+		# (启动前已同步过一次, 这里兜底再同步, 幂等)
 		__sync_web_lang
 		# [boot-heal] 开机/重启后规则自愈: 总开关开着就把规则补上
 		# (否则重启引擎后 iptables 规则没了, 用户视角"重启后抓不到包")
 		[ -f $CAPTURE_FLAG ] && iptables_add >/dev/null 2>&1
 		return 0
 	fi
-	echo "mitmweb 启动异常(等了 15 秒 Web 端口没起来), 日志尾部:"
-	tail -5 $LOGFILE 2>/dev/null
+	# OpenSSL 3 legacy provider 警告是 Alpine 运行时的固有输出(import 期打印,
+	# 不影响功能), 过滤掉免得把用户带歪; 慢启动不等于失败, 上面已等到 60s
+	echo "mitmweb 启动异常(等了 60 秒 Web 端口没起来), 日志尾部:"
+	tail -20 $LOGFILE 2>/dev/null | grep -v 'legacy provider failed to load' | tail -5
 	rm -f $PIDFILE
 	return 1
 }
