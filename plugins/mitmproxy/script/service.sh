@@ -4,9 +4,12 @@
 #       层2 iptables(本脚本): 按设备(MAC/IP)精确 REDIRECT 到透明端口(transparent 模式),
 #           绝不全局; UDP443(QUIC) 对选中设备 DROP, 强制回退 TCP 才能 MITM
 #       层3 mitmproxy 自身 MITM 解密 + addons
-#       层4 mitmweb Web 界面(18071)查看/改写/断点
-# 运行时: 自带 Alpine(musl) Python3.14 + mitmproxy 11(bins/runtime), 经自带 musl
-#         loader 启动 —— 固件是 uClibc 且无 Python, 与宿主 libc 完全无关。
+#       层4 Go 引擎 WebUI(18071)查看/改写/断点/规则/脚本
+# 运行时: [go-rewrite] v2.0.0 起换成自研 Go 引擎(bins/mitmproxy-go, CGO_ENABLED=0
+#         全静态 ~19MB), 替掉原 Alpine Python3.14+mitmproxy(~100MB): 冷启动毫秒级
+#         (原 Python 版要 60s 健康等待), 无 musl loader/Python 依赖, 自带中文 WebUI
+#         (不再需要 lang.json 同步/选项汉化注入), API 兼容 mitmweb 语义(/api/flows
+#         /api/capture /api/ca.pem /api/events SSE)。
 # [transparent] v1.0.2 起两个监听并存: regular@显式端口 + transparent@透明端口
 #         (mitmweb --mode 可多次传递, @host:port 逐模式指定), 透明监听常开,
 #         流量由 iptables 规则按设备精确导入; 无规则时透明端口空转无害。
@@ -26,13 +29,14 @@ if [ -L "$__slf" ]; then __slf=$(readlink "$__slf" 2>/dev/null); fi
 __slfdir=$(cd "$(dirname "$__slf")" 2>/dev/null && pwd)
 __pdir=$(cd "$__slfdir/.." 2>/dev/null && pwd)        # 插件自己的目录(含 bins/)
 __idir=$(cd "$__slfdir/../.." 2>/dev/null && pwd)     # EXT_PLUGIN_INSTALL_DIR
-if [ -n "$__pdir" ] && [ -f "$__pdir/bins/runtime/run-mitmweb.sh" ]; then
+if [ -n "$__pdir" ] && [ -f "$__pdir/bins/mitmproxy-go" ]; then
 	[ -n "$__idir" ] && [ "$__idir" != "$EXT_PLUGIN_INSTALL_DIR" ] && EXT_PLUGIN_INSTALL_DIR="$__idir"
 	[ -f "$__pdir/../plugins" ] || EXT_PLUGIN_IPK_DIR="$__pdir/../plugins"
 fi
 unset __slf __slfdir __pdir __idir
 
-RUNNER=$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/runtime/run-mitmweb.sh
+# [go-rewrite] Go 静态引擎(替代原 Python 运行时): 显式+透明双监听 + 内嵌中文 WebUI
+BIN=$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/mitmproxy-go
 # [storage-anchor] CA/配置/pid 全落配置目录(存储卷; 未设存储时 p5, 绝不落 sda3)
 CONFDIR=$EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME
 PIDFILE=$CONFDIR/mitmweb.pid
@@ -86,7 +90,7 @@ __ports()
 __engine_pids()
 {
 	local f p ids=""
-	local pat="$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/runtime/lib/ld-musl-x86_64[.]so[.]1"
+	local pat="$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/mitmproxy-go"
 	for f in $(grep -l "$pat" /proc/[0-9]*/cmdline 2>/dev/null); do
 		p=${f#/proc/}
 		p=${p%/*}
@@ -108,12 +112,12 @@ __raise_nofile()
 start()
 {
 	if [ -n "$(__engine_pids)" ]; then
-		echo "mitmweb 已在运行(pid $(__engine_pids | tr -s ' '))"
+		echo "mitmproxy(Go 引擎)已在运行(pid $(__engine_pids | tr -s ' '))"
 		return 0
 	fi
-	if [ ! -x "$RUNNER" ]; then
-		echo "启动失败: 运行时不存在或没有可执行权限($RUNNER)"
-		echo "  这通常是插件安装不完整(bundle 约 100MB, 存储分区空间不足会被静默截断)"
+	if [ ! -x "$BIN" ]; then
+		echo "启动失败: Go 引擎不存在或没有可执行权限($BIN)"
+		echo "  这通常是插件安装不完整(bundle 约 20MB, 存储分区空间不足会被静默截断)"
 		df -h 2>/dev/null | head -10
 		return 1
 	fi
@@ -123,7 +127,7 @@ start()
 	local rest=${ports#* }
 	local web=${rest%% *}
 	local tproxy=${rest##* }
-	# 端口被别的进程占着要先报出来(否则 mitmweb 起不来但看不出原因)
+	# 端口被别的进程占着要先报出来(否则引擎起不来但看不出原因)
 	local i
 	for i in $proxy $web $tproxy; do
 		if netstat -tln 2>/dev/null | grep -q ":$i "; then
@@ -136,20 +140,11 @@ start()
 	# 旧固件 0.0.0.0 直连。两个代理端口保持 0.0.0.0(设备要用)。
 	local __web_bind
 	__web_bind=$(__web_bind_addr)
-	# [web-i18n] lang.json 在启动引擎之前就落盘: ① 随 bundle 发货的默认值是 zh,
-	# 这里按 LANG_FILE 覆盖(用户切过 en 的话); ② 绝不能放到健康检查之后 —— 设备实锤
-	# (2026-11-18): mitmweb 冷启动超过 15 秒, 健康检查误报"启动异常"直接 return,
-	# __sync_web_lang 被跳过, 引擎虽随后起来但 lang.json 缺失, i18n-zh.js fetch 404
-	# 静默保持英文 —— 用户视角"界面全是英文"。只写磁盘文件, 不需要引擎在场。
-	__sync_web_lang
-	# [musl-loader] 显式代理 + mitmweb; confdir 落存储卷(CA/配置); 不弹浏览器
-	# web_open_browser=false: 路由器上没有浏览器
-	# [transparent] 双模式并存: regular(显式代理) + transparent(iptables REDIRECT
-	# 目标)。--mode 可传多次, @host:port 逐模式指定监听地址; 不再用全局
-	# --listen-port(两个模式会抢同一个端口)。
-	$RUNNER --web-host $__web_bind --web-port $web \
-		--set confdir=$CONFDIR --set web_open_browser=false \
-		--mode "regular@0.0.0.0:$proxy" --mode "transparent@0.0.0.0:$tproxy" \
+	# [go-rewrite] Go 引擎: 显式(regular) + 透明(transparent) 双监听 + API/WebUI;
+	# -data-dir 落存储卷(CA/规则/flow 上限都在里面); -transparent 开透明监听。
+	# 引擎 WebUI 中文原生 —— 原 Python 版的 lang.json 同步/i18n 注入全部删除。
+	$BIN -proxy-addr 0.0.0.0:$proxy -transparent-addr 0.0.0.0:$tproxy \
+		-api-addr $__web_bind:$web -data-dir $CONFDIR -transparent \
 		>>$LOGFILE 2>&1 &
 	echo $! > $PIDFILE
 	# [plugin-proxy] 落端口文件: OpenResty /plugin_proxy/mitmproxy/ 代理按插件名
@@ -158,31 +153,33 @@ start()
 		mkdir -p /tmp/iktmp/plugin_web 2>/dev/null
 		echo $web > $PP_PORT_FILE 2>/dev/null
 	fi
-	# 健康检查: Python(Alpine runtime)启动要几秒, 冷启动/存储卷刚挂载时更慢,
-	# 轮询 web 端口(最多 60s)。设备实锤(2026-11-18): 只等 15 秒会把慢启动误报成
-	# "启动异常"(引擎随后自己起来了), 而误报路径会跳过 lang.json 同步 → 界面变英文。
+	# [go-rewrite] 健康检查: Go 引擎毫秒级起(实测 API 首响 ~20ms), 10s 足够;
+	# 原 Python 版冷启动要 60s 等待(设备实锤误报"启动异常"的根因)。
 	local ok=0 i=0
-	while [ $i -lt 60 ]; do
+	while [ $i -lt 10 ]; do
 		i=$((i+1))
-		sleep 1
-		if wget -q -O /dev/null -T2 http://127.0.0.1:$web/ 2>/dev/null; then ok=1; break; fi
+		if wget -q -O /dev/null -T2 http://127.0.0.1:$web/api/flows 2>/dev/null; then ok=1; break; fi
 		[ -n "$(__engine_pids)" ] || break
+		sleep 1
 	done
 	if [ "$ok" = "1" ]; then
-		echo "mitmweb 已启动: 显式代理 $proxy / 透明 $tproxy / Web $web"
-		# [web-i18n] 升级会整个换掉 bundle, 设备上 mitmweb 前端的 lang.json
-		# 会丢 —— 启动时按 LANG_FILE 重新同步, 否则升级后界面静默变回英文
-		# (启动前已同步过一次, 这里兜底再同步, 幂等)
-		__sync_web_lang
+		echo "mitmproxy(Go 引擎)已启动: 显式代理 $proxy / 透明 $tproxy / Web $web"
+		# [capture-pause] 引擎记录层对齐总开关: 开关关着(无 flag)时引擎必须暂停,
+		# 否则"关了抓包再重启引擎"会静默恢复记录(引擎每次启动 paused 默认 false)
+		if [ -f $CAPTURE_FLAG ]; then
+			wget -q -O /dev/null -T3 --method=PUT --body-data='{"paused":false}' \
+				http://127.0.0.1:$web/api/capture 2>/dev/null
+		else
+			wget -q -O /dev/null -T3 --method=PUT --body-data='{"paused":true}' \
+				http://127.0.0.1:$web/api/capture 2>/dev/null
+		fi
 		# [boot-heal] 开机/重启后规则自愈: 总开关开着就把规则补上
 		# (否则重启引擎后 iptables 规则没了, 用户视角"重启后抓不到包")
 		[ -f $CAPTURE_FLAG ] && iptables_add >/dev/null 2>&1
 		return 0
 	fi
-	# OpenSSL 3 legacy provider 警告是 Alpine 运行时的固有输出(import 期打印,
-	# 不影响功能), 过滤掉免得把用户带歪; 慢启动不等于失败, 上面已等到 60s
-	echo "mitmweb 启动异常(等了 60 秒 Web 端口没起来), 日志尾部:"
-	tail -20 $LOGFILE 2>/dev/null | grep -v 'legacy provider failed to load' | tail -5
+	echo "mitmproxy(Go 引擎)启动异常(等了 10 秒 API 没起来), 日志尾部:"
+	tail -20 $LOGFILE 2>/dev/null | tail -5
 	rm -f $PIDFILE
 	return 1
 }
@@ -212,7 +209,7 @@ stop()
 	# [stop-rules] 停引擎必须同时撤 iptables 规则: 规则指向没监听的端口会把
 	# 选中设备的 80/443 全弄断(用户视角"停了插件结果断网")
 	iptables_del
-	echo "mitmweb 已停止"
+	echo "mitmproxy(Go 引擎)已停止"
 	return 0
 }
 
@@ -292,7 +289,7 @@ set_ports()
 	echo "$p $w $t" > $PORTS_FILE
 	# [orphan-fix] 用 /proc 扫描判断引擎在不在跑(PID 文件会丢/错): 在跑才
 	# 停+起。以前用 PID 文件, 文件丢时就跳过硬重启, 旧引擎继续占老端口 ——
-	# 设备实锤: 改端口后新旧两个 mitmweb 同时监听, iframe 连新端口被拒
+	# 设备实锤: 改端口后新旧两个引擎同时监听, iframe 连新端口被拒
 	local was=0
 	[ -n "$(__engine_pids)" ] && was=1
 	if [ "$was" = "1" ]; then
@@ -306,8 +303,8 @@ set_ports()
 }
 
 # 界面语言: set_lang lang=zh|en(写 LANG_FILE, 页面 show&TYPE=data 带回)
-# mitmweb 前端(i18n-zh.js 注入式翻译)读 static/lang.json 决定是否激活中文,
-# 这里同步过去。不重启引擎 —— 重启会断进行中的抓包会话, 浏览器刷新即生效。
+# [go-rewrite] Go 引擎 WebUI 中文原生, 不再需要 lang.json 同步 —— 此开关只影响
+# 插件管理页自身的文案。不重启引擎 —— 重启会断进行中的抓包会话。
 set_lang()
 {
 	case "$lang" in
@@ -316,24 +313,7 @@ set_lang()
 	esac
 	mkdir -p $CONFDIR 2>/dev/null
 	echo "$lang" > $LANG_FILE
-	__sync_web_lang
 	echo "界面语言已切换: $lang"
-	return 0
-}
-
-# [web-i18n] 把界面语言同步成 mitmweb 前端的 static/lang.json(i18n-zh.js 启动时
-# fetch 它, {"lang":"zh"} 才激活中文 DOM 改写)。启动时也调一次: 升级会整个换掉
-# bundle, 设备上旧的 lang.json 丢失, 不同步的话升级后 mitmweb 静默变回英文。
-# 路径用 glob(python3.14 版本号随 bundle 升级会变), 找不到就静默跳过。
-__sync_web_lang()
-{
-	local l=zh
-	[ -f $LANG_FILE ] && l=$(cat $LANG_FILE 2>/dev/null | tr -d '\n\r')
-	case "$l" in zh|en) ;; *) l=zh;; esac
-	local sd
-	sd=$(ls -d $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/runtime/usr/lib/python*/site-packages/mitmproxy/tools/web/static 2>/dev/null | head -1)
-	[ -n "$sd" ] && [ -d "$sd" ] || return 0
-	printf '{"lang":"%s"}' "$l" > "$sd/lang.json" 2>/dev/null
 	return 0
 }
 
@@ -406,13 +386,13 @@ set_devices()
 	return 0
 }
 
-# 清空 mitmweb 里的流量(POST /clear)
+# 清空引擎里的流量(DELETE /api/flows)
 clear_flows()
 {
 	local ports=$(__ports)
 	local rest=${ports#* }
 	local web=${rest%% *}
-	wget -q -O /dev/null -T3 --method=POST http://127.0.0.1:$web/clear 2>/dev/null
+	wget -q -O /dev/null -T3 --method=DELETE http://127.0.0.1:$web/api/flows 2>/dev/null
 	echo "已清空"
 	return 0
 }
@@ -468,10 +448,10 @@ __show_data()
 	local autostart=0
 	[ -f $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart ] && autostart=1
 	local caok=0
-	{ [ -s $CONFDIR/mitmproxy-ca-cert.pem ] || [ -s $CONFDIR/mitmproxy-ca-cert.cer ]; } && caok=1
+	{ [ -s $CONFDIR/ca.pem ] || [ -s $CONFDIR/mitmproxy-ca-cert.pem ]; } && caok=1
 	local flows=0
 	if [ "$status" = "1" ]; then
-		flows=$(wget -q -O - -T3 http://127.0.0.1:$webPort/flows 2>/dev/null | jq 'length' 2>/dev/null)
+		flows=$(wget -q -O - -T3 http://127.0.0.1:$webPort/api/flows 2>/dev/null | jq '.flows | length' 2>/dev/null)
 		[ -z "$flows" ] && flows=0
 	fi
 	local capture=0

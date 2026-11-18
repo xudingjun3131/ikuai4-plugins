@@ -28,7 +28,7 @@
         .mp-lang-btn { background: #fff; border: 1px solid #dcdfe6; color: #606266; cursor: pointer; border-radius: 4px; padding: 3px 12px; font-size: 12px; }
         .mp-lang-btn:hover { background: #ecf5ff; border-color: #3e8cd4; color: #3e8cd4; }
         /* [tab-layout] 配置三段改横线 tab(与 reqable 页面同款, 用户要求):
-           同屏只显示一段, mitmweb 界面固定在下方 always-on */
+           同屏只显示一段, 引擎界面固定在下方 always-on */
         .mp-tabs { display: flex; gap: 4px; border-bottom: 1px solid #ebeef5; margin-top: 12px; flex-wrap: wrap; }
         .mp-tab { padding: 8px 16px; font-size: 13px; color: #606266; cursor: pointer; user-select: none;
                   border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
@@ -71,7 +71,7 @@
                     <button type="button" class="btn btn_default rounded height26" @click="loadInitData">{{ t('refresh') }}</button>
                 </div>
 
-                <!-- [tab-layout] 配置三段横线 tab(与 reqable 同款); mitmweb 界面在下方固定 -->
+                <!-- [tab-layout] 配置三段横线 tab(与 reqable 同款); 引擎界面在下方固定 -->
                 <div class="mp-tabs">
                     <div class="mp-tab" :class="{on: activeTab==='ports'}" @click="activeTab='ports'">端口设置</div>
                     <div class="mp-tab" :class="{on: activeTab==='devices'}" @click="activeTab='devices'">抓包设备<b v-if="devices.length" style="font-weight:normal;color:#909399;padding-left:2px;">({{ devices.length }})</b></div>
@@ -183,10 +183,10 @@
 </div>
 <script type="module">
 // [i18n] 界面中英文双语。语言存 confdir/lang(zh|en), show&TYPE=data 带回,
-// set_lang 落盘; 词典缺失键回退中文。mitmweb iframe 是上游英文界面, 不在本表范围。
+// set_lang 落盘; 词典缺失键回退中文。引擎 iframe 是 Go 自研中文界面, 不在本表范围。
 const I18N = {
 zh: {
-    subtitle: '交互式 TLS 拦截代理 · mitmweb Web 界面 · 透明+显式双模式',
+    subtitle: '交互式 TLS 拦截代理 · Go 引擎 Web 界面 · 透明+显式双模式',
     running: '运行中', stopped: '已停止',
     ca_ok: 'CA已生成', ca_no: 'CA未生成',
     cap_on: '抓包中', cap_off: '抓包已关',
@@ -199,7 +199,7 @@ zh: {
     refresh: '刷新状态',
     ports_title: '端口配置', ports_hint: '改端口会自动重启引擎',
     proxy_port: '显式代理端口', proxy_hint: '客户端手动设代理: 路由器IP:该端口',
-    web_port: 'Web 界面端口', web_hint: 'mitmweb 界面, 即下方嵌入的窗口',
+    web_port: 'Web 界面端口', web_hint: '引擎 Web 界面, 即下方嵌入的窗口',
     tproxy_port: '透明代理端口', tproxy_hint: 'iptables REDIRECT 的目标(无需客户端设置, 见下方抓包设备)',
     save_ports: '保存端口',
     dev_title: '抓包设备', dev_hint: '不选=不抓任何设备, 绝不全局; 勾选后自动保存并即时生效',
@@ -217,14 +217,14 @@ zh: {
     tip_note_t: '注意：',
     tip_note: '关闭总开关或停止引擎时 iptables 规则会自动撤除；HTTPS 解密需要客户端安装并信任 CA（见下方"下载 CA 证书"）。',
     steps_title: '使用步骤',
-    steps_text: '1. 点"启动引擎"（可勾"开机自启"）；2. 点"下载 CA 证书"，在要抓包的设备上安装并"信任"（iOS: 设置→通用→关于本机→证书信任；Android: 用户证书）；3. 抓包方式二选一："透明"——开"抓包总开关"并勾选设备；"显式"——设备代理手动设 路由器IP:{port}；4. 在下方 mitmweb 界面里查看解密后的请求/响应，可改写、可断点、可脚本。',
+    steps_text: '1. 点"启动引擎"（可勾"开机自启"）；2. 点"下载 CA 证书"，在要抓包的设备上安装并"信任"（iOS: 设置→通用→关于本机→证书信任；Android: 用户证书）；3. 抓包方式二选一："透明"——开"抓包总开关"并勾选设备；"显式"——设备代理手动设 路由器IP:{port}；4. 在下方引擎界面里查看解密后的请求/响应，可改写、可断点、可脚本。',
     steps_note_t: '说明：',
     steps_note: '本插件自带完整 Python 运行时（约 100MB，装在数据卷，不占系统分区）；HTTPS 解密需要客户端信任 CA，未信任的域名会握手失败。',
     dl_ca: '下载 CA 证书', netdiag: '网络诊断',
-    web_title: 'mitmweb 界面', web_hint: '打不开就点右上角"新窗口全屏打开"',
-    web_https_blocked: '当前管理页面是 HTTPS, 浏览器安全策略禁止在页面内嵌 HTTP 的 mitmweb 界面(混合内容拦截, 与端口通不通无关)。请点下方按钮在新窗口打开, 功能完全一致; 如需内嵌显示, 可在路由器设置里关闭"强制HTTPS"后用 HTTP 访问管理页。',
-    web_open_btn: '在新窗口打开 mitmweb 界面',
-    not_running: '引擎未启动，启动后这里会内嵌显示 mitmweb 界面。',
+    web_title: '引擎 Web 界面', web_hint: '打不开就点右上角"新窗口全屏打开"',
+    web_https_blocked: '当前管理页面是 HTTPS, 浏览器安全策略禁止在页面内嵌 HTTP 的引擎界面(混合内容拦截, 与端口通不通无关)。请点下方按钮在新窗口打开, 功能完全一致; 如需内嵌显示, 可在路由器设置里关闭"强制HTTPS"后用 HTTP 访问管理页。',
+    web_open_btn: '在新窗口打开引擎界面',
+    not_running: '引擎未启动，启动后这里会内嵌显示引擎界面。',
     msg_starting: '正在启动(Python 运行时, 约需几秒)...',
     msg_started: '引擎已启动', msg_start_fail: '启动失败',
     msg_stopped: '引擎已停止',
@@ -246,10 +246,10 @@ zh: {
     diag_lanip: '本机IP', diag_nat: 'nat 规则', diag_filter: 'filter 规则',
     diag_devices: '设备表', diag_log: '日志尾部',
     lang_switched: '界面语言已切换',
-    lang_switched_hint: 'mitmweb 全屏窗口需手动刷新后生效'
+    lang_switched_hint: '引擎全屏窗口需手动刷新后生效'
 },
 en: {
-    subtitle: 'Interactive TLS interception proxy · mitmweb UI · Transparent + Explicit dual mode',
+    subtitle: 'Interactive TLS interception proxy · Go engine UI · Transparent + Explicit dual mode',
     running: 'Running', stopped: 'Stopped',
     ca_ok: 'CA generated', ca_no: 'No CA yet',
     cap_on: 'Capturing', cap_off: 'Capture off',
