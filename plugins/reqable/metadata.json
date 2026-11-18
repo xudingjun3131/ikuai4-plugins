@@ -2,10 +2,10 @@
   "name": "reqable",
   "alias": "小黄鸟抓包",
   "manufacturer": "iKuai",
-  "version": "1.0.42",
+  "version": "1.0.43",
   "type": "external",
   "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-  "releasenotes": "修复三处真机实测缺陷: ① netdiag 诊断返回非法 JSON(devices/scope 文件原文含裸换行, 拼进 JSON 字符串后整个 /Action/call 响应 JSON.parse 失败, 诊断面板打不开)——已 tr 掉控制字符; ② WebUI(18081) 长时间运行后 accept4: too many open files 整个拒服(浏览器/探针 keep-alive 连接只增不减吃光 nofile)——引擎加 IdleTimeout 90s 回收空闲连接(api/proxy/reverse 三个监听), start() 同时尽力抬高 fd 软限制兜底; ③ 定时抓包时段整体偏移 8 小时(设备 shell 时钟是 UTC, 用户按路由器本地时间填时段, 直接比 UTC 导致到点不上规则)——按配置库 time_zone 换算到本地时间再比。附带: TC-12 iptables 正向确认已由 netdiag 闭环",
+  "releasenotes": "修复启动失败(No such file or directory)回归: v1.0.42 为修 WebUI fd 耗尽重建引擎时漏了 CGO_ENABLED=0, 发货的是 glibc 动态二进制——固件只有 uClibc loader, exec 时内核找不到 /lib64/ld-linux-x86-64.so.2 返回 ENOENT, bash 把 loader 缺失报成二进制不存在(设备全部启动失败)。本版用 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags \"-s -w\" 静态重建(PT_INTERP 为空, 冒烟: 三端口监听/api/flows 200/内嵌中文 UI 完整), 并修复 /opt/reqable Makefile 全部构建目标补回静态 flags。升级本版即可修复, 无需重装(install.sh 对 upgrade 类型会先停旧引擎再起新的)。",
   "arch": [
     "x86_64"
   ],

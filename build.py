@@ -1,12 +1,49 @@
 import json
 import os, io
 import shutil
+import struct
 import sys
 import tarfile
 import time
 
 def get_timestamp():
     return time.strftime('%Y%m%d%H%M', time.localtime())
+
+def check_elf_interp(src_path: str):
+    # [static-gate] 目标固件(iKuai uClibc)没有 glibc loader: PT_INTERP 指向
+    # ld-linux-* 的二进制 exec 时内核返回 ENOENT, bash 把它报成 "No such file or
+    # directory"(指的是 loader 不是二进制本身, 极常误判成文件丢失/磁盘满/软链错)。
+    # 2026-11-18 reqable v1.0.42 实锤: 修 fd 耗尽重建引擎时漏 CGO_ENABLED=0,
+    # 发货 glibc 动态包, 设备全部 "No such file or directory" 启动失败。
+    # uClibc(ld64-uClibc, 如 mds/pppoe-scan)与 musl(ld-musl, mitmproxy 自带
+    # Alpine runtime)放行; 只查 64 位 ELF(32 位解析不了, 跳过不误伤)。
+    with open(src_path, 'rb') as f:
+        hdr = f.read(64)
+        if len(hdr) < 64 or hdr[:4] != b'\x7fELF' or hdr[4] != 2:  # ELFCLASS64
+            return
+        phoff = struct.unpack_from('<Q', hdr, 32)[0]
+        phentsize = struct.unpack_from('<H', hdr, 54)[0]
+        phnum = struct.unpack_from('<H', hdr, 56)[0]
+        f.seek(phoff)
+        for _ in range(phnum):
+            e = f.read(phentsize)
+            if len(e) < phentsize:
+                break
+            if struct.unpack_from('<I', e, 0)[0] == 3:  # PT_INTERP
+                po = struct.unpack_from('<Q', e, 8)[0]
+                pz = struct.unpack_from('<Q', e, 32)[0]
+                f.seek(po)
+                interp = f.read(pz).rstrip(b'\x00').decode(errors='replace')
+                if 'ld-linux' in interp:
+                    raise SystemExit(
+                        f'\n[static-gate] 拒绝打包 glibc 动态二进制: {src_path}\n'
+                        f'  PT_INTERP = {interp}\n'
+                        f'  固件只有 uClibc loader, 该二进制在设备上 exec 必报\n'
+                        f'  "No such file or directory"(loader 缺失, 不是文件不在)。\n'
+                        f'  修法: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build\n'
+                        f'        -ldflags "-s -w" 静态重建(纯 Go 也照样链出 glibc\n'
+                        f'        interp, 别以"没用 cgo"自我排除), 复查 PT_INTERP 为空。\n')
+                return
 
 def get_default_permission(data: str | bytes) -> int:
     # .sh .lua and non extension files need exec permission
@@ -67,6 +104,8 @@ def add_file(tar: tarfile.TarFile, src_path: str, dest_path: str, mode: int | No
         info.mode = mode if mode is not None else 0o777
         tar.addfile(info)
         return
+
+    check_elf_interp(src_path)
 
     if mode is None:
         mode = get_default_permission(src_path)
