@@ -25,6 +25,8 @@
         .mp-device-item .ip { color: #909399; font-family: monospace; }
         .mp-chip { display: inline-flex; align-items: center; gap: 5px; background: #ecf5ff; border: 1px solid #b3d8ff; color: #409eff; border-radius: 4px; padding: 2px 9px; font-size: 12px; }
         .mp-diag { white-space: pre-wrap; word-break: break-all; font-family: monospace; font-size: 11px; background: #f6f8fa; border: 1px solid #ebeef5; border-radius: 4px; padding: 10px; max-height: 260px; overflow-y: auto; }
+        .mp-lang-btn { background: #fff; border: 1px solid #dcdfe6; color: #606266; cursor: pointer; border-radius: 4px; padding: 3px 12px; font-size: 12px; }
+        .mp-lang-btn:hover { background: #ecf5ff; border-color: #3e8cd4; color: #3e8cd4; }
     </style>
 </head>
 <body>
@@ -36,60 +38,61 @@
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                     <div>
                         <b style="font-size:15px;">Mitmproxy抓包</b>
-                        <span style="font-size:12px; color:#909399; padding-left:10px;">交互式 TLS 拦截代理 · mitmweb Web 界面 · 透明+显式双模式</span>
+                        <span style="font-size:12px; color:#909399; padding-left:10px;">{{ t('subtitle') }}</span>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <el-tag size="small" :type="status === 1 ? 'success' : 'info'">{{ status === 1 ? '运行中' : '已停止' }}</el-tag>
-                        <el-tag size="small" :type="caok === 1 ? 'success' : 'warning'">{{ caok === 1 ? 'CA已生成' : 'CA未生成' }}</el-tag>
-                        <el-tag size="small" :type="capture === 1 ? 'success' : 'info'">{{ capture === 1 ? '抓包中' : '抓包已关' }}</el-tag>
-                        <el-tag size="small" :type="rulesOn === 1 ? 'success' : 'info'">{{ rulesOn === 1 ? '透明规则生效' : '透明规则未生效' }}</el-tag>
-                        <span style="font-size:12px; color:#909399;">已捕获 {{ flows }} 条</span>
+                        <el-tag size="small" :type="status === 1 ? 'success' : 'info'">{{ status === 1 ? t('running') : t('stopped') }}</el-tag>
+                        <el-tag size="small" :type="caok === 1 ? 'success' : 'warning'">{{ caok === 1 ? t('ca_ok') : t('ca_no') }}</el-tag>
+                        <el-tag size="small" :type="capture === 1 ? 'success' : 'info'">{{ capture === 1 ? t('cap_on') : t('cap_off') }}</el-tag>
+                        <el-tag size="small" :type="rulesOn === 1 ? 'success' : 'info'">{{ rulesOn === 1 ? t('rules_on') : t('rules_off') }}</el-tag>
+                        <span style="font-size:12px; color:#909399;">{{ t('flows', {n: flows}) }}</span>
+                        <button type="button" class="mp-lang-btn" @click="setLang">{{ lang === 'zh' ? 'English' : '中文' }}</button>
                     </div>
                 </div>
                 <div class="h20"></div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                    <button v-if="status !== 1" type="button" class="btn btn_green rounded height26" @click="startEngine">启动引擎</button>
-                    <button v-else type="button" class="btn btn_red rounded height26" @click="stopEngine">停止引擎</button>
+                    <button v-if="status !== 1" type="button" class="btn btn_green rounded height26" @click="startEngine">{{ t('start') }}</button>
+                    <button v-else type="button" class="btn btn_red rounded height26" @click="stopEngine">{{ t('stop') }}</button>
                     <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#606266; cursor:pointer;">
-                        <input type="checkbox" v-model="autostart" @change="setAutostart">开机自启
+                        <input type="checkbox" v-model="autostart" @change="setAutostart">{{ t('autostart') }}
                     </label>
-                    <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
-                    <a v-if="status === 1" class="btn btn_default rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
-                    <button type="button" class="btn btn_default rounded height26" @click="loadInitData">刷新状态</button>
+                    <button type="button" class="btn btn_default rounded height26" @click="clearFlows">{{ t('clear') }}</button>
+                    <a v-if="status === 1" class="btn btn_default rounded height26" :href="uiUrl" target="_blank">{{ t('fullscreen') }}</a>
+                    <button type="button" class="btn btn_default rounded height26" @click="loadInitData">{{ t('refresh') }}</button>
                 </div>
 
                 <div class="mp-card">
-                    <h4>端口配置<span>改端口会自动重启引擎</span></h4>
+                    <h4>{{ t('ports_title') }}<span>{{ t('ports_hint') }}</span></h4>
                     <div class="mp-row">
-                        <label>显式代理端口</label>
+                        <label>{{ t('proxy_port') }}</label>
                         <input v-model="proxyPort" type="number" class="mp-port-input">
-                        <span style="font-size:12px; color:#909399;">客户端手动设代理: 路由器IP:该端口</span>
+                        <span style="font-size:12px; color:#909399;">{{ t('proxy_hint') }}</span>
                     </div>
                     <div class="mp-row">
-                        <label>Web 界面端口</label>
+                        <label>{{ t('web_port') }}</label>
                         <input v-model="webPort" type="number" class="mp-port-input">
-                        <span style="font-size:12px; color:#909399;">mitmweb 界面, 即下方嵌入的窗口</span>
+                        <span style="font-size:12px; color:#909399;">{{ t('web_hint') }}</span>
                     </div>
                     <div class="mp-row">
-                        <label>透明代理端口</label>
+                        <label>{{ t('tproxy_port') }}</label>
                         <input v-model="transparentPort" type="number" class="mp-port-input">
-                        <span style="font-size:12px; color:#909399;">iptables REDIRECT 的目标(无需客户端设置, 见下方抓包设备)</span>
+                        <span style="font-size:12px; color:#909399;">{{ t('tproxy_hint') }}</span>
                     </div>
                     <div class="mp-row">
-                        <button type="button" class="btn btn_blue rounded height26" @click="savePorts">保存端口</button>
+                        <button type="button" class="btn btn_blue rounded height26" @click="savePorts">{{ t('save_ports') }}</button>
                     </div>
                 </div>
 
                 <div class="mp-card">
-                    <h4>抓包设备<span>不选=不抓任何设备, 绝不全局; 勾选后自动保存并即时生效</span></h4>
+                    <h4>{{ t('dev_title') }}<span>{{ t('dev_hint') }}</span></h4>
                     <div class="mp-row">
                         <label class="el-checkbox" style="min-width:0;">
                             <input type="checkbox" :checked="capture === 1" @change="setCapture($event.target.checked)">
                             <span class="el-checkbox__label"></span>
                         </label>
-                        <span style="font-size:12px; color:#606266;">抓包总开关(同时控制 iptables 透明规则)</span>
-                        <button type="button" class="btn btn_default rounded height26" @click="loadDevices">刷新设备列表</button>
-                        <span style="font-size:12px; color:#909399;">已选 {{ devices.length }} 台</span>
+                        <span style="font-size:12px; color:#606266;">{{ t('cap_switch') }}</span>
+                        <button type="button" class="btn btn_default rounded height26" @click="loadDevices">{{ t('dev_refresh') }}</button>
+                        <span style="font-size:12px; color:#909399;">{{ t('dev_selected', {n: devices.length}) }}</span>
                     </div>
                     <div v-if="devices.length" style="display:inline-flex; flex-wrap:wrap; gap:6px; width:100%; margin:6px 0;">
                         <span v-for="(d,i) in devices" :key="i" class="mp-chip">
@@ -98,68 +101,193 @@
                         </span>
                     </div>
                     <div class="mp-devices">
-                        <div v-if="lanDevices.length === 0" style="color:#909399; font-size:12px; padding:8px 0; line-height:1.8;">暂无在线设备。列表来自 DHCP 租约 + ARP 表（含静态 IP 设备，需设备与路由器通信过才会出现）；<br>设备不在列表时，用下方"手动添加"填 IP（+MAC）即可。</div>
+                        <div v-if="lanDevices.length === 0" style="color:#909399; font-size:12px; padding:8px 0; line-height:1.8;">{{ t('dev_empty') }}</div>
                         <div v-for="(d, i) in lanDevices" :key="i" class="mp-device-item">
                             <label class="el-checkbox">
                                 <input type="checkbox" :checked="isSelected(d)" @change="toggleDevice(d)">
                                 <span class="el-checkbox__label"></span>
                             </label>
-                            <span>{{ d.name || d.hostname || '未命名设备' }}</span>
+                            <span>{{ d.name || d.hostname || t('dev_unnamed') }}</span>
                             <span class="ip">{{ d.ip_addr }}</span>
                             <span class="ip">{{ d.mac }}</span>
                             <span v-if="d.termname && d.termname !== d.hostname" class="ip">{{ d.termname }}</span>
                         </div>
                     </div>
                     <div class="mp-row" style="margin-top:8px;">
-                        <label>手动添加</label>
-                        <input v-model="manualIp" placeholder="IP" style="width:130px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <input v-model="manualMac" placeholder="MAC(可选)" style="width:150px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <input v-model="manualName" placeholder="名称(可选)" style="width:120px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <button type="button" class="btn btn_green rounded height26" @click="addManualAndSave">添加并保存</button>
+                        <label>{{ t('manual_add') }}</label>
+                        <input v-model="manualIp" :placeholder="t('ph_ip')" style="width:130px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <input v-model="manualMac" :placeholder="t('ph_mac')" style="width:150px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <input v-model="manualName" :placeholder="t('ph_name')" style="width:120px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <button type="button" class="btn btn_green rounded height26" @click="addManualAndSave">{{ t('add_save') }}</button>
                     </div>
                     <div class="mp-row">
-                        <label>拦截端口</label>
+                        <label>{{ t('dports') }}</label>
                         <input v-model="dports" placeholder="80,443" style="width:140px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <button type="button" class="btn btn_default rounded height26" @click="saveDports">保存</button>
-                        <span style="font-size:12px; color:#909399;">透明拦截的 TCP 端口(默认 80,443; UDP443/QUIC 自动阻断)</span>
+                        <button type="button" class="btn btn_default rounded height26" @click="saveDports">{{ t('dports_save') }}</button>
+                        <span style="font-size:12px; color:#909399;">{{ t('dports_hint') }}</span>
                     </div>
                     <div class="mp-tip">
-                        <b>透明抓包（无需客户端设置）：</b>勾选上面的"抓包总开关" + 在设备列表里勾上要抓的设备，该设备的 80/443 流量会被 iptables 精确 REDIRECT 到本插件解密（只影响勾选的设备，其它设备与路由器自身完全不受影响）。<br>
-                        <b>显式抓包（旧方式仍可用）：</b>把设备 Wi-Fi 代理手动设为 <b>路由器IP:{{ proxyPort }}</b>，不依赖 iptables 规则。<br>
-                        <b>注意：</b>关闭总开关或停止引擎时 iptables 规则会自动撤除；HTTPS 解密需要客户端安装并信任 CA（见下方"下载 CA 证书"）。
+                        <b>{{ t('tip_transparent_t') }}</b>{{ t('tip_transparent') }}<br>
+                        <b>{{ t('tip_explicit_t') }}</b>{{ t('tip_explicit', {port: proxyPort}) }}<br>
+                        <b>{{ t('tip_note_t') }}</b>{{ t('tip_note') }}
                     </div>
                 </div>
 
                 <div class="mp-card">
-                    <h4>使用步骤</h4>
+                    <h4>{{ t('steps_title') }}</h4>
                     <div class="mp-tip" style="margin-top:0;">
-                        1. 点<b>启动引擎</b>（可勾"开机自启"）；2. 点<b>下载 CA 证书</b>，在要抓包的设备上安装并<b>信任</b>（iOS: 设置→通用→关于本机→证书信任；Android: 用户证书）；3. 抓包方式二选一：<b>透明</b>——开"抓包总开关"并勾选设备；<b>显式</b>——设备代理手动设 路由器IP:{{ proxyPort }}；4. 在下方 mitmweb 界面里查看解密后的请求/响应，可改写、可断点、可脚本。<br>
-                        <b>说明：</b>本插件自带完整 Python 运行时（约 100MB，装在数据卷，不占系统分区）；HTTPS 解密需要客户端信任 CA，未信任的域名会握手失败。
+                        {{ t('steps_text', {port: proxyPort}) }}<br>
+                        <b>{{ t('steps_note_t') }}</b>{{ t('steps_note') }}
                     </div>
                     <div class="mp-row" style="margin-top:10px;">
-                        <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">下载 CA 证书</button>
-                        <button type="button" class="btn btn_default rounded height26" @click="showNetdiag">网络诊断</button>
+                        <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">{{ t('dl_ca') }}</button>
+                        <button type="button" class="btn btn_default rounded height26" @click="showNetdiag">{{ t('netdiag') }}</button>
                     </div>
                     <div v-if="netdiag" class="mp-diag" style="margin-top:8px;">{{ netdiag }}</div>
                 </div>
 
                 <div class="mp-card" v-if="status === 1">
-                    <h4>mitmweb 界面<span>打不开就点右上角"新窗口全屏打开"</span></h4>
+                    <h4>{{ t('web_title') }}<span>{{ t('web_hint') }}</span></h4>
                     <iframe class="mp-frame" :src="uiUrl"></iframe>
                 </div>
                 <div class="mp-card" v-else style="color:#909399; font-size:12px;">
-                    引擎未启动，启动后这里会内嵌显示 mitmweb 界面。
+                    {{ t('not_running') }}
                 </div>
             </div>
         </div>
     </div>
 </div>
 <script type="module">
+// [i18n] 界面中英文双语。语言存 confdir/lang(zh|en), show&TYPE=data 带回,
+// set_lang 落盘; 词典缺失键回退中文。mitmweb iframe 是上游英文界面, 不在本表范围。
+const I18N = {
+zh: {
+    subtitle: '交互式 TLS 拦截代理 · mitmweb Web 界面 · 透明+显式双模式',
+    running: '运行中', stopped: '已停止',
+    ca_ok: 'CA已生成', ca_no: 'CA未生成',
+    cap_on: '抓包中', cap_off: '抓包已关',
+    rules_on: '透明规则生效', rules_off: '透明规则未生效',
+    flows: '已捕获 {n} 条',
+    start: '启动引擎', stop: '停止引擎',
+    autostart: '开机自启',
+    clear: '清空流量',
+    fullscreen: '新窗口全屏打开',
+    refresh: '刷新状态',
+    ports_title: '端口配置', ports_hint: '改端口会自动重启引擎',
+    proxy_port: '显式代理端口', proxy_hint: '客户端手动设代理: 路由器IP:该端口',
+    web_port: 'Web 界面端口', web_hint: 'mitmweb 界面, 即下方嵌入的窗口',
+    tproxy_port: '透明代理端口', tproxy_hint: 'iptables REDIRECT 的目标(无需客户端设置, 见下方抓包设备)',
+    save_ports: '保存端口',
+    dev_title: '抓包设备', dev_hint: '不选=不抓任何设备, 绝不全局; 勾选后自动保存并即时生效',
+    cap_switch: '抓包总开关(同时控制 iptables 透明规则)',
+    dev_refresh: '刷新设备列表', dev_selected: '已选 {n} 台',
+    dev_empty: '暂无在线设备。列表来自 DHCP 租约 + ARP 表（含静态 IP 设备，需设备与路由器通信过才会出现）；设备不在列表时，用下方"手动添加"填 IP（+MAC）即可。',
+    dev_unnamed: '未命名设备',
+    manual_add: '手动添加', ph_ip: 'IP', ph_mac: 'MAC(可选)', ph_name: '名称(可选)',
+    add_save: '添加并保存',
+    dports: '拦截端口', dports_save: '保存', dports_hint: '透明拦截的 TCP 端口(默认 80,443; UDP443/QUIC 自动阻断)',
+    tip_transparent_t: '透明抓包（无需客户端设置）：',
+    tip_transparent: '勾选上面的"抓包总开关" + 在设备列表里勾上要抓的设备，该设备的 80/443 流量会被 iptables 精确 REDIRECT 到本插件解密（只影响勾选的设备，其它设备与路由器自身完全不受影响）。',
+    tip_explicit_t: '显式抓包（旧方式仍可用）：',
+    tip_explicit: '把设备 Wi-Fi 代理手动设为 路由器IP:{port}，不依赖 iptables 规则。',
+    tip_note_t: '注意：',
+    tip_note: '关闭总开关或停止引擎时 iptables 规则会自动撤除；HTTPS 解密需要客户端安装并信任 CA（见下方"下载 CA 证书"）。',
+    steps_title: '使用步骤',
+    steps_text: '1. 点"启动引擎"（可勾"开机自启"）；2. 点"下载 CA 证书"，在要抓包的设备上安装并"信任"（iOS: 设置→通用→关于本机→证书信任；Android: 用户证书）；3. 抓包方式二选一："透明"——开"抓包总开关"并勾选设备；"显式"——设备代理手动设 路由器IP:{port}；4. 在下方 mitmweb 界面里查看解密后的请求/响应，可改写、可断点、可脚本。',
+    steps_note_t: '说明：',
+    steps_note: '本插件自带完整 Python 运行时（约 100MB，装在数据卷，不占系统分区）；HTTPS 解密需要客户端信任 CA，未信任的域名会握手失败。',
+    dl_ca: '下载 CA 证书', netdiag: '网络诊断',
+    web_title: 'mitmweb 界面', web_hint: '打不开就点右上角"新窗口全屏打开"',
+    not_running: '引擎未启动，启动后这里会内嵌显示 mitmweb 界面。',
+    msg_starting: '正在启动(Python 运行时, 约需几秒)...',
+    msg_started: '引擎已启动', msg_start_fail: '启动失败',
+    msg_stopped: '引擎已停止',
+    msg_autostart_on: '已开启开机自启', msg_autostart_off: '已关闭开机自启',
+    msg_set_fail: '设置失败', msg_unknown: '未知错误',
+    msg_ports_saved: '端口已保存', msg_engine_restarted: '(引擎已重启)',
+    msg_dports_saved: '拦截端口已保存',
+    msg_cap_on: '抓包已开启, 透明规则已生效', msg_cap_off: '抓包已关闭, 规则已撤',
+    msg_op_fail: '操作失败',
+    msg_need_ip: '请填 IP',
+    msg_dev_saved: '设备已保存({n} 台), 规则已热更新',
+    msg_save_fail: '保存失败',
+    msg_cleared: '已清空',
+    msg_ca_dl: 'CA 已下载, 请到设备上安装并信任',
+    msg_ca_none: 'CA 还没生成: 先启动引擎跑一会儿(或发起一次请求)再下载',
+    msg_diag_fail: '诊断失败',
+    diag_rules: '规则状态', diag_on: '生效', diag_off: '未生效',
+    diag_cap: '抓包开关', diag_cap_on: '开', diag_cap_off: '关',
+    diag_lanip: '本机IP', diag_nat: 'nat 规则', diag_filter: 'filter 规则',
+    diag_devices: '设备表', diag_log: '日志尾部',
+    lang_switched: '界面语言已切换'
+},
+en: {
+    subtitle: 'Interactive TLS interception proxy · mitmweb UI · Transparent + Explicit dual mode',
+    running: 'Running', stopped: 'Stopped',
+    ca_ok: 'CA generated', ca_no: 'No CA yet',
+    cap_on: 'Capturing', cap_off: 'Capture off',
+    rules_on: 'Transparent rules active', rules_off: 'Transparent rules inactive',
+    flows: '{n} flows captured',
+    start: 'Start engine', stop: 'Stop engine',
+    autostart: 'Start on boot',
+    clear: 'Clear flows',
+    fullscreen: 'Open in full screen',
+    refresh: 'Refresh status',
+    ports_title: 'Ports', ports_hint: 'Changing ports restarts the engine automatically',
+    proxy_port: 'Explicit proxy port', proxy_hint: 'Set proxy on client: RouterIP:this port',
+    web_port: 'Web UI port', web_hint: 'mitmweb interface, i.e. the window embedded below',
+    tproxy_port: 'Transparent port', tproxy_hint: 'Target of iptables REDIRECT (no client setup needed, see devices below)',
+    save_ports: 'Save ports',
+    dev_title: 'Capture devices', dev_hint: 'None selected = capture nothing, never global; selections save and apply instantly',
+    cap_switch: 'Capture master switch (also controls iptables transparent rules)',
+    dev_refresh: 'Refresh device list', dev_selected: '{n} selected',
+    dev_empty: 'No online devices. The list comes from DHCP leases + ARP table (includes static-IP devices; a device appears after it communicates with the router); if a device is not listed, add it manually below by IP (+MAC).',
+    dev_unnamed: 'Unnamed device',
+    manual_add: 'Add manually', ph_ip: 'IP', ph_mac: 'MAC (optional)', ph_name: 'Name (optional)',
+    add_save: 'Add & save',
+    dports: 'Intercept ports', dports_save: 'Save', dports_hint: 'TCP ports intercepted transparently (default 80,443; UDP443/QUIC blocked)',
+    tip_transparent_t: 'Transparent capture (no client setup): ',
+    tip_transparent: 'check the "capture master switch" above and tick the devices to capture; their 80/443 traffic is precisely REDIRECTed by iptables to this plugin for decryption (only ticked devices are affected; other devices and the router itself are untouched).',
+    tip_explicit_t: 'Explicit capture (legacy, still works): ',
+    tip_explicit: 'set the device Wi-Fi proxy manually to RouterIP:{port}; no iptables rules involved.',
+    tip_note_t: 'Note: ',
+    tip_note: 'iptables rules are removed automatically when the master switch is turned off or the engine stops; HTTPS decryption requires the client to install and trust the CA (see "Download CA certificate" below).',
+    steps_title: 'How to use',
+    steps_text: '1. Click "Start engine" (optionally check "Start on boot"); 2. Click "Download CA certificate", install and trust it on the devices to capture (iOS: Settings → General → About → Certificate Trust; Android: user certificate); 3. Pick one capture mode: Transparent — turn on the master switch and tick devices; Explicit — set the device proxy manually to RouterIP:{port}; 4. View decrypted requests/responses in the mitmweb interface below — rewrite, breakpoint, script.',
+    steps_note_t: 'Notes: ',
+    steps_note: 'this plugin bundles a complete Python runtime (~100MB, installed on the data volume, not the system partition); HTTPS decryption requires the client to trust the CA — untrusted domains will fail the handshake.',
+    dl_ca: 'Download CA certificate', netdiag: 'Network diagnostics',
+    web_title: 'mitmweb interface', web_hint: 'If it does not open, use "Open in full screen" above',
+    not_running: 'Engine not started. The mitmweb interface will be embedded here once it runs.',
+    msg_starting: 'Starting (Python runtime, takes a few seconds)...',
+    msg_started: 'Engine started', msg_start_fail: 'Start failed',
+    msg_stopped: 'Engine stopped',
+    msg_autostart_on: 'Start on boot enabled', msg_autostart_off: 'Start on boot disabled',
+    msg_set_fail: 'Setting failed', msg_unknown: 'unknown error',
+    msg_ports_saved: 'Ports saved', msg_engine_restarted: '(engine restarted)',
+    msg_dports_saved: 'Intercept ports saved',
+    msg_cap_on: 'Capture on, transparent rules active', msg_cap_off: 'Capture off, rules removed',
+    msg_op_fail: 'Operation failed',
+    msg_need_ip: 'IP is required',
+    msg_dev_saved: 'Devices saved ({n}), rules hot-reloaded',
+    msg_save_fail: 'Save failed',
+    msg_cleared: 'Cleared',
+    msg_ca_dl: 'CA downloaded, please install and trust it on your devices',
+    msg_ca_none: 'CA not generated yet: start the engine and let it run for a while (or make a request) before downloading',
+    msg_diag_fail: 'Diagnostics failed',
+    diag_rules: 'Rules', diag_on: 'active', diag_off: 'inactive',
+    diag_cap: 'Capture switch', diag_cap_on: 'on', diag_cap_off: 'off',
+    diag_lanip: 'Router IP', diag_nat: 'nat rules', diag_filter: 'filter rules',
+    diag_devices: 'devices', diag_log: 'log tail',
+    lang_switched: 'Interface language switched'
+}
+};
 var app = new Vue({
     el: '#app',
     data: {
         loading: false,
         loading_text: '',
+        lang: 'zh',
         status: 0, caok: 0, autostart: 0, flows: 0,
         proxyPort: 18070, webPort: 18071, transparentPort: 18072,
         capture: 0, rulesOn: 0, dports: '80,443',
@@ -173,6 +301,24 @@ var app = new Vue({
         this.loadDevices();
     },
     methods: {
+        // [i18n] 取当前语言文案, {n}/{port} 占位替换; 缺失键回退中文再回退键名
+        t(k, vars) {
+            const d = I18N[this.lang] || I18N.zh;
+            let s = (d[k] !== undefined ? d[k] : (I18N.zh[k] !== undefined ? I18N.zh[k] : k));
+            if (vars) { for (const key in vars) s = s.split('{' + key + '}').join(String(vars[key])); }
+            return s;
+        },
+        setLang() {
+            const next = this.lang === 'zh' ? 'en' : 'zh';
+            this.callPlugin('set_lang', {lang: next}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.lang = next;
+                    this.$message({message: this.t('lang_switched'), type: 'success'});
+                } else {
+                    this.$message.error(this.t('msg_set_fail') + ': ' + (response.ErrMsg || this.t('msg_unknown')));
+                }
+            });
+        },
         // [param-b64] 框架 /Action/call 的参数值禁含 引号/空格/$/&/;/|/\ (ikngx.lua 的
         // __rest_check_illegality_char), 明文 JSON 必被 2005 拒掉。端口是纯数字无碍,
         // 设备列表一律 base64(仅 [A-Za-z0-9+/=] 全合法)。
@@ -196,35 +342,36 @@ var app = new Vue({
                     if (d.webPort) this.webPort = d.webPort;
                     if (d.transparentPort) this.transparentPort = d.transparentPort;
                     if (d.dports) this.dports = d.dports;
+                    if (d.lang === 'zh' || d.lang === 'en') this.lang = d.lang;
                     this.devices = d.devices || [];
                     this.uiUrl = 'http://' + window.location.hostname + ':' + this.webPort + '/';
                 }
             });
         },
         startEngine() {
-            this.loading = true; this.loading_text = '正在启动(Python 运行时, 约需几秒)...';
+            this.loading = true; this.loading_text = this.t('msg_starting');
             this.callPlugin('start', {}, (response) => {
                 this.loading = false;
                 if (response.Result % 10000 == 0) {
-                    this.$message({message: '引擎已启动', type: 'success'});
+                    this.$message({message: this.t('msg_started'), type: 'success'});
                 } else {
-                    this.$message.error('启动失败: ' + (response.ErrMsg || response.Data || '未知错误'));
+                    this.$message.error(this.t('msg_start_fail') + ': ' + (response.ErrMsg || response.Data || this.t('msg_unknown')));
                 }
                 this.loadInitData();
             });
         },
         stopEngine() {
             this.callPlugin('stop', {}, (response) => {
-                this.$message({message: '引擎已停止', type: 'success'});
+                this.$message({message: this.t('msg_stopped'), type: 'success'});
                 this.loadInitData();
             });
         },
         setAutostart() {
             this.callPlugin('set_auto_start', {autostart: this.autostart ? 'true' : 'false'}, (response) => {
                 if (response.Result % 10000 == 0) {
-                    this.$message.success(this.autostart ? '已开启开机自启' : '已关闭开机自启');
+                    this.$message.success(this.autostart ? this.t('msg_autostart_on') : this.t('msg_autostart_off'));
                 } else {
-                    this.$message.error('设置失败: ' + (response.ErrMsg || '未知错误'));
+                    this.$message.error(this.t('msg_set_fail') + ': ' + (response.ErrMsg || this.t('msg_unknown')));
                 }
                 this.loadInitData();
             });
@@ -232,9 +379,9 @@ var app = new Vue({
         savePorts() {
             this.callPlugin('set_ports', {proxy: String(this.proxyPort), web: String(this.webPort), tproxy: String(this.transparentPort)}, (response) => {
                 if (response.Result % 10000 == 0) {
-                    this.$message({message: '端口已保存' + (this.status === 1 ? '(引擎已重启)' : ''), type: 'success'});
+                    this.$message({message: this.t('msg_ports_saved') + (this.status === 1 ? this.t('msg_engine_restarted') : ''), type: 'success'});
                 } else {
-                    this.$message.error('保存失败: ' + (response.ErrMsg || '未知错误'));
+                    this.$message.error(this.t('msg_save_fail') + ': ' + (response.ErrMsg || this.t('msg_unknown')));
                 }
                 this.loadInitData();
             });
@@ -242,9 +389,9 @@ var app = new Vue({
         saveDports() {
             this.callPlugin('set_dports', {ports: this.dports}, (response) => {
                 if (response.Result % 10000 == 0) {
-                    this.$message({message: '拦截端口已保存', type: 'success'});
+                    this.$message({message: this.t('msg_dports_saved'), type: 'success'});
                 } else {
-                    this.$message.error('保存失败: ' + (response.ErrMsg || '未知错误'));
+                    this.$message.error(this.t('msg_save_fail') + ': ' + (response.ErrMsg || this.t('msg_unknown')));
                 }
                 this.loadInitData();
             });
@@ -252,9 +399,9 @@ var app = new Vue({
         setCapture(on) {
             this.callPlugin('set_capture', {capture: on ? 'true' : 'false'}, (response) => {
                 if (response.Result % 10000 == 0) {
-                    this.$message({message: on ? '抓包已开启, 透明规则已生效' : '抓包已关闭, 规则已撤', type: 'success'});
+                    this.$message({message: on ? this.t('msg_cap_on') : this.t('msg_cap_off'), type: 'success'});
                 } else {
-                    this.$message.error('操作失败: ' + (response.ErrMsg || '未知错误'));
+                    this.$message.error(this.t('msg_op_fail') + ': ' + (response.ErrMsg || this.t('msg_unknown')));
                 }
                 this.loadInitData();
             });
@@ -301,7 +448,7 @@ var app = new Vue({
             this.saveDevices();
         },
         addManualAndSave() {
-            if (!this.manualIp) { this.$message.error('请填 IP'); return; }
+            if (!this.manualIp) { this.$message.error(this.t('msg_need_ip')); return; }
             this.devices.push({ip: this.manualIp, mac: this.manualMac, name: this.manualName});
             this.manualIp = ''; this.manualMac = ''; this.manualName = '';
             this.saveDevices();
@@ -309,16 +456,16 @@ var app = new Vue({
         saveDevices() {
             this.callPlugin('set_devices', {devices_b64: this.b64enc(JSON.stringify(this.devices))}, (response) => {
                 if (response.Result % 10000 == 0) {
-                    this.$message.success('设备已保存(' + this.devices.length + ' 台), 规则已热更新');
+                    this.$message.success(this.t('msg_dev_saved', {n: this.devices.length}));
                 } else {
-                    this.$message.error('保存失败: ' + (response.ErrMsg || '未知错误'));
+                    this.$message.error(this.t('msg_save_fail') + ': ' + (response.ErrMsg || this.t('msg_unknown')));
                 }
                 this.loadInitData();
             });
         },
         clearFlows() {
             this.callPlugin('clear_flows', {}, (response) => {
-                this.$message({message: '已清空', type: 'success'});
+                this.$message({message: this.t('msg_cleared'), type: 'success'});
                 this.loadInitData();
             });
         },
@@ -336,9 +483,9 @@ var app = new Vue({
                     a.download = 'mitmproxy-ca-cert.pem';
                     a.click();
                     URL.revokeObjectURL(a.href);
-                    this.$message({message: 'CA 已下载, 请到设备上安装并信任', type: 'success'});
+                    this.$message({message: this.t('msg_ca_dl'), type: 'success'});
                 } else {
-                    this.$message.error('CA 还没生成: 先启动引擎跑一会儿(或发起一次请求)再下载');
+                    this.$message.error(this.t('msg_ca_none'));
                 }
             });
         },
@@ -348,15 +495,15 @@ var app = new Vue({
                 if (response.Result % 10000 == 0 && response.Data) {
                     const d = response.Data;
                     this.netdiag =
-                        '规则状态: ' + (d.rules_flag === 'on' ? '生效' : '未生效') +
-                        ' | 抓包开关: ' + (d.capture === 'on' ? '开' : '关') +
-                        ' | 本机IP: ' + (d.lanip || '?') + '\n' +
-                        'nat 规则:\n' + (d.nat || '') + '\n' +
-                        'filter 规则:\n' + (d.filter || '') + '\n' +
-                        '设备表: ' + (d.devices || '[]') + '\n' +
-                        '日志尾部:\n' + (d.logtail || '');
+                        this.t('diag_rules') + ': ' + (d.rules_flag === 'on' ? this.t('diag_on') : this.t('diag_off')) +
+                        ' | ' + this.t('diag_cap') + ': ' + (d.capture === 'on' ? this.t('diag_cap_on') : this.t('diag_cap_off')) +
+                        ' | ' + this.t('diag_lanip') + ': ' + (d.lanip || '?') + '\n' +
+                        this.t('diag_nat') + ':\n' + (d.nat || '') + '\n' +
+                        this.t('diag_filter') + ':\n' + (d.filter || '') + '\n' +
+                        this.t('diag_devices') + ': ' + (d.devices || '[]') + '\n' +
+                        this.t('diag_log') + ':\n' + (d.logtail || '');
                 } else {
-                    this.$message.error('诊断失败: ' + (response.ErrMsg || '未知错误'));
+                    this.$message.error(this.t('msg_diag_fail') + ': ' + (response.ErrMsg || this.t('msg_unknown')));
                 }
             });
         }

@@ -46,6 +46,7 @@ CAPTURE_FLAG=$CONFDIR/capture_on    # 抓包总开关(iptables 规则)
 RULES_FLAG=$CONFDIR/rules_on        # iptables 规则当前是否生效
 DEVICES_FILE=$CONFDIR/devices.json  # 选中的设备 [{ip,mac,name}]
 DPORTS_FILE=$CONFDIR/dports         # 透明拦截的端口(默认 80,443)
+LANG_FILE=$CONFDIR/lang             # 界面语言: zh(默认) | en
 
 # 读端口配置(文件格式: "代理端口 Web端口 透明端口"); 没配过用默认值
 __ports()
@@ -243,6 +244,19 @@ set_ports()
 	return 0
 }
 
+# 界面语言: set_lang lang=zh|en(写 LANG_FILE, 页面 show&TYPE=data 带回)
+set_lang()
+{
+	case "$lang" in
+		zh|en) ;;
+		*) echo "lang 参数只能是 zh 或 en"; return 1;;
+	esac
+	mkdir -p $CONFDIR 2>/dev/null
+	echo "$lang" > $LANG_FILE
+	echo "界面语言已切换: $lang"
+	return 0
+}
+
 # 透明拦截端口: set_dports ports='80,443'
 set_dports()
 {
@@ -386,8 +400,11 @@ __show_data()
 	[ -f $DEVICES_FILE ] && devices=$(cat $DEVICES_FILE 2>/dev/null | tr -d '\n\r\t')
 	local dports='80,443'
 	[ -f $DPORTS_FILE ] && dports=$(cat $DPORTS_FILE)
+	local lang=zh
+	[ -f $LANG_FILE ] && lang=$(cat $LANG_FILE 2>/dev/null | tr -d '\n\r')
+	case "$lang" in zh|en) ;; *) lang=zh;; esac
 	json_append __json_result__ status:int proxyPort:int webPort:int transparentPort:int autostart:int caok:int flows:int capture:int rulesOn:int
-	json_append __json_result__ devices:json dports:str
+	json_append __json_result__ devices:json dports:str lang:str
 	return 0
 }
 
