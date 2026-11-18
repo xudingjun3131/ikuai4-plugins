@@ -148,7 +148,7 @@
 
                 <div class="mp-card" v-if="status === 1">
                     <h4>{{ t('web_title') }}<span>{{ t('web_hint') }}</span></h4>
-                    <iframe class="mp-frame" :src="uiUrl"></iframe>
+                    <iframe class="mp-frame" :key="uiUrl + '|' + frameKey" :src="uiUrl"></iframe>
                 </div>
                 <div class="mp-card" v-else style="color:#909399; font-size:12px;">
                     {{ t('not_running') }}
@@ -219,7 +219,8 @@ zh: {
     diag_cap: '抓包开关', diag_cap_on: '开', diag_cap_off: '关',
     diag_lanip: '本机IP', diag_nat: 'nat 规则', diag_filter: 'filter 规则',
     diag_devices: '设备表', diag_log: '日志尾部',
-    lang_switched: '界面语言已切换'
+    lang_switched: '界面语言已切换',
+    lang_switched_hint: 'mitmweb 全屏窗口需手动刷新后生效'
 },
 en: {
     subtitle: 'Interactive TLS interception proxy · mitmweb UI · Transparent + Explicit dual mode',
@@ -279,7 +280,8 @@ en: {
     diag_cap: 'Capture switch', diag_cap_on: 'on', diag_cap_off: 'off',
     diag_lanip: 'Router IP', diag_nat: 'nat rules', diag_filter: 'filter rules',
     diag_devices: 'devices', diag_log: 'log tail',
-    lang_switched: 'Interface language switched'
+    lang_switched: 'Interface language switched',
+    lang_switched_hint: 'Reload the mitmweb full-screen window to apply'
 }
 };
 var app = new Vue({
@@ -295,6 +297,7 @@ var app = new Vue({
         manualIp: '', manualMac: '', manualName: '',
         netdiag: '',
         uiUrl: '',
+        frameKey: 0,
     },
     mounted() {
         this.loadInitData();
@@ -313,7 +316,11 @@ var app = new Vue({
             this.callPlugin('set_lang', {lang: next}, (response) => {
                 if (response.Result % 10000 == 0) {
                     this.lang = next;
+                    // [web-i18n] iframe 硬重建: mitmweb 前端语言读 static/lang.json,
+                    // 同 URL 下 :src 不变不会重载, 靠 frameKey 变 key 强制重建
+                    this.frameKey++;
                     this.$message({message: this.t('lang_switched'), type: 'success'});
+                    this.$message(this.t('lang_switched_hint'));
                 } else {
                     this.$message.error(this.t('msg_set_fail') + ': ' + (response.ErrMsg || this.t('msg_unknown')));
                 }
@@ -344,7 +351,11 @@ var app = new Vue({
                     if (d.dports) this.dports = d.dports;
                     if (d.lang === 'zh' || d.lang === 'en') this.lang = d.lang;
                     this.devices = d.devices || [];
-                    this.uiUrl = 'http://' + window.location.hostname + ':' + this.webPort + '/';
+                    // [iframe-reload] uiUrl 变化(改端口后引擎重启)时 iframe 硬
+                    // 重建: 旧 :src 更新在某些浏览器下不重载, 实锤"改端口后
+                    // mitmweb 区域卡在连接被拒"
+                    const u = 'http://' + window.location.hostname + ':' + this.webPort + '/';
+                    if (u !== this.uiUrl) { this.uiUrl = u; this.frameKey++; }
                 }
             });
         },

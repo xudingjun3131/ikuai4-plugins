@@ -61,13 +61,22 @@ __ports()
 	echo "$p $w $t"
 }
 
-__engine_pid()
+# [orphan-fix] 本插件全部引擎进程。PID 文件会丢/会错(存储卷挂载竞态、升级
+# 链路遗留) —— 设备实锤(2026-11-18): 改端口后旧端口的 mitmweb 没被杀掉,
+# 18071/17071 同时有两个引擎在监听, 而页面状态显示正常。改为按 bundle 里的
+# musl loader 路径扫描 /proc/*/cmdline, 不依赖 PID 文件; 正则写 [.] 防 grep
+# 自身命令行自匹配。run-mitmweb.sh 是 exec 启动, cmdline 必含该路径。
+__engine_pids()
 {
-	[ -f $PIDFILE ] || return 1
-	local pid=$(cat $PIDFILE 2>/dev/null)
-	[ -n "$pid" ] || return 1
-	kill -0 $pid 2>/dev/null || return 1
-	echo $pid
+	local d p ids=""
+	local pat="$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/runtime/lib/ld-musl-x86_64[.]so[.]1"
+	for d in /proc/[0-9]*; do
+		p=${d#/proc/}
+		[ "$p" = "$$" ] && continue
+		tr '\0' ' ' < $d/cmdline 2>/dev/null | grep -q "$pat" || continue
+		ids="$ids $p"
+	done
+	echo $ids
 }
 
 # [fd-limit] mitmweb 是 Python 进程, 连接数一样吃 nofile; 启动前把软限制尽量
@@ -81,8 +90,8 @@ __raise_nofile()
 
 start()
 {
-	if __engine_pid >/dev/null; then
-		echo "mitmweb 已在运行(pid $(cat $PIDFILE))"
+	if [ -n "$(__engine_pids)" ]; then
+		echo "mitmweb 已在运行(pid $(__engine_pids | tr -s ' '))"
 		return 0
 	fi
 	if [ ! -x "$RUNNER" ]; then
@@ -121,10 +130,13 @@ start()
 	for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
 		sleep 1
 		if wget -q -O /dev/null -T2 http://127.0.0.1:$web/ 2>/dev/null; then ok=1; break; fi
-		__engine_pid >/dev/null || break
+		[ -n "$(__engine_pids)" ] || break
 	done
 	if [ "$ok" = "1" ]; then
 		echo "mitmweb 已启动: 显式代理 $proxy / 透明 $tproxy / Web $web"
+		# [web-i18n] 升级会整个换掉 bundle, 设备上 mitmweb 前端的 lang.json
+		# 会丢 —— 启动时按 LANG_FILE 重新同步, 否则升级后界面静默变回英文
+		__sync_web_lang
 		# [boot-heal] 开机/重启后规则自愈: 总开关开着就把规则补上
 		# (否则重启引擎后 iptables 规则没了, 用户视角"重启后抓不到包")
 		[ -f $CAPTURE_FLAG ] && iptables_add >/dev/null 2>&1
@@ -138,17 +150,22 @@ start()
 
 stop()
 {
-	local pid=$(__engine_pid)
-	if [ -n "$pid" ]; then
-		kill $pid 2>/dev/null
-		# [stop-wait] kill 只是发信号, 进程退出和端口释放是异步的 —— 紧接着
-		# start 会 bind 失败(reqable 设备实踩竞态)。轮询等到真消失再 -9 兜底。
+	# [orphan-fix] 杀全部引擎进程(PID 文件可能丢/错, 见 __engine_pids 注释),
+	# 不是只杀 PID 文件里那一个 —— 设备实锤: 只杀一个会留下孤儿引擎继续占老端口
+	local pids p
+	pids=$(__engine_pids)
+	for p in $pids; do
+		kill $p 2>/dev/null
+	done
+	# [stop-wait] kill 只是发信号, 进程退出和端口释放是异步的 —— 紧接着
+	# start 会 bind 失败(reqable 设备实踩竞态)。轮询等到真消失再 -9 兜底。
+	if [ -n "$pids" ]; then
 		local i=0
-		while kill -0 $pid 2>/dev/null && [ $i -lt 50 ]; do
+		while [ -n "$(__engine_pids)" ] && [ $i -lt 50 ]; do
 			sleep 0.1
 			i=$((i+1))
 		done
-		kill -9 $pid 2>/dev/null
+		for p in $(__engine_pids); do kill -9 $p 2>/dev/null; done
 	fi
 	rm -f $PIDFILE
 	# [stop-rules] 停引擎必须同时撤 iptables 规则: 规则指向没监听的端口会把
@@ -232,8 +249,11 @@ set_ports()
 	fi
 	mkdir -p $CONFDIR 2>/dev/null
 	echo "$p $w $t" > $PORTS_FILE
+	# [orphan-fix] 用 /proc 扫描判断引擎在不在跑(PID 文件会丢/错): 在跑才
+	# 停+起。以前用 PID 文件, 文件丢时就跳过硬重启, 旧引擎继续占老端口 ——
+	# 设备实锤: 改端口后新旧两个 mitmweb 同时监听, iframe 连新端口被拒
 	local was=0
-	__engine_pid >/dev/null && was=1
+	[ -n "$(__engine_pids)" ] && was=1
 	if [ "$was" = "1" ]; then
 		stop >/dev/null 2>&1
 		start >/dev/null 2>&1 || { echo "端口已保存, 但引擎重启失败, 请手动启动"; return 1; }
@@ -245,6 +265,8 @@ set_ports()
 }
 
 # 界面语言: set_lang lang=zh|en(写 LANG_FILE, 页面 show&TYPE=data 带回)
+# mitmweb 前端(i18n-zh.js 注入式翻译)读 static/lang.json 决定是否激活中文,
+# 这里同步过去。不重启引擎 —— 重启会断进行中的抓包会话, 浏览器刷新即生效。
 set_lang()
 {
 	case "$lang" in
@@ -253,7 +275,24 @@ set_lang()
 	esac
 	mkdir -p $CONFDIR 2>/dev/null
 	echo "$lang" > $LANG_FILE
+	__sync_web_lang
 	echo "界面语言已切换: $lang"
+	return 0
+}
+
+# [web-i18n] 把界面语言同步成 mitmweb 前端的 static/lang.json(i18n-zh.js 启动时
+# fetch 它, {"lang":"zh"} 才激活中文 DOM 改写)。启动时也调一次: 升级会整个换掉
+# bundle, 设备上旧的 lang.json 丢失, 不同步的话升级后 mitmweb 静默变回英文。
+# 路径用 glob(python3.14 版本号随 bundle 升级会变), 找不到就静默跳过。
+__sync_web_lang()
+{
+	local l=zh
+	[ -f $LANG_FILE ] && l=$(cat $LANG_FILE 2>/dev/null | tr -d '\n\r')
+	case "$l" in zh|en) ;; *) l=zh;; esac
+	local sd
+	sd=$(ls -d $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/runtime/usr/lib/python*/site-packages/mitmproxy/tools/web/static 2>/dev/null | head -1)
+	[ -n "$sd" ] && [ -d "$sd" ] || return 0
+	printf '{"lang":"%s"}' "$l" > "$sd/lang.json" 2>/dev/null
 	return 0
 }
 
@@ -287,7 +326,7 @@ set_auto_start()
 set_capture()
 {
 	if [ "$capture" = "true" ]; then
-		if [ ! -f $PIDFILE ] || ! kill -0 $(cat $PIDFILE) 2>/dev/null; then
+		if [ -z "$(__engine_pids)" ]; then
 			start || { echo "引擎未运行且启动失败, 抓包无法开启"; return 1; }
 		fi
 		touch $CAPTURE_FLAG
@@ -377,7 +416,9 @@ __show_netdiag()
 __show_data()
 {
 	local status=0
-	__engine_pid >/dev/null && status=1
+	# [orphan-fix] 状态以 /proc 扫描为准: PID 文件丢/错时旧代码显示"已停止",
+	# 实际引擎还在跑(设备实锤), 用户点停止杀不掉, 点启动报端口占用
+	[ -n "$(__engine_pids)" ] && status=1
 	local ports=$(__ports)
 	local proxyPort=${ports%% *}
 	local rest=${ports#* }
