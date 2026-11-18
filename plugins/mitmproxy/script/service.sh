@@ -64,16 +64,18 @@ __ports()
 # [orphan-fix] 本插件全部引擎进程。PID 文件会丢/会错(存储卷挂载竞态、升级
 # 链路遗留) —— 设备实锤(2026-11-18): 改端口后旧端口的 mitmweb 没被杀掉,
 # 18071/17071 同时有两个引擎在监听, 而页面状态显示正常。改为按 bundle 里的
-# musl loader 路径扫描 /proc/*/cmdline, 不依赖 PID 文件; 正则写 [.] 防 grep
-# 自身命令行自匹配。run-mitmweb.sh 是 exec 启动, cmdline 必含该路径。
+# musl loader 路径扫描 /proc/*/cmdline, 不依赖 PID 文件。
+# [perf] 单次 grep -l 扫全部 cmdline(一个进程), 不要逐 PID tr|grep —— 后者
+# 2N 个进程, show 数据要慢 ~0.5s, 用户视角"进页面先显示已停止, 等一会才
+# 运行中"(v1.0.4 实锤)。正则写 [.] 防 grep 自身命令行自匹配。
 __engine_pids()
 {
-	local d p ids=""
+	local f p ids=""
 	local pat="$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/runtime/lib/ld-musl-x86_64[.]so[.]1"
-	for d in /proc/[0-9]*; do
-		p=${d#/proc/}
+	for f in $(grep -l "$pat" /proc/[0-9]*/cmdline 2>/dev/null); do
+		p=${f#/proc/}
+		p=${p%/*}
 		[ "$p" = "$$" ] && continue
-		tr '\0' ' ' < $d/cmdline 2>/dev/null | grep -q "$pat" || continue
 		ids="$ids $p"
 	done
 	echo $ids
