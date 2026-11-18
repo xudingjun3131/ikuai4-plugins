@@ -220,3 +220,16 @@ exec "$B/lib/ld-musl-x86_64.so.1" --library-path "$B/lib:$B/usr/lib" \
 - **15 个插件没有二进制**（tailscale/zerotier/openp2p/socat/linkease/vlmcsd/uu/vidblock/vremote/mds/pppoe-scan/syslog/socks5-extapi/gecoos/reqable 中部分为未完成的移植桩）——`service.sh` 引用的 `$plugin_dir/../bin/xxx` 在 ipk 里不存在，是移植桩；reqable 是自研引擎（源码 `/opt/reqable`，Go 全静态 + 汉化）
 - **验证报告**：`docs/小黄鸟插件验证报告.md`（18 条用例，复验后 PASS 17 / FAIL 0 / 受限 1）；`docs/reqable-testcases.md` 为用例清单
 - 固件侧插件框架的完整改动记录在 `/opt/ikuai4-enterprise/AGENTS.md`，坑位在 skill `ikuai-firmware-build`
+
+## 插件 WebUI 零鉴权隐患修复（2026-11-18，reqable v1.0.44 / mitmproxy v1.0.7 / clash v2.2.3）
+
+**隐患**：插件引擎 webui 原来直接绑 `0.0.0.0`，局域网内无痕窗口开 IP:端口即可看全部抓包内容/改设置——零鉴权。clash 的 ttyd（2222）更严重：**没有鉴权的 root shell 菜单**。
+
+**修法（需固件 Build202611181800+，三插件同套）**：固件 OpenResty 加同源代理 `/plugin_proxy/<name>/`（Lua 校验 iKuai 登录会话 `sess_key` cookie 后转发到 `127.0.0.1`，无会话 GET 跳登录页/POST 返会话过期；端口文件协议 `/tmp/iktmp/plugin_web/<name>` 由插件启动写/停止删）；引擎 webui 只绑 `127.0.0.1`（直连已拒）；页面 iframe/window.open 改同源相对路径（自动带 cookie，顺带修复 HTTPS 管理页 mixed-content 拦 iframe）；service.sh 按 `BUILD_DATE` 自适应（旧固件回退直连，升级后自动收紧），show 回 `proxyReady` 标志。
+
+**各插件适配要点**：
+- reqable：Go 引擎双挂载（裸路径+前缀路径 StripPrefix）+ `X-Plugin-Proxy` 头防根路径 Location 回环；前端 Vite base + fetch/EventSource 全局包装补 `/api/` 前缀（覆盖 25 个调用点）；附带去顶部"开启抓包"按钮（与面板"继续"同功能）
+- mitmproxy：app.js 17 处 fetchApi 绝对路径改相对（**WebSocket 用 `location.pathname` 构造天然兼容，不用改**）；i18n-zh.js 的 `fetch('/static/lang.json')` 必须改相对（否则经代理 404 静默变英文）；选项弹窗 89 个选项全汉化（查找加空白归一化兜底多行 help）；配置区改横线 tab
+- clash：ttyd 只绑 127.0.0.1（**ttyd 客户端路径同样从 `window.location.pathname` 构造，天然兼容剥前缀，不需要 `-b`**）；页面"高级模式"改开 `/plugin_proxy/clash/`
+
+**28 插件审计结论**：零鉴权已修=clash ttyd/reqable/mitmweb；有自带认证=adguard 3000（bcrypt，模板密码公开用户应改）、frps 面板 7001（默认 admin/admin 用户应改）、nps/lucky（各自登录体系）；其余无 webui。
