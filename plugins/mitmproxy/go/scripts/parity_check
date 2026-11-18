@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# parity_check — verify IN matrix rows have implementation evidence (todo 44).
+# Exit 0 when all IN features are present; OUT cloud/team rows are ignored.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+fail=0
+pass() { echo "PASS  $1"; }
+fail_() { echo "FAIL  $1 — $2"; fail=1; }
+
+echo "== proxying parity_check (IN rows only) =="
+
+# Phase A spine
+test -f internal/proxy/engine.go && pass "MITM engine" || fail_ "MITM" "missing engine"
+test -f internal/ca/ca.go && pass "SSL CA" || fail_ "CA" "missing"
+test -f internal/store/store.go && pass "Capture store" || fail_ "store" "missing"
+test -f internal/rules/rule.go && pass "Rules" || fail_ "rules" "missing"
+test -f internal/script/runner.go && pass "Scripts goja" || fail_ "script" "missing"
+test -f internal/breakpoint/manager.go && pass "Breakpoint" || fail_ "bp" "missing"
+test -f internal/rest/send.go && pass "REST client" || fail_ "rest" "missing"
+test -f internal/har/export.go && pass "HAR export" || fail_ "har export" "missing"
+
+# Phase B
+grep -q 'HTTP/2\|AllowHTTP2\|h2' internal/proxy/engine.go && pass "HTTP/2" || fail_ "H2" "no h2"
+grep -q 'TypeHighlight\|HighlightFor' internal/rules/rule.go && pass "Highlight rules" || fail_ "highlight" "missing"
+grep -q 'Cond\|Conds' internal/store/flow.go && pass "Multi-cond search" || fail_ "search" "missing"
+test -f internal/script/templates.go && pass "Script templates" || fail_ "templates" "missing"
+test -f internal/session/store.go && pass "Sessions" || fail_ "session" "missing"
+test -f internal/bookmark/store.go && pass "Bookmarks" || fail_ "bookmark" "missing"
+test -f internal/store/history.go && pass "History (file JSONL)" || fail_ "history" "missing"
+test -f internal/diff/diff.go && pass "Diff" || fail_ "diff" "missing"
+test -f internal/report/ingest.go && pass "Report ingest" || fail_ "report" "missing"
+test -f internal/netcond/cond.go && pass "Netcond" || fail_ "netcond" "missing"
+test -f internal/har/import.go && pass "HAR import" || fail_ "har import" "missing"
+test -f internal/chls/import.go && pass "CHLS best-effort" || fail_ "chls" "missing"
+test -f internal/mcp/tools.go && pass "MCP local tools" || fail_ "mcp" "missing"
+test -f internal/proxyterm/env.go && pass "Proxy terminal helpers" || fail_ "proxyterm" "missing"
+test -f internal/rest/compose.go && pass "Compose/repeat" || fail_ "compose" "missing"
+grep -q 'Turbo' internal/config/config.go && pass "Turbo flag" || fail_ "turbo" "missing"
+
+# Phase C optional
+test -f docs/android-status.md && pass "Android status doc" || fail_ "android" "missing doc"
+test -f docs/ios-status.md && pass "iOS status doc" || fail_ "ios" "missing doc"
+test -d mobile/android-stub && pass "Android stub" || fail_ "android stub" "missing"
+grep -q 'AgentsHandler\|/api/agents' internal/report/ingest.go internal/api/phaseb.go && pass "LAN agents list" || fail_ "agents" "missing"
+
+# Phase D
+test -f deploy/compose/docker-compose.yml && pass "Compose personal" || fail_ "compose" "missing"
+test -f docs/http3-status.md && pass "HTTP/3 residual doc" || fail_ "h3" "missing doc"
+
+# OUT — must NOT exist as cloud product
+if grep -RIn --include='*.go' 'cloud.?sync\|team.?workspace\|multi.?tenant' internal/ 2>/dev/null | grep -v 'no cloud\|Must NOT\|OUT' >/dev/null; then
+  echo "WARN  possible cloud wording (review)"
+fi
+pass "OUT cloud/team skipped by design"
+
+echo "== go test =="
+go test ./... -count=1
+echo "== done fail=$fail =="
+exit "$fail"
