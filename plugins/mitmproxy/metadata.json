@@ -2,10 +2,10 @@
   "name": "mitmproxy",
   "alias": "Mitmproxy抓包",
   "manufacturer": "iKuai",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "type": "external",
   "description": "Mitmproxy 11 流量捕获与 HTTPS 解密插件：透明+显式双模式抓包，交互式 TLS 拦截代理，mitmweb Web 界面查看/分析/改写请求响应，支持插件化 addons、断点、脚本、HAR 导入导出。透明模式按设备(MAC/IP)精确 iptables 引流，不选设备绝不全局。插件页面与 mitmweb 界面均支持中英文切换。自带完整 Alpine(musl) Python 运行时，不依赖固件 libc。首次使用请在客户端安装并信任 CA 证书。",
-  "releasenotes": "修复两个设备实锤问题: ① 启动误报\"mitmweb 启动异常(等了 15 秒 Web 端口没起来)\"——mitmweb(Alpine Python 运行时)冷启动超过 15 秒, 健康检查误判失败, 而失败路径在同步 lang.json 之前就返回, 引擎随后虽起来但界面静默变回英文(日志尾部那句 OpenSSL 3 legacy provider 是无害警告)。修法: 健康检查 15s→60s; __sync_web_lang 移到启动引擎之前(只写磁盘); 失败日志过滤该无害警告; ② mitmweb 界面全英文——lang.json 是运行时文件, 升级换 bundle 后丢失, i18n-zh.js fetch /static/lang.json 404 就静默保持英文。修法: 默认 {\"lang\":\"zh\"} 的 lang.json 随 bundle 发货, 不再依赖同步; 启动/Set_lang 仍按 LANG_FILE 覆盖。升级本版后刷新浏览器即中文。",
+  "releasenotes": "安全加固+界面改造: ① [安全] mitmweb 原来直接绑 0.0.0.0:18071, 局域网无痕窗口开 IP:18071 就能看全部解密流量/改选项——零鉴权重大隐患(与 reqable 同款)。本版起(需固件 Build202611181800+)mitmweb 只绑 127.0.0.1, 页面 iframe 改走路由器同源 /plugin_proxy/mitmproxy/(OpenResty 校验 iKuai 登录会话 sess_key 后转发, 自动带 cookie; 无会话直连/代理都被跳登录页), 同时修复 HTTPS 管理页 mixed-content 拦 iframe(旧版只能降级\"新窗口打开\"的分支整个删除); 旧固件自动回退直连形态。app.js 17 处绝对 API 路径改相对(WebSocket 用 location.pathname 构造天然兼容子路径), i18n-zh.js 的 lang.json 改相对获取。② [汉化] 选项弹窗补全: 89 个 mitmproxy 原生选项(核心 29 + addon 60)的名称与说明全部汉化(从 runtime 的 options.py/addons 提取逐一翻译), 查找加空白归一化(多行 help 带缩进精确匹配必败)。③ [界面] 配置区(端口设置/抓包设备/使用步骤)改横线 tab, 与 reqable 页面同款; mitmweb 界面固定在下方。",
   "arch": [
     "x86_64"
   ],

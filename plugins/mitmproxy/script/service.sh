@@ -47,6 +47,21 @@ RULES_FLAG=$CONFDIR/rules_on        # iptables 规则当前是否生效
 DEVICES_FILE=$CONFDIR/devices.json  # 选中的设备 [{ip,mac,name}]
 DPORTS_FILE=$CONFDIR/dports         # 透明拦截的端口(默认 80,443)
 LANG_FILE=$CONFDIR/lang             # 界面语言: zh(默认) | en
+# [plugin-proxy] iKuai 加固(Build202611181800 起固件支持): mitmweb 原来直接绑
+# 0.0.0.0:18071, 局域网内无痕窗口打开 IP:18071 就能看全部解密流量/改选项——零鉴权,
+# 重大隐患(与 reqable 同款)。修法: 固件 OpenResty 加同源代理 /plugin_proxy/mitmproxy/
+# (校验 sess_key 后转发到 127.0.0.1), mitmweb 只绑 127.0.0.1, 页面 iframe 走同源相对
+# 路径(顺带修复 HTTPS 管理页 mixed-content 拦 iframe)。旧固件回退 0.0.0.0 直连。
+__PROXY_MIN_BUILD=202611181800
+__web_bind_addr()
+{
+	local __bd
+	__bd=$(grep '^BUILD_DATE=' /etc/release 2>/dev/null | cut -d= -f2)
+	case "$__bd" in ''|*[!0-9]*) echo 0.0.0.0; return ;; esac
+	if [ "$__bd" -ge "$__PROXY_MIN_BUILD" ]; then echo 127.0.0.1; else echo 0.0.0.0; fi
+}
+# OpenResty 代理按插件名查此文件找本地端口(启动时写, 停止时删)
+PP_PORT_FILE=/tmp/iktmp/plugin_web/mitmproxy
 
 # 读端口配置(文件格式: "代理端口 Web端口 透明端口"); 没配过用默认值
 __ports()
@@ -117,6 +132,10 @@ start()
 		fi
 	done
 	__raise_nofile
+	# [plugin-proxy] WebUI 绑址见 __web_bind_addr: 新固件只绑 127.0.0.1(代理转发),
+	# 旧固件 0.0.0.0 直连。两个代理端口保持 0.0.0.0(设备要用)。
+	local __web_bind
+	__web_bind=$(__web_bind_addr)
 	# [web-i18n] lang.json 在启动引擎之前就落盘: ① 随 bundle 发货的默认值是 zh,
 	# 这里按 LANG_FILE 覆盖(用户切过 en 的话); ② 绝不能放到健康检查之后 —— 设备实锤
 	# (2026-11-18): mitmweb 冷启动超过 15 秒, 健康检查误报"启动异常"直接 return,
@@ -128,11 +147,17 @@ start()
 	# [transparent] 双模式并存: regular(显式代理) + transparent(iptables REDIRECT
 	# 目标)。--mode 可传多次, @host:port 逐模式指定监听地址; 不再用全局
 	# --listen-port(两个模式会抢同一个端口)。
-	$RUNNER --web-host 0.0.0.0 --web-port $web \
+	$RUNNER --web-host $__web_bind --web-port $web \
 		--set confdir=$CONFDIR --set web_open_browser=false \
 		--mode "regular@0.0.0.0:$proxy" --mode "transparent@0.0.0.0:$tproxy" \
 		>>$LOGFILE 2>&1 &
 	echo $! > $PIDFILE
+	# [plugin-proxy] 落端口文件: OpenResty /plugin_proxy/mitmproxy/ 代理按插件名
+	# 查此文件找本地端口; 只绑 127.0.0.1 时这是唯一入口(直连已拒)
+	if [ "$__web_bind" = "127.0.0.1" ]; then
+		mkdir -p /tmp/iktmp/plugin_web 2>/dev/null
+		echo $web > $PP_PORT_FILE 2>/dev/null
+	fi
 	# 健康检查: Python(Alpine runtime)启动要几秒, 冷启动/存储卷刚挂载时更慢,
 	# 轮询 web 端口(最多 60s)。设备实锤(2026-11-18): 只等 15 秒会把慢启动误报成
 	# "启动异常"(引擎随后自己起来了), 而误报路径会跳过 lang.json 同步 → 界面变英文。
@@ -164,6 +189,8 @@ start()
 
 stop()
 {
+	# [plugin-proxy] 停止即摘掉代理端口文件(文件不在=代理明确报"插件未运行")
+	rm -f $PP_PORT_FILE
 	# [orphan-fix] 杀全部引擎进程(PID 文件可能丢/错, 见 __engine_pids 注释),
 	# 不是只杀 PID 文件里那一个 —— 设备实锤: 只杀一个会留下孤儿引擎继续占老端口
 	local pids p
@@ -458,8 +485,11 @@ __show_data()
 	local lang=zh
 	[ -f $LANG_FILE ] && lang=$(cat $LANG_FILE 2>/dev/null | tr -d '\n\r')
 	case "$lang" in zh|en) ;; *) lang=zh;; esac
+	# [plugin-proxy] 页面按此决定 iframe 走同源代理路径还是直连(见 __web_bind_addr)
+	local proxyReady=0
+	[ "$(__web_bind_addr)" = "127.0.0.1" ] && proxyReady=1
 	json_append __json_result__ status:int proxyPort:int webPort:int transparentPort:int autostart:int caok:int flows:int capture:int rulesOn:int
-	json_append __json_result__ devices:json dports:str lang:str
+	json_append __json_result__ devices:json dports:str lang:str proxyReady:int
 	return 0
 }
 

@@ -27,6 +27,16 @@
         .mp-diag { white-space: pre-wrap; word-break: break-all; font-family: monospace; font-size: 11px; background: #f6f8fa; border: 1px solid #ebeef5; border-radius: 4px; padding: 10px; max-height: 260px; overflow-y: auto; }
         .mp-lang-btn { background: #fff; border: 1px solid #dcdfe6; color: #606266; cursor: pointer; border-radius: 4px; padding: 3px 12px; font-size: 12px; }
         .mp-lang-btn:hover { background: #ecf5ff; border-color: #3e8cd4; color: #3e8cd4; }
+        /* [tab-layout] 配置三段改横线 tab(与 reqable 页面同款, 用户要求):
+           同屏只显示一段, mitmweb 界面固定在下方 always-on */
+        .mp-tabs { display: flex; gap: 4px; border-bottom: 1px solid #ebeef5; margin-top: 12px; flex-wrap: wrap; }
+        .mp-tab { padding: 8px 16px; font-size: 13px; color: #606266; cursor: pointer; user-select: none;
+                  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+        .mp-tab:hover { color: #409eff; }
+        .mp-tab.on { color: #409eff; border-bottom-color: #409eff; font-weight: 600; }
+        .mp-tabpanel { border: 1px solid #ebeef5; border-top: none; border-radius: 0 0 8px 8px;
+                       padding: 16px; background: #fff; }
+        .mp-tabpanel .mp-card { border: none; padding: 0; margin-top: 0; }
     </style>
 </head>
 <body>
@@ -61,6 +71,13 @@
                     <button type="button" class="btn btn_default rounded height26" @click="loadInitData">{{ t('refresh') }}</button>
                 </div>
 
+                <!-- [tab-layout] 配置三段横线 tab(与 reqable 同款); mitmweb 界面在下方固定 -->
+                <div class="mp-tabs">
+                    <div class="mp-tab" :class="{on: activeTab==='ports'}" @click="activeTab='ports'">端口设置</div>
+                    <div class="mp-tab" :class="{on: activeTab==='devices'}" @click="activeTab='devices'">抓包设备<b v-if="devices.length" style="font-weight:normal;color:#909399;padding-left:2px;">({{ devices.length }})</b></div>
+                    <div class="mp-tab" :class="{on: activeTab==='steps'}" @click="activeTab='steps'">使用步骤</div>
+                </div>
+                <div class="mp-tabpanel" v-show="activeTab==='ports'">
                 <div class="mp-card">
                     <h4>{{ t('ports_title') }}<span>{{ t('ports_hint') }}</span></h4>
                     <div class="mp-row">
@@ -82,7 +99,8 @@
                         <button type="button" class="btn btn_blue rounded height26" @click="savePorts">{{ t('save_ports') }}</button>
                     </div>
                 </div>
-
+                </div>
+                <div class="mp-tabpanel" v-show="activeTab==='devices'">
                 <div class="mp-card">
                     <h4>{{ t('dev_title') }}<span>{{ t('dev_hint') }}</span></h4>
                     <div class="mp-row">
@@ -132,7 +150,8 @@
                         <b>{{ t('tip_note_t') }}</b>{{ t('tip_note') }}
                     </div>
                 </div>
-
+                </div>
+                <div class="mp-tabpanel" v-show="activeTab==='steps'">
                 <div class="mp-card">
                     <h4>{{ t('steps_title') }}</h4>
                     <div class="mp-tip" style="margin-top:0;">
@@ -145,17 +164,15 @@
                     </div>
                     <div v-if="netdiag" class="mp-diag" style="margin-top:8px;">{{ netdiag }}</div>
                 </div>
+                </div>
 
                 <div class="mp-card" v-if="status === 1">
                     <h4>{{ t('web_title') }}<span>{{ t('web_hint') }}</span></h4>
-                    <!-- [mixed-content] 管理页是 HTTPS 时浏览器会拦 HTTP iframe
-                         (Chromium 156 实测: 灰色悲伤文档图标, 跟端口活没活无关),
-                         降级成"新窗口打开"按钮(功能一致); HTTP 页面才内嵌 -->
-                    <iframe v-if="!httpsPage" class="mp-frame" :key="uiUrl + '|' + frameKey" :src="uiUrl"></iframe>
-                    <div v-else class="mp-https-tip">
-                        <p style="font-size:12px; color:#606266; line-height:1.9; margin:0 0 12px;">{{ t('web_https_blocked') }}</p>
-                        <a class="btn btn_blue rounded height26" :href="uiUrl" target="_blank">{{ t('web_open_btn') }}</a>
-                    </div>
+                    <!-- [plugin-proxy] iframe 恒显: 同源 /plugin_proxy/mitmproxy/
+                         (OpenResty 校验 sess_key 后转发)后, HTTPS 管理页不再拦
+                         mixed-content(旧版直连 http://IP:18071 在 HTTPS 页被拦,
+                         只能降级"新窗口打开"; 代理后该分支整个删除) -->
+                    <iframe class="mp-frame" :key="uiUrl + '|' + frameKey" :src="uiUrl"></iframe>
                 </div>
                 <div class="mp-card" v-else style="color:#909399; font-size:12px;">
                     {{ t('not_running') }}
@@ -304,12 +321,15 @@ var app = new Vue({
         status: 0, caok: 0, autostart: 0, flows: 0,
         proxyPort: 18070, webPort: 18071, transparentPort: 18072,
         capture: 0, rulesOn: 0, dports: '80,443',
+        // [tab-layout] 配置区当前 tab(端口/设备/步骤, mitmweb 界面在下方固定)
+        activeTab: 'ports',
+        // [plugin-proxy] 新固件=1: iframe 走同源代理路径(带 iKuai 鉴权)
+        proxyReady: 0,
         devices: [], lanDevices: [],
         manualIp: '', manualMac: '', manualName: '',
         netdiag: '',
         uiUrl: '',
         frameKey: 0,
-        httpsPage: window.location.protocol === 'https:',
     },
     mounted() {
         this.loadInitData();
@@ -366,7 +386,13 @@ var app = new Vue({
                     // [iframe-reload] uiUrl 变化(改端口后引擎重启)时 iframe 硬
                     // 重建: 旧 :src 更新在某些浏览器下不重载, 实锤"改端口后
                     // mitmweb 区域卡在连接被拒"
-                    const u = 'http://' + window.location.hostname + ':' + this.webPort + '/';
+                    // [plugin-proxy] proxyReady=1(新固件): 同源 /plugin_proxy/
+                    // mitmproxy/(OpenResty 校验 sess_key 后转发, 自动带 cookie,
+                    // HTTPS 页也不拦 mixed-content); 旧固件回退直连
+                    if (d.proxyReady !== undefined) this.proxyReady = d.proxyReady;
+                    const u = this.proxyReady
+                        ? '/plugin_proxy/mitmproxy/'
+                        : 'http://' + window.location.hostname + ':' + this.webPort + '/';
                     if (u !== this.uiUrl) { this.uiUrl = u; this.frameKey++; }
                 }
             });

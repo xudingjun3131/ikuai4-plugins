@@ -2,10 +2,10 @@
   "name": "reqable",
   "alias": "小黄鸟抓包",
   "manufacturer": "iKuai",
-  "version": "1.0.43",
+  "version": "1.0.44",
   "type": "external",
   "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
-  "releasenotes": "修复启动失败(No such file or directory)回归: v1.0.42 为修 WebUI fd 耗尽重建引擎时漏了 CGO_ENABLED=0, 发货的是 glibc 动态二进制——固件只有 uClibc loader, exec 时内核找不到 /lib64/ld-linux-x86-64.so.2 返回 ENOENT, bash 把 loader 缺失报成二进制不存在(设备全部启动失败)。本版用 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags \"-s -w\" 静态重建(PT_INTERP 为空, 冒烟: 三端口监听/api/flows 200/内嵌中文 UI 完整), 并修复 /opt/reqable Makefile 全部构建目标补回静态 flags。升级本版即可修复, 无需重装(install.sh 对 upgrade 类型会先停旧引擎再起新的)。",
+  "releasenotes": "安全加固+界面优化: ① [安全] WebUI 原来直接绑 0.0.0.0, 局域网无痕窗口开 IP:18081 即可看全部抓包内容/改设置——零鉴权重大隐患。本版起(需固件 Build202611181800+)WebUI 只绑 127.0.0.1, 页面 iframe 改走路由器同源 /plugin_proxy/reqable/(OpenResty 校验 iKuai 登录会话 sess_key 后转发, 自动带 cookie; 无会话的直连/代理都被跳登录页), 同时修复 HTTPS 管理页 mixed-content 拦 iframe 的问题; 旧固件自动回退直连形态不影响使用。引擎双挂载路径(裸 /api/* 供插件本地调用 + 前缀路径), Vite base 与 fetch/EventSource 包装同步改造。② [界面] 去掉顶部\"开启抓包\"按钮(与下方 Reqable 面板的\"继续\"同一功能, 用户实锤), 保留\"关闭抓包\"(撤规则+暂停, 面板暂停管不到 iptables 规则); 使用步骤文案同步更新。",
   "arch": [
     "x86_64"
   ],

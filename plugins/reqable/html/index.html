@@ -70,9 +70,11 @@
                     <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#606266; cursor:pointer;">
                         <input type="checkbox" v-model="autostart" @change="setAutostart">开机自启
                     </label>
-                    <button v-if="capture !== 1" type="button" class="btn btn_green rounded height26" @click="setCapture(true)">开启抓包</button>
-                    <button v-else type="button" class="btn btn_red rounded height26" @click="setCapture(false)">关闭抓包</button>
-                    <span style="font-size:11px; color:#909399;">关闭抓包 = 撤网络规则 + 引擎暂停记录(显式代理的设备也不再落库)</span>
+                    <!-- [btn-dup-fix] 顶部"开启抓包"与下方 Reqable 面板的"继续"是同一
+                         功能(用户实锤), 去掉顶部的; 保留"关闭抓包"(撤规则+暂停, 面板
+                         暂停管不到 iptables 规则)。开启改用面板的"继续"。 -->
+                    <button v-if="capture === 1" type="button" class="btn btn_red rounded height26" @click="setCapture(false)">关闭抓包</button>
+                    <span style="font-size:11px; color:#909399;">关闭抓包 = 撤网络规则 + 引擎暂停记录(显式代理的设备也不再落库)；开始/继续记录在下方界面点「继续」</span>
                     <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">下载 CA 证书</button>
                     <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
                     <a v-if="status === 1" class="btn btn_default rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
@@ -90,7 +92,7 @@
                     <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。引擎自带界面(18081)里显示的 proxy 地址是写死的默认值，以本页端口为准</span>
                 </div>
                 <div class="reqable-tip">
-                    <b>使用步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>抓包设备</b>里勾选要调试的设备（不选=不抓任何设备，绝不全局）；3. 点<b>开启抓包</b>；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在下方界面查看解密后的请求/响应。<br>
+                    <b>使用步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>抓包设备</b>里勾选要调试的设备（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在下方界面查看解密后的请求/响应。<br>
                     <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
                 </div>
 
@@ -253,7 +255,7 @@ var app = new Vue({
         loading_text: '',
         status: 0, capture: 0, rulesOn: 0, autostart: 0, caok: 0, flows: 0,
         // autostart 同时用于复选框 v-model(0/1) 和 set_auto_start 传参(true/false)
-        proxyPort: 18080, apiPort: 18081, transparentPort: 18082, geoLoaded: 0, inWindow: 0, enginePaused: 0,
+        proxyPort: 18080, apiPort: 18081, transparentPort: 18082, geoLoaded: 0, inWindow: 0, enginePaused: 0, proxyReady: 0,
         uiUrl: '', caUrl: '',
         // 布局折叠态: 2/3/4 是高级筛选, 默认收起省屏幕; 第1段抓包设备始终展开
         activeTab: 'devices',
@@ -282,7 +284,12 @@ var app = new Vue({
         }
     },
     mounted() {
-        this.uiUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/';
+        // [plugin-proxy] 新固件(proxyReady=1): iframe 走同源 /plugin_proxy/reqable/
+        // (OpenResty 校验 sess_key 后转发, 自动带登录 cookie, HTTPS 页也不再拦 mixed-content);
+        // 旧固件回退直连 http://IP:端口(升级固件后自动收紧)
+        this.uiUrl = this.proxyReady
+            ? '/plugin_proxy/reqable/'
+            : 'http://' + window.location.hostname + ':' + this.apiPort + '/';
         this.caUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/api/ca.pem';
         this.loadInitData();
         this.loadDevices();
@@ -316,7 +323,11 @@ var app = new Vue({
                     if (d.proxyPort) this.proxyPort = d.proxyPort;
                     if (d.apiPort) this.apiPort = d.apiPort;
                     if (d.transparentPort) this.transparentPort = d.transparentPort;
-                    this.uiUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/';
+                    if (d.proxyReady !== undefined) this.proxyReady = d.proxyReady;
+                    // [plugin-proxy] 同上: proxyReady=1 走同源代理路径(带鉴权), 否则直连
+                    this.uiUrl = this.proxyReady
+                        ? '/plugin_proxy/reqable/'
+                        : 'http://' + window.location.hostname + ':' + this.apiPort + '/';
                     this.caUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/api/ca.pem';
                     // 配置回填
                     this.selectedDevices = d.devices || [];

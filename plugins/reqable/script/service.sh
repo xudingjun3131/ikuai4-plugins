@@ -47,6 +47,21 @@ esac
 PROXY_PORT=18080       # 显式代理(设备手动设代理 router:18080)
 TRANSPARENT_PORT=18082 # 透明监听(iptables REDIRECT 的目标)
 API_PORT=18081         # Web 界面/API
+# [plugin-proxy] iKuai 加固(Build202611181800 起固件支持): WebUI 原来直接绑
+# 0.0.0.0, 局域网内无痕窗口打开 IP:18081 就能看全部抓包内容/改设置——零鉴权,
+# 重大隐患。修法: 固件 OpenResty 加同源代理 /plugin_proxy/reqable/(校验 sess_key
+# 后转发到 127.0.0.1), 引擎 WebUI 只绑 127.0.0.1, 页面 iframe 走同源相对路径。
+# 旧固件没有该代理, 保持 0.0.0.0 直连(功能优先; 升级固件后自动收紧)。
+__PROXY_MIN_BUILD=202611181800
+__web_bind_addr()
+{
+	local __bd
+	__bd=$(grep '^BUILD_DATE=' /etc/release 2>/dev/null | cut -d= -f2)
+	case "$__bd" in ''|*[!0-9]*) echo 0.0.0.0; return ;; esac
+	if [ "$__bd" -ge "$__PROXY_MIN_BUILD" ]; then echo 127.0.0.1; else echo 0.0.0.0; fi
+}
+# OpenResty 代理按插件名查此文件找本地端口(启动/改端口时写, 停止时删)
+PP_PORT_FILE=/tmp/iktmp/plugin_web/reqable
 # [port-conf] 端口做成页面可配(用户常以为代理端口是 8080——写死曾让他们以为
 # 插件没起来)。配置落 ports.conf, set_proxy_ports 保存后重启引擎生效。
 PORTS_CONF=$DATADIR/ports.conf
@@ -278,11 +293,21 @@ start()
 	# internal/{api,proxy}), 这里再把 fd 软限制尽量抬高兜底(抬不过硬限制就
 	# 静默失败, 不影响启动)。
 	for __n in 65536 32768 8192 4096; do ulimit -n $__n 2>/dev/null && break; done
+	# [plugin-proxy] WebUI 绑址见 __web_bind_addr: 新固件只绑 127.0.0.1(代理转发),
+	# 旧固件 0.0.0.0 直连。代理/透明端口保持 0.0.0.0(设备要用)。
+	local __web_bind
+	__web_bind=$(__web_bind_addr)
 	$BIN -proxy-addr 0.0.0.0:$PROXY_PORT -transparent-addr 0.0.0.0:$TRANSPARENT_PORT \
-		-api-addr 0.0.0.0:$API_PORT \
+		-api-addr $__web_bind:$API_PORT \
 		-data-dir $DATA_DIR -transparent -scope-file $SCOPE_FILE \
 		>>$LOGDIR/reqable.log 2>&1 </dev/null &
 	echo $! > $PIDFILE
+	# [plugin-proxy] 落端口文件: OpenResty /plugin_proxy/reqable/ 代理按插件名
+	# 查此文件找本地端口; 只绑 127.0.0.1 时这是唯一入口(直连已拒)
+	if [ "$__web_bind" = "127.0.0.1" ]; then
+		mkdir -p /tmp/iktmp/plugin_web 2>/dev/null
+		echo $API_PORT > $PP_PORT_FILE 2>/dev/null
+	fi
 	sleep 1
 	# 健康检查 + CA 预热
 	wget -q -O /dev/null -T3 http://127.0.0.1:$API_PORT/api/ca.pem 2>/dev/null
@@ -312,6 +337,9 @@ stop()
 {
 	[ -f $SCHED_PIDFILE ] && kill $(cat $SCHED_PIDFILE) 2>/dev/null
 	rm -f $SCHED_PIDFILE
+	# [plugin-proxy] 停止即摘掉代理端口文件: 文件在=代理可转发, 文件不在=代理
+	# 明确报"插件未运行"(502), 不会把请求透给一个死端口
+	rm -f $PP_PORT_FILE
 	# [stop-wait] kill 只是发信号, 进程退出和端口释放是异步的。原来 stop 发完信号
 	# 立即返回, 调用方紧接着 start 时新进程 bind 不上同一端口 → 起即死 → "引擎启动
 	# 失败"(2026-11-17 设备实踩: stop→start 竞态, 第二次 start 才成)。这里等到进程
@@ -656,6 +684,9 @@ __show_data()
 	local proxyPort=$PROXY_PORT
 	local apiPort=$API_PORT
 	local transparentPort=$TRANSPARENT_PORT
+	# [plugin-proxy] 页面按此决定 iframe 走同源代理路径还是直连(见 __web_bind_addr)
+	local proxyReady=0
+	[ "$(__web_bind_addr)" = "127.0.0.1" ] && proxyReady=1
 	local geoLoaded=0
 	[ -s $DATA_DIR/geoip.csv ] && geoLoaded=1
 	local inWindow=0
@@ -680,7 +711,7 @@ __show_data()
 	[ -z "$groups" ] && groups='[]'
 
 	json_append __json_result__ status:int capture:int enginePaused:int rulesOn:int autostart:int caok:int flows:int
-	json_append __json_result__ proxyPort:int apiPort:int transparentPort:int geoLoaded:int inWindow:int
+	json_append __json_result__ proxyPort:int apiPort:int transparentPort:int geoLoaded:int inWindow:int proxyReady:int
 	json_append __json_result__ devices:json scope:json schedule:json ports:str interfaces:str groups:json
 	return 0
 }
