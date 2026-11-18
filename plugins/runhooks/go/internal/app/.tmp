@@ -1,0 +1,16 @@
+{
+  "domain_mode": "",
+  "domains": null,
+  "dst_ip_mode": "",
+  "dst_ips": null,
+  "geo_mode": "",
+  "countries": null,
+  "record_mode": "",
+  "paths": null,
+  "methods": null,
+  "user_agents": null,
+  "ja3": null,
+  "content_types": null,
+  "size_min": 0,
+  "size_max": 0
+}

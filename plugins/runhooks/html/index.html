@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>Runhooks抓包</title>
+    <script src="../../static/js/vue.js"></script>
+    <script src="../../static/js/plugin.js"></script>
+    <script src="../../static/js/element.js"></script>
+    <link rel="stylesheet" href="../../static/css/plugin.css">
+    <link rel="stylesheet" href="../../static/css/element.css">
+    <style>
+        /* [padding-fix] 插件内容页左右内距: col-lg-offset-1 只给左边8.33%缩进、
+           右边0px, 左右不对称(用户反馈)。去掉偏移类后统一 body 左右各20px,
+           对齐 iKuai4 .setting 内距与插件管理页 mgmt_section */
+        body { padding: 0 20px; }
+
+        .runhooks-frame { width: 100%; height: calc(100vh - 300px); min-height: 520px; border: 1px solid #e4e7ed; border-radius: 4px; display: block; }
+        .runhooks-card { border: 1px solid #ebeef5; border-radius: 8px; padding: 20px; margin-top: 12px; background: #fff; }  /* 对齐 iKuai4 .setting: 8px 圆角+20px 内距 */
+        .runhooks-card h4 { margin: 0 0 10px 0; font-size: 13px; color: #303133; }
+        .runhooks-card h4 span { font-weight: normal; color: #909399; font-size: 12px; padding-left: 8px; }
+        .rq-collapsible { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 5px; }
+        .rq-collapsible:hover { color: #409eff; }
+        .rq-caret { font-style: normal; font-size: 11px; color: #909399; transition: transform .15s; display: inline-block; }
+        .rq-caret.open { transform: rotate(90deg); }
+        .rq-collapsible .rq-count { font-weight: normal; color: #409eff; font-size: 12px; padding-left: 6px; }
+        .runhooks-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+        .runhooks-row label { font-size: 12px; color: #606266; min-width: 64px; }
+        .runhooks-tip { background: #f4f4f5; border-left: 3px solid #409eff; padding: 10px 14px; font-size: 12px; color: #606266; line-height: 1.9; margin-top: 10px; }
+        /* [btn-fix] 固件 .btn_default 是灰底灰字+cursor:default(看着就是禁用的)。
+           功能按钮一律用次级样式: 白底+描边+指针, hover 变蓝, 明确可点击 */
+        .btn_default { background: #fff; border: 1px solid #dcdfe6; color: #606266; cursor: pointer; }
+        .btn_default:hover { background: #ecf5ff; border-color: #3e8cd4; color: #3e8cd4; }
+        .runhooks-devices { max-height: 180px; overflow-y: auto; border: 1px solid #ebeef5; border-radius: 4px; padding: 8px 10px; }
+        .runhooks-device-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px; }
+        .runhooks-device-item .ip { color: #909399; font-family: monospace; }
+        /* ===== tab 切换(v1.0.22): 四段配置改 tab, 同屏只显示一段 ===== */
+        .rq-tabs { display: flex; gap: 4px; border-bottom: 1px solid #ebeef5; margin-top: 12px; }
+        .rq-tab { padding: 8px 16px; font-size: 13px; color: #606266; cursor: pointer; user-select: none;
+                  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+        .rq-tab:hover { color: #409eff; }
+        .rq-tab.on { color: #409eff; border-bottom-color: #409eff; font-weight: 600; }
+        .rq-tab b { font-weight: normal; color: #909399; padding-left: 2px; }
+        .rq-tabpanel { border: 1px solid #ebeef5; border-top: none; border-radius: 0 0 8px 8px;
+                       padding: 16px; background: #fff; }
+    </style>
+</head>
+<body>
+<div id="app" class="wrapper row" v-loading="loading" :element-loading-text="loading_text">
+    <div class="box clearfix">
+        <div class="box_block">
+            <div class="clearfix margin_phone">
+                <div class="h20"></div>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <b style="font-size:15px;">Runhooks抓包</b>
+                        <span style="font-size:12px; color:#909399; padding-left:10px;">Runhooks 式流量捕获与 HTTPS 解密</span>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <el-tag size="small" :type="status === 1 ? 'success' : 'info'">{{ status === 1 ? '运行中' : '已停止' }}</el-tag>
+                        <el-tag size="small" :type="captureTag.type">{{ captureTag.text }}</el-tag>
+                        <el-tag size="small" :type="rulesOn === 1 ? 'warning' : 'info'">{{ rulesOn === 1 ? '规则生效' : '规则未生效' }}</el-tag>
+                        <el-tag size="small" :type="caok === 1 ? 'success' : 'warning'">{{ caok === 1 ? 'CA已生成' : 'CA未生成' }}</el-tag>
+                        <span style="font-size:12px; color:#909399;">已捕获 {{ flows }} 条</span>
+                    </div>
+                </div>
+                <div class="h20"></div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    <button v-if="status !== 1" type="button" class="btn btn_green rounded height26" @click="startEngine">启动引擎</button>
+                    <button v-else type="button" class="btn btn_red rounded height26" @click="stopEngine">停止引擎</button>
+                    <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#606266; cursor:pointer;">
+                        <input type="checkbox" v-model="autostart" @change="setAutostart">开机自启
+                    </label>
+                    <!-- [btn-dup-fix] 顶部"开启抓包"与下方 Runhooks 面板的"继续"是同一
+                         功能(用户实锤), 去掉顶部的; 保留"关闭抓包"(撤规则+暂停, 面板
+                         暂停管不到 iptables 规则)。开启改用面板的"继续"。 -->
+                    <button v-if="capture === 1" type="button" class="btn btn_red rounded height26" @click="setCapture(false)">关闭抓包</button>
+                    <span style="font-size:11px; color:#909399;">关闭抓包 = 撤网络规则 + 引擎暂停记录(显式代理的设备也不再落库)；开始/继续记录在下方界面点「继续」</span>
+                    <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">下载 CA 证书</button>
+                    <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
+                    <a v-if="status === 1" class="btn btn_default rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
+                    <button type="button" class="btn btn_default rounded height26" @click="loadInitData">刷新状态</button>
+                </div>
+                <div class="runhooks-row" style="margin-top:10px; padding:8px 10px; background:#f8f9fb; border-radius:6px;">
+                    <label style="min-width:64px;">引擎端口</label>
+                    <span style="font-size:12px; color:#606266;">显式代理</span>
+                    <input v-model="proxyPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    <span style="font-size:12px; color:#606266;">API/界面</span>
+                    <input v-model="apiPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    <span style="font-size:12px; color:#606266;">透明监听</span>
+                    <input v-model="transparentPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    <button type="button" class="btn btn_default rounded height26" @click="savePorts">保存端口</button>
+                    <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。引擎自带界面(18061)里显示的 proxy 地址是写死的默认值，以本页端口为准</span>
+                </div>
+                <div class="runhooks-tip">
+                    <b>使用步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>抓包设备</b>里勾选要调试的设备（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方界面查看解密后的请求/响应、改包、跑脚本。<br>
+                    <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
+                </div>
+
+                <!-- 1. 抓包设备 -->
+                <div class="rq-tabs">
+                    <div class="rq-tab" :class="{on: activeTab==='devices'}" @click="activeTab='devices'">抓包设备<b v-if="selectedDevices.length">({{ selectedDevices.length }})</b></div>
+                    <div class="rq-tab" :class="{on: activeTab==='net'}" @click="activeTab='net'">网络范围</div>
+                    <div class="rq-tab" :class="{on: activeTab==='dec'}" @click="activeTab='dec'">解密范围</div>
+                    <div class="rq-tab" :class="{on: activeTab==='rec'}" @click="activeTab='rec'">记录范围</div>
+                    <div class="rq-tab" :class="{on: activeTab==='subs'}" @click="activeTab='subs'; loadSubs()">规则订阅<b v-if="subs.length">({{ subs.length }})</b></div>
+                </div>
+                <div class="rq-tabpanel" v-show="activeTab==='devices'">
+                    <div class="runhooks-row">
+                        <button type="button" class="btn btn_blue rounded height26" @click="loadDevices">刷新设备列表</button>
+                        <span style="font-size:12px; color:#909399;">已选 {{ selectedDevices.length }} 台</span>
+                        <span v-if="selectedDevices.length" style="display:inline-flex; flex-wrap:wrap; gap:6px; width:100%; margin-top:6px;">
+                            <span v-for="(d,i) in selectedDevices" :key="i" style="display:inline-flex; align-items:center; gap:5px; background:#ecf5ff; border:1px solid #b3d8ff; color:#409eff; border-radius:4px; padding:2px 9px; font-size:12px;">
+                                {{ d.name || d.ip }}<span v-if="d.mac" style="color:#909399;">{{ d.mac }}</span>
+                                <!-- [iKuaiPatch] 必须用 removeSelected(i) 按索引删: toggleDevice(d)
+                                     按 lanDevices 形状匹配(d.ip_addr/d.termname), 而这里遍历的是
+                                     selectedDevices(形状 {ip,mac,name}), 字段名不同 -> findIndex
+                                     恒为 -1 -> 掉进 else 分支反而 push 一个空条目, 越点越多。 -->
+                                <a href="javascript:void(0)" style="color:#909399; text-decoration:none;" @click="removeSelected(i)">✕</a>
+                            </span>
+                        </span>
+                        <span v-for="g in groups" :key="g.name" style="display:inline-flex; gap:4px; align-items:center;">
+                            <button type="button" class="btn btn_default rounded height26" @click="applyGroup(g)">{{ g.name }}({{ g.devices.length }})</button>
+                            <a href="javascript:void(0)" style="font-size:12px; color:#f56c6c;" @click="delGroup(g.name)">删</a>
+                        </span>
+                    </div>
+                    <div class="runhooks-devices">
+                        <div v-if="lanDevices.length === 0" style="color:#909399; font-size:12px; padding:8px 0; line-height:1.8;">暂无在线设备。列表来自 DHCP 租约 + ARP 表（含静态 IP 设备，需设备与路由器通信过才会出现）；<br>设备不在列表时，用下方“手动添加”填 IP（+MAC）即可。</div>
+                        <div v-for="(d, i) in lanDevices" :key="i" class="runhooks-device-item">
+                            <label class="el-checkbox">
+                                <input type="checkbox" :checked="isSelected(d)" @change="toggleDevice(d)">
+                                <span class="el-checkbox__label"></span>
+                            </label>
+                            <span>{{ d.name || d.hostname || '未命名设备' }}</span>
+                            <span class="ip">{{ d.ip_addr }}</span>
+                            <span class="ip">{{ d.mac }}</span>
+                            <span v-if="d.termname && d.termname !== d.hostname" class="ip">{{ d.termname }}</span>
+                        </div>
+                    </div>
+                    <div class="runhooks-row" style="margin-top:8px;">
+                        <label>手动添加</label>
+                        <input v-model="manualIp" placeholder="IP" style="width:130px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <input v-model="manualMac" placeholder="MAC(可选)" style="width:150px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <input v-model="manualName" placeholder="名称(可选)" style="width:120px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <button type="button" class="btn btn_green rounded height26" @click="addManualAndSave">添加并保存</button>
+                        <input v-model="groupName" placeholder="分组名" style="width:100px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <button type="button" class="btn btn_default rounded height26" @click="saveGroup">存为分组</button>
+                    </div>
+                </div>
+
+                <div class="rq-tabpanel" v-show="activeTab==='net'">
+                    <div class="runhooks-row">
+                        <label>接口/VLAN</label>
+                        <input v-model="interfaces" placeholder="留空=全部；如 lan1,lan2" style="width:220px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <label>端口</label>
+                        <input v-model="ports" placeholder="80,443" style="width:140px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <button type="button" class="btn btn_green rounded height26" @click="saveNetwork">保存</button>
+                    </div>
+                    <div class="runhooks-row">
+                        <label>定时抓包</label>
+                        <label class="el-checkbox"><input type="checkbox" v-model="schedEnabled"><span class="el-checkbox__label"></span></label>
+                        <input v-model="schedStart" placeholder="09:00" style="width:70px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
+                        <span style="color:#606266;">至</span>
+                        <input v-model="schedStop" placeholder="18:00" style="width:70px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
+                        <button type="button" class="btn btn_default rounded height26" @click="setDays('all')">每天</button>
+                        <button type="button" class="btn btn_default rounded height26" @click="setDays('work')">工作日</button>
+                        <button type="button" class="btn btn_default rounded height26" @click="setDays('weekend')">周末</button>
+                        <span style="font-size:12px; color:#909399;">已选 {{ schedDays.length }} 天</span>
+                        <span style="font-size:12px; color:#909399;">按路由器本地时间</span>
+                        <button type="button" class="btn btn_green rounded height26" @click="saveSchedule">保存时段</button>
+                        <el-tag size="mini" :type="inWindow === 1 ? 'success' : 'info'">{{ inWindow === 1 ? '当前在时段内' : '当前不在时段内' }}</el-tag>
+                    </div>
+                </div>
+
+                <div class="rq-tabpanel" v-show="activeTab==='dec'">
+                    <div class="runhooks-row">
+                        <label>域名</label>
+                        <el-radio-group v-model="domainMode" size="mini">
+                            <el-radio-button label="all_except">解密全部(除外)</el-radio-button>
+                            <el-radio-button label="only">仅解密</el-radio-button>
+                        </el-radio-group>
+                        <input v-model="domains" placeholder="*.taobao.com,api.github.com（逗号分隔，支持*通配）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    </div>
+                    <div class="runhooks-row">
+                        <label>目标IP</label>
+                        <el-radio-group v-model="dstIpMode" size="mini">
+                            <el-radio-button label="all_except">解密全部(除外)</el-radio-button>
+                            <el-radio-button label="only">仅解密</el-radio-button>
+                        </el-radio-group>
+                        <input v-model="dstIps" placeholder="203.0.113.0/24,198.51.100.7（CIDR 或单 IP）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    </div>
+                    <div class="runhooks-row">
+                        <label>国家地区</label>
+                        <el-radio-group v-model="geoMode" size="mini">
+                            <el-radio-button label="off">关闭</el-radio-button>
+                            <el-radio-button label="only">仅这些国家</el-radio-button>
+                            <el-radio-button label="except">排除这些国家</el-radio-button>
+                        </el-radio-group>
+                        <input v-model="countries" placeholder="CN,US（两位国别码）" style="width:220px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <el-tag size="mini" :type="geoLoaded === 1 ? 'success' : 'warning'">{{ geoLoaded === 1 ? 'GEOIP已加载' : 'GEOIP未下载' }}</el-tag>
+                        <button type="button" class="btn btn_default rounded height26" @click="updateGeoip">更新 GEOIP 数据</button>
+                        <button type="button" class="btn btn_green rounded height26" @click="saveScope">保存解密范围</button>
+                    </div>
+                </div>
+
+                <div class="rq-tabpanel" v-show="activeTab==='rec'">
+                    <div class="runhooks-row">
+                        <label>匹配模式</label>
+                        <el-radio-group v-model="recordMode" size="mini">
+                            <el-radio-button label="all_except">记录全部(除外)</el-radio-button>
+                            <el-radio-button label="only">仅记录命中</el-radio-button>
+                        </el-radio-group>
+                        <span style="font-size:12px; color:#909399;">下面任一项命中即视为“命中”</span>
+                    </div>
+                    <div class="runhooks-row">
+                        <label>路径正则</label>
+                        <input v-model="paths" placeholder="^/api/,^/v[0-9]+/（逗号分隔）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    </div>
+                    <div class="runhooks-row">
+                        <label>方法</label>
+                        <input v-model="methods" placeholder="POST,PUT（留空=不限）" style="width:200px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <label>UA包含</label>
+                        <input v-model="userAgents" placeholder="MyApp/1.0（逗号分隔）" style="flex:1; min-width:200px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    </div>
+                    <div class="runhooks-row">
+                        <label>JA3</label>
+                        <input v-model="ja3" placeholder="JA3 md5（逗号分隔；仅透明路径可算）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                    </div>
+                    <div class="runhooks-row">
+                        <label>内容类型</label>
+                        <input v-model="contentTypes" placeholder="json,image,video,xml（逗号分隔）" style="width:280px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                        <label>响应大小</label>
+                        <input v-model="sizeMin" placeholder="最小B" style="width:90px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
+                        <span style="color:#606266;">~</span>
+                        <input v-model="sizeMax" placeholder="最大B(0=不限)" style="width:110px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
+                        <button type="button" class="btn btn_green rounded height26" @click="saveScope">保存记录范围</button>
+                    </div>
+                </div>
+
+                <!-- 5. 规则订阅(QuanX/Surge/纯列表) -->
+                <div class="rq-tabpanel" v-show="activeTab==='subs'">
+                    <div class="runhooks-tip" style="margin-top:0;">
+                        粘贴 <b>QuanX(.conf) / Surge(.conf) / 纯域名列表</b> 订阅地址, 引擎自动拉取并适配:
+                        域名规则 → 解密范围(白名单), REJECT → 不解密直隧道, IP-CIDR/GEOIP → 范围维度,
+                        [rewrite] → 改写规则(请求/返回修改), 脚本 → 自动转换为引擎脚本。
+                        订阅产物与手写配置分层存放, 互不覆盖; 支持定时自动更新。
+                    </div>
+                    <div v-if="!subEngine" style="font-size:12px; color:#e6a23c; padding:8px 0;">
+                        引擎未运行, 订阅功能不可用——请先启动引擎。
+                    </div>
+                    <template v-if="subEngine">
+                        <div class="runhooks-row" style="margin-top:10px;">
+                            <label>订阅地址</label>
+                            <input v-model="subUrl" placeholder="https://example.com/quanx.conf" style="flex:1; min-width:280px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                            <label>备注</label>
+                            <input v-model="subName" placeholder="可选" style="width:120px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                            <select v-model="subFormat" style="width:96px; height:26px; border:1px solid #dcdfe6; border-radius:4px; font-size:12px;">
+                                <option value="auto">自动识别</option>
+                                <option value="quanx">QuanX</option>
+                                <option value="surge">Surge</option>
+                                <option value="list">纯列表</option>
+                            </select>
+                            <label>更新(分)</label>
+                            <input v-model="subInterval" type="number" min="0" step="5" style="width:70px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
+                            <button type="button" class="btn btn_green rounded height26" :disabled="subBusy || !subUrl" @click="addSub">添加订阅</button>
+                        </div>
+                        <div v-if="subEffective" class="runhooks-tip">
+                            当前生效(启用订阅的并集): 解密域名 <b>{{ subEffective.domains.length }}</b> ·
+                            引擎规则 <b>{{ subEffective.rules }}</b> · 脚本 <b>{{ subEffective.scripts }}</b>
+                            <span v-if="subEffective.dst_ips.length"> · IP 段 {{ subEffective.dst_ips.length }}</span>
+                            <span v-if="subEffective.countries.length"> · 国家 {{ subEffective.countries.length }}</span>
+                            <div v-if="subEffective.domains.length" style="margin-top:4px; font-family:monospace; font-size:11px; color:#67c23a; word-break:break-all;">
+                                {{ subEffective.domains.slice(0, 30).join('  ') }}{{ subEffective.domains.length > 30 ? '  …共 ' + subEffective.domains.length + ' 个' : '' }}
+                            </div>
+                        </div>
+                        <div v-for="s in subs" :key="s.id" style="border:1px solid #ebeef5; border-radius:8px; padding:12px; margin-top:10px; background:#fafafa;">
+                            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+                                <b style="font-size:13px;">{{ s.name }}</b>
+                                <span style="font-size:11px; color:#909399; background:#f4f4f5; padding:1px 6px; border-radius:3px;">{{ {auto:'自动', quanx:'QuanX', surge:'Surge', list:'纯列表'}[s.format] || s.format }}</span>
+                                <span :style="s.enabled ? 'font-size:11px; color:#67c23a;' : 'font-size:11px; color:#909399;'">{{ s.enabled ? '已启用' : '已暂停' }}</span>
+                                <span v-if="s.interval_min > 0" style="font-size:11px; color:#909399;">每 {{ s.interval_min }} 分钟更新</span>
+                                <span style="margin-left:auto; display:inline-flex; gap:6px;">
+                                    <button type="button" class="btn btn_default rounded height26" :disabled="subBusy" @click="updateSub(s)">更新</button>
+                                    <button type="button" class="btn btn_default rounded height26" :disabled="subBusy" @click="toggleSub(s)">{{ s.enabled ? '暂停' : '启用' }}</button>
+                                    <button type="button" class="btn btn_default rounded height26" @click="showSubDetail(s)">{{ subDetail && subDetail.id === s.id ? '收起明细' : '明细' }}</button>
+                                    <button type="button" class="btn btn_red rounded height26" :disabled="subBusy" @click="delSub(s)">删除</button>
+                                </span>
+                            </div>
+                            <div style="font-size:11px; color:#909399; font-family:monospace; margin-top:4px; word-break:break-all;">{{ s.url }}</div>
+                            <div style="font-size:11px; color:#606266; margin-top:4px;">
+                                域名 {{ s.host_count }} · IP {{ s.ip_count }} · 规则行 {{ s.rule_count }} · 改写 {{ s.rewrite_count }} · 脚本 {{ s.script_count }}
+                                <span v-if="s.skipped_count"> · 跳过 {{ s.skipped_count }}</span> · 更新于 {{ fmtSubTime(s.last_update) }}
+                            </div>
+                            <div v-if="s.last_error" style="font-size:11px; color:#f56c6c; margin-top:4px;">错误: {{ s.last_error }}</div>
+                            <div v-if="subDetail && subDetail.id === s.id && subDetail.parsed" style="margin-top:8px; border-top:1px dashed #ebeef5; padding-top:8px; font-size:11px;">
+                                <div>解析明细(格式 {{ subDetail.parsed.format }}, 跳过 {{ subDetail.parsed.skipped }} 行)</div>
+                                <div v-if="subDetail.parsed.mitm_hosts.length" style="margin-top:2px;"><span style="color:#909399;">[mitm] 主机: </span><span style="font-family:monospace; color:#67c23a;">{{ subDetail.parsed.mitm_hosts.join(', ') }}</span></div>
+                                <div v-if="subDetail.parsed.rules.length" style="margin-top:4px; color:#909399;">规则(前 50 条):</div>
+                                <ul v-if="subDetail.parsed.rules.length" style="margin:2px 0 0 16px; padding:0; font-family:monospace;">
+                                    <li v-for="(r, i) in subDetail.parsed.rules.slice(0, 50)" :key="i">{{ r.type }},{{ r.value }},{{ r.policy }}</li>
+                                </ul>
+                                <div v-if="subDetail.parsed.rewrites.length" style="margin-top:4px; color:#909399;">改写指令(前 30 条):</div>
+                                <ul v-if="subDetail.parsed.rewrites.length" style="margin:2px 0 0 16px; padding:0; font-family:monospace;">
+                                    <li v-for="(r, i) in subDetail.parsed.rewrites.slice(0, 30)" :key="i">{{ r.kind }} ← {{ r.pattern }}</li>
+                                </ul>
+                                <div v-if="subDetail.parsed.scripts.length" style="margin-top:4px;"><span style="color:#909399;">脚本: </span><span style="font-family:monospace;">{{ subDetail.parsed.scripts.map(x => x.name + (x.fetch_err ? '(未取到)' : '')).join(', ') }}</span></div>
+                                <div v-if="subDetail.parsed.warnings.length" style="margin-top:4px; color:#e6a23c;">适配说明({{ subDetail.parsed.warnings.length }}):</div>
+                                <ul v-if="subDetail.parsed.warnings.length" style="margin:2px 0 0 16px; padding:0; color:#b88230;">
+                                    <li v-for="(w, i) in subDetail.parsed.warnings.slice(0, 20)" :key="i">{{ w }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div v-if="!subs.length" style="text-align:center; color:#909399; font-size:12px; padding:24px 0;">
+                            还没有订阅。粘贴 QuanX/Surge 订阅地址, 规则会自动适配到抓包范围与改写规则。
+                        </div>
+                    </template>
+                </div>
+
+                <!-- [iKuaiPatch] 引擎未启动时 apiPort 无监听, iframe 会渲染出 Chromium
+                     的「xxx 拒绝了我们的连接请求」错误页; 用户要求"要么隐藏, 不要出现
+                     这个提示"。故整块(含上下间距)只在引擎运行时出现。 -->
+                <template v-if="status === 1">
+                <div class="h20"></div>
+                <iframe class="runhooks-frame" :src="uiUrl"></iframe>
+                <div class="h20"></div>
+                </template>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="module">
+var app = new Vue({
+    el: '#app',
+    data: {
+        loading: false,
+        loading_text: '',
+        status: 0, capture: 0, rulesOn: 0, autostart: 0, caok: 0, flows: 0,
+        // autostart 同时用于复选框 v-model(0/1) 和 set_auto_start 传参(true/false)
+        proxyPort: 18060, apiPort: 18061, transparentPort: 18062, geoLoaded: 0, inWindow: 0, enginePaused: 0, proxyReady: 0,
+        uiUrl: '', caUrl: '',
+        // 布局折叠态: 2/3/4 是高级筛选, 默认收起省屏幕; 第1段抓包设备始终展开
+        activeTab: 'devices',
+        // 设备
+        lanDevices: [], selectedDevices: [], groups: [],
+        manualIp: '', manualMac: '', manualName: '', groupName: '',
+        // 网络范围
+        interfaces: '', ports: '80,443',
+        schedEnabled: false, schedStart: '09:00', schedStop: '18:00',
+        schedDays: [1, 2, 3, 4, 5],
+        weekDays: [{v:1,n:'一'},{v:2,n:'二'},{v:3,n:'三'},{v:4,n:'四'},{v:5,n:'五'},{v:6,n:'六'},{v:7,n:'日'}],
+        // 解密范围
+        domainMode: 'all_except', domains: '', dstIpMode: 'all_except', dstIps: '',
+        geoMode: 'off', countries: '',
+        // 记录范围
+        recordMode: 'all_except', paths: '', methods: '', userAgents: '', ja3: '',
+        contentTypes: '', sizeMin: '', sizeMax: '',
+        // 规则订阅
+        subs: [], subEffective: null, subEngine: false,
+        subUrl: '', subName: '', subFormat: 'auto', subInterval: 0,
+        subDetail: null, subBusy: false
+    },
+    computed: {
+        // [capture-pause] 三态: 总开关关=抓包已关; 开着但引擎暂停(WebUI 里点过暂停)=
+        // 已暂停; 否则抓包中。以前只有两态, 引擎暂停时页面仍显示"抓包中"却一条不记。
+        captureTag() {
+            if (this.capture !== 1) return { type: 'info', text: '抓包已关' };
+            if (this.enginePaused === 1) return { type: 'warning', text: '已暂停(引擎)' };
+            return { type: 'danger', text: '抓包中' };
+        }
+    },
+    mounted() {
+        // [plugin-proxy] 新固件(proxyReady=1): iframe 走同源 /plugin_proxy/runhooks/
+        // (OpenResty 校验 sess_key 后转发, 自动带登录 cookie, HTTPS 页也不再拦 mixed-content);
+        // 旧固件回退直连 http://IP:端口(升级固件后自动收紧)
+        this.uiUrl = this.proxyReady
+            ? '/plugin_proxy/runhooks/'
+            : 'http://' + window.location.hostname + ':' + this.apiPort + '/';
+        this.caUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/api/ca.pem';
+        this.loadInitData();
+        this.loadDevices();
+    },
+    methods: {
+        // [param-b64] 框架 /Action/call 的参数值禁止包含 引号/空格/$/&/;/|/\ 等
+        // 字符(ikngx.lua __rest_check_illegality_char), JSON.stringify 的字符串
+        // 含双引号必被拒(2005 Invalid characters)——曾导致保存设备/范围/分组/时段
+        // 全部静默失败(用户实踩: 设备列表始终空、抓不到包)。改 base64 传输
+        // (仅含 [A-Za-z0-9+/=] 全合法), 后端 base64 -d 解码;
+        // unescape(encodeURIComponent()) 保证中文设备名安全。
+        b64enc(str) { return btoa(unescape(encodeURIComponent(str))); },
+        callPlugin(action, param, cb) {
+            AjaxPost('/Action/call', {func_name: 'plugin_runhooks', action: action, param: param}, (response) => {
+                cb(response);
+            });
+        },
+        loadInitData() {
+            this.callPlugin('show', {TYPE: 'data'}, (response) => {
+                if (response.Result % 10000 == 0 && response.Data) {
+                    const d = response.Data;
+                    this.status = d.status || 0;
+                    this.capture = d.capture || 0;
+                    this.rulesOn = d.rulesOn || 0;
+                    this.autostart = d.autostart || 0;
+                    this.caok = d.caok || 0;
+                    this.flows = d.flows || 0;
+                    this.enginePaused = d.enginePaused || 0;
+                    this.geoLoaded = d.geoLoaded || 0;
+                    this.inWindow = d.inWindow || 0;
+                    if (d.proxyPort) this.proxyPort = d.proxyPort;
+                    if (d.apiPort) this.apiPort = d.apiPort;
+                    if (d.transparentPort) this.transparentPort = d.transparentPort;
+                    if (d.proxyReady !== undefined) this.proxyReady = d.proxyReady;
+                    // [plugin-proxy] 同上: proxyReady=1 走同源代理路径(带鉴权), 否则直连
+                    this.uiUrl = this.proxyReady
+                        ? '/plugin_proxy/runhooks/'
+                        : 'http://' + window.location.hostname + ':' + this.apiPort + '/';
+                    this.caUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/api/ca.pem';
+                    // 配置回填
+                    this.selectedDevices = d.devices || [];
+                    this.groups = d.groups || [];
+                    this.interfaces = d.interfaces || '';
+                    this.ports = d.ports || '80,443';
+                    const sc = d.scope || {};
+                    this.domainMode = sc.domain_mode || 'all_except';
+                    this.domains = (sc.domains || []).join(',');
+                    this.dstIpMode = sc.dst_ip_mode || 'all_except';
+                    this.dstIps = (sc.dst_ips || []).join(',');
+                    this.geoMode = sc.geo_mode || 'off';
+                    this.countries = (sc.countries || []).join(',');
+                    this.recordMode = sc.record_mode || 'all_except';
+                    this.paths = (sc.paths || []).join(',');
+                    this.methods = (sc.methods || []).join(',');
+                    this.userAgents = (sc.user_agents || []).join(',');
+                    this.ja3 = (sc.ja3 || []).join(',');
+                    this.contentTypes = (sc.content_types || []).join(',');
+                    this.sizeMin = sc.size_min || '';
+                    this.sizeMax = sc.size_max || '';
+                    const sd = d.schedule || {};
+                    this.schedEnabled = !!sd.enabled;
+                    this.schedStart = sd.start || '09:00';
+                    this.schedStop = sd.stop || '18:00';
+                    this.schedDays = sd.days || [1, 2, 3, 4, 5];
+                }
+            });
+        },
+        // 在线设备双源合并: dhcp_lease(DHCP客户端, 带主机名) + arp(ARP表)。
+        // [bugfix] 手动配了静态 IP/网关的设备不进 DHCP 租约, 只在 ARP 表里——
+        // 单源 dhcp_lease 会导致静态设备在列表里"获取不到"(用户实际踩中)。
+        // 另修: 原来直接赋 response.Data(是 {data:[...]} 对象不是数组),
+        // v-for 遍历对象 + length===0 永不成立, 列表根本渲染不对。
+        loadDevices() {
+            AjaxPost('/Action/call', {func_name: 'dhcp_lease', action: 'show', param: {TYPE: 'data'}}, (r1) => {
+                AjaxPost('/Action/call', {func_name: 'arp', action: 'show', param: {}}, (r2) => {
+                    const pick = (r) => (r.Result % 10000 == 0 && r.Data && Array.isArray(r.Data.data)) ? r.Data.data : [];
+                    const a1 = pick(r1);
+                    // arp 表含 WAN 侧条目(管理网), 按 tagname 过滤掉(wan1_xxx 形态)
+                    const a2 = pick(r2).filter(d => !/^wan\d/i.test(d.tagname || ''));
+                    const seen = {}, out = [];
+                    a1.concat(a2).forEach(d => {
+                        const ip = d.ip_addr;
+                        if (!ip || seen[ip]) return;
+                        seen[ip] = 1;
+                        if (!d.hostname && d.comment) d.hostname = d.comment;
+                        out.push(d);
+                    });
+                    this.lanDevices = out;
+                });
+            });
+        },
+        isSelected(d) {
+            return this.selectedDevices.some(s => (d.mac && s.mac === d.mac) || (d.ip_addr && s.ip === d.ip_addr));
+        },
+        // [iKuaiPatch] 标签云的 ✕ 专用: 按索引直接删, 并立即落盘。
+        // 不能复用 toggleDevice(d)——它按 lanDevices 的字段(ip_addr/termname/hostname)
+        // 匹配, 而 selectedDevices 的条目是 {ip,mac,name}, 字段名不同导致 findIndex
+        // 恒为 -1, 于是走 else 分支又 push 一个空条目(用户实踩: 点✕越点越多)。
+        removeSelected(i) {
+            this.selectedDevices.splice(i, 1);
+            this.saveDevices();
+        },
+        toggleDevice(d) {
+            const idx = this.selectedDevices.findIndex(s => (d.mac && s.mac === d.mac) || (d.ip_addr && s.ip === d.ip_addr));
+            if (idx >= 0) {
+                this.selectedDevices.splice(idx, 1);
+            } else {
+                this.selectedDevices.push({ip: d.ip_addr, mac: d.mac, name: d.termname || d.hostname || ''});
+            }
+        },
+        addManualAndSave() {
+            this.addManual(); this.saveDevices();
+        },
+        addManual() {
+            if (!this.manualIp) { this.$message.error('请填 IP'); return; }
+            this.selectedDevices.push({ip: this.manualIp, mac: this.manualMac, name: this.manualName});
+            this.manualIp = ''; this.manualMac = ''; this.manualName = '';
+        },
+        // 引擎端口保存(改端口后端会重启引擎)
+        savePorts() {
+            this.callPlugin('set_proxy_ports', {
+                proxy: this.proxyPort, api: this.apiPort, transparent: this.transparentPort
+            }, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('端口已保存, 引擎已重启');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        saveDevices() {
+            this.callPlugin('set_devices', {devices_b64: this.b64enc(JSON.stringify(this.selectedDevices))}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('设备已保存(' + this.selectedDevices.length + ' 台)');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        saveGroup() {
+            if (!this.groupName) { this.$message.error('请填分组名'); return; }
+            this.callPlugin('save_group', {name_b64: this.b64enc(this.groupName), devices_b64: this.b64enc(JSON.stringify(this.selectedDevices))}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('分组已保存');
+                    this.groupName = '';
+                    this.loadInitData();
+                } else {
+                    this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        applyGroup(g) {
+            this.selectedDevices = JSON.parse(JSON.stringify(g.devices));
+            this.saveDevices();
+        },
+        delGroup(name) {
+            this.callPlugin('del_group', {name_b64: this.b64enc(name)}, () => this.loadInitData());
+        },
+        saveNetwork() {
+            this.callPlugin('set_ports', {ports: this.ports}, () => {
+                this.callPlugin('set_interfaces', {ifaces: this.interfaces}, (response) => {
+                    if (response.Result % 10000 == 0) {
+                        this.$message.success('网络范围已保存');
+                    } else {
+                        this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                    }
+                });
+            });
+        },
+        setDays(preset) {
+            if (preset === 'all') this.schedDays = this.weekDays.map(d => d.v);
+            else if (preset === 'work') this.schedDays = this.weekDays.filter(d => d.v <= 5).map(d => d.v);
+            else this.schedDays = this.weekDays.filter(d => d.v >= 6).map(d => d.v);
+        },
+        saveSchedule() {
+            const sched = {
+                enabled: this.schedEnabled,
+                start: this.schedStart,
+                stop: this.schedStop,
+                days: this.schedDays
+            };
+            this.callPlugin('set_schedule', {schedule_b64: this.b64enc(JSON.stringify(sched))}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('时段已保存');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        splitList(s) {
+            return (s || '').split(',').map(x => x.trim()).filter(x => x);
+        },
+        saveScope() {
+            const scope = {
+                domain_mode: this.domainMode,
+                domains: this.splitList(this.domains),
+                dst_ip_mode: this.dstIpMode,
+                dst_ips: this.splitList(this.dstIps),
+                geo_mode: this.geoMode,
+                countries: this.splitList(this.countries).map(x => x.toUpperCase()),
+                record_mode: this.recordMode,
+                paths: this.splitList(this.paths),
+                methods: this.splitList(this.methods).map(x => x.toUpperCase()),
+                user_agents: this.splitList(this.userAgents),
+                ja3: this.splitList(this.ja3),
+                content_types: this.splitList(this.contentTypes),
+                size_min: parseInt(this.sizeMin) || 0,
+                size_max: parseInt(this.sizeMax) || 0
+            };
+            this.callPlugin('set_scope', {scope_b64: this.b64enc(JSON.stringify(scope))}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('范围已保存并热重载');
+                } else {
+                    this.$message.error('保存失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        downloadCa() {
+            // [混合内容修复] 页面是HTTPS, 直链引擎http端口会被浏览器拦(一闪而过)。
+            // 改走同源 show&TYPE=ca 取base64, 本地Blob下载
+            this.callPlugin('show', {TYPE: 'ca'}, (response) => {
+                const d = (response && (response.Data || response.results)) || {};
+                if (!d.ca_b64) { alert('CA 尚未生成, 请先启动引擎'); return; }
+                try {
+                    const bin = atob(d.ca_b64);
+                    const buf = new Uint8Array(bin.length);
+                    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+                    const blob = new Blob([buf], {type: 'application/x-pem-file'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'runhooks-ca.pem';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } catch (e) { alert('CA 下载失败: ' + e); }
+            });
+        },
+        updateGeoip() {
+            this.loading = true;
+            this.loading_text = '正在下载 GEOIP 数据...';
+            this.callPlugin('update_geoip', {}, (response) => {
+                this.loading = false;
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('GEOIP 数据已更新');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('更新失败：' + (response.ErrMsg || '请检查网络'));
+                }
+            });
+        },
+        startEngine() {
+            this.callPlugin('start', {}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('引擎已启动');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('启动失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        stopEngine() {
+            this.callPlugin('stop', {}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success('引擎已停止, 规则已撤');
+                    this.loadInitData();
+                } else {
+                    this.$message.error('停止失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        setAutostart() {
+            this.callPlugin('set_auto_start', {autostart: this.autostart ? 'true' : 'false'}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message.success(this.autostart ? '已开启开机自启' : '已关闭开机自启');
+                } else {
+                    this.$message.error('设置失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        setCapture(on) {
+            this.callPlugin('set_capture', {capture: on ? 'true' : 'false'}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message({message: on ? '抓包已开启' : '抓包已关闭', type: 'success'});
+                    this.loadInitData();
+                } else {
+                    this.$message.error('操作失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        clearFlows() {
+            this.callPlugin('clear_flows', {}, (response) => {
+                if (response.Result % 10000 == 0) {
+                    this.$message({message: '已清空', type: 'success'});
+                    this.loadInitData();
+                } else {
+                    this.$message.error('清空失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        // ===== 规则订阅 =====
+        fmtSubTime(ts) {
+            if (!ts) return '从未';
+            const d = new Date(ts * 1000);
+            const p = (n) => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+        },
+        loadSubs() {
+            this.callPlugin('show', {TYPE: 'subs'}, (response) => {
+                if (response.Result % 10000 == 0 && response.Data) {
+                    const d = response.Data;
+                    this.subs = d.subs || [];
+                    this.subEffective = d.effective || null;
+                    this.subEngine = d.engine === true;
+                } else {
+                    this.subs = [];
+                    this.subEffective = null;
+                    this.subEngine = false;
+                }
+            });
+        },
+        addSub() {
+            if (!this.subUrl) return;
+            this.subBusy = true;
+            this.callPlugin('sub_add', {
+                url_b64: this.b64enc(this.subUrl),
+                name_b64: this.b64enc(this.subName || ''),
+                format: this.subFormat,
+                interval_min: String(this.subInterval || 0)
+            }, (response) => {
+                this.subBusy = false;
+                if (response.Result % 10000 == 0) {
+                    this.$message({message: '订阅已添加并生效', type: 'success'});
+                    this.subUrl = ''; this.subName = '';
+                    this.loadSubs();
+                } else {
+                    this.$message.error('添加失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        delSub(s) {
+            this.subBusy = true;
+            this.callPlugin('sub_del', {id: s.id}, (response) => {
+                this.subBusy = false;
+                if (response.Result % 10000 == 0) {
+                    this.$message({message: '订阅已删除', type: 'success'});
+                    if (this.subDetail && this.subDetail.id === s.id) this.subDetail = null;
+                    this.loadSubs();
+                } else {
+                    this.$message.error('删除失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        toggleSub(s) {
+            this.subBusy = true;
+            this.callPlugin('sub_toggle', {id: s.id, enabled: s.enabled ? 'false' : 'true'}, (response) => {
+                this.subBusy = false;
+                if (response.Result % 10000 == 0) {
+                    this.$message({message: s.enabled ? '订阅已暂停' : '订阅已启用', type: 'success'});
+                    this.loadSubs();
+                } else {
+                    this.$message.error('操作失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        updateSub(s) {
+            this.subBusy = true;
+            this.callPlugin('sub_update', {id: s.id}, (response) => {
+                this.subBusy = false;
+                if (response.Result % 10000 == 0) {
+                    this.$message({message: '订阅已更新', type: 'success'});
+                    this.loadSubs();
+                } else {
+                    this.$message.error('更新失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        },
+        showSubDetail(s) {
+            if (this.subDetail && this.subDetail.id === s.id) {
+                this.subDetail = null;
+                return;
+            }
+            this.callPlugin('show', {TYPE: 'subdetail', id: s.id}, (response) => {
+                if (response.Result % 10000 == 0 && response.Data) {
+                    this.subDetail = {id: s.id, parsed: response.Data};
+                } else {
+                    this.$message.error('获取明细失败：' + (response.ErrMsg || '未知错误'));
+                }
+            });
+        }
+    }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "runhooks",
+  "alias": "Runhooks抓包",
+  "manufacturer": "iKuai",
+  "version": "1.0.0",
+  "type": "external",
+  "description": "Runhooks 路由器一体化抓包解包插件(整合 mitmproxy 与小黄鸟能力, 全部在路由器上完成): 透明+显式双模式抓包, HTTPS MITM 解密, 请求/返回改写(规则+脚本+断点), 规则订阅(兼容 QuanX/Surge/纯列表, 自动适配为解密范围+改写规则+脚本), 定时自动更新。自带 Go 静态引擎, 不依赖固件 libc。首次使用请先在客户端安装并信任 CA 证书。",
+  "releasenotes": "首个版本: ① 抓包解包: 按设备(MAC/IP)+接口/VLAN+端口+时段 iptables 精确引流, 引擎三层范围(域名/IP/GEOIP 解密层 + 路径/方法/UA/JA3/内容类型/大小 记录层); ② 改包: 12 类引擎规则(头改写/内容替换/本地映射/镜像远端/上游网关/SSL绕过等) + goja JS 脚本 + 断点拦截; ③ 规则订阅: QuanX(.conf)/Surge(.conf)/纯域名列表三种格式, [mitm]/DOMAIN*/IP-CIDR/GEOIP/URL-REGEX/USER-AGENT/[rewrite]/[filter_local] 全量适配, REJECT→不解密直隧道, QX/Surge 脚本自动转换为引擎脚本; 订阅产物写 scope.sub.json/rules.sub.json/scripts 分层文件, 与手写配置互不覆盖, 支持定时更新与重启自愈; ④ WebUI 只绑 127.0.0.1 经固件同源代理 /plugin_proxy/runhooks/ 访问(需 Build202611181800+), 旧固件自动回退直连。",
+  "arch": [
+    "x86_64"
+  ],
+  "bin": {
+    "x86_64": {
+      "bins/runhooks-x86_64": "bins/runhooks-x86_64"
+    }
+  }
+}
