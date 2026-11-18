@@ -1,252 +1,13 @@
 [
     {
-        "name": "smartdns",
-        "alias": "SmartDNS",
-        "manufacturer": "iKuai",
-        "version": "2.1.1",
-        "type": "external",
-        "description": "smartdns - 一个本地DNS服务器，获取最快的网站IP，获得最佳上网体验，支持DoH，DoT。<br>详情查看:<a>https://github.com/pymumu/smartdns</a>",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180251",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "clash",
-        "alias": "Clash",
-        "manufacturer": "iKuai",
-        "version": "2.2.2",
-        "type": "external",
-        "description": "ShellClash <br>Github地址：<a>https://github.com/juewuy/ShellCrash</a>",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180251",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "pppoe_scan",
-        "alias": "PPPoE Scan",
-        "manufacturer": "iKuai",
-        "version": "1.0.2",
-        "type": "external",
-        "description": "扫描 PPPoE 服务器",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180251",
-        "compatibility": [
-            "x86_64"
-        ]
-    },
-    {
-        "name": "socks5",
-        "alias": "SK5分流",
-        "manufacturer": "iKuai",
-        "version": "4.2.3",
-        "type": "external",
-        "description": "Socks5 插件支持连接远程多个socks5服务器，同时支持本地设备进行分流",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180251",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "vidblock",
-        "alias": "视频拦截",
-        "manufacturer": "iKuai",
-        "version": "2.0.4",
-        "type": "external",
-        "description": "本插件可以实现屏蔽视频类网站或APP的视频流量而不影响点赞、评论、收藏等操作。",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180251",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "uu",
-        "alias": "UU加速器",
-        "manufacturer": "iKuai",
-        "version": "2.0.6",
-        "type": "external",
-        "description": "网易UU网游加速器是由网易公司推出的游戏加速工具，于2013年3月正式上线。网易UU网游加速器提供游戏加速服务，支持3000余款手游加速，涵盖吃鸡类、MOBA类等多种游戏，可一键加速。",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180251",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "ddnstod",
-        "alias": "DDNSTO",
-        "manufacturer": "iKuai",
-        "version": "2.0.5",
-        "type": "external",
-        "description": "‌DDNSTO是一种远程控制工具，支持多种设备和应用，无需公网IP，提供多种远程控制功能。。<br>地址：<a>https://www.kooldns.cn/</a>",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180251",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "lucky",
-        "alias": "Lucky(万吉)",
-        "manufacturer": "iKuai",
-        "version": "2.1.2",
-        "type": "external",
-        "description": "Lucky(万吉)是软硬路由公网神器,功能包括：ipv6/ipv4端口转发、反向代理、DDNS、WOL、ipv4 stun内网穿透、cron、ACME证书自动续签,阿里云盘、ftp、webdav、filebrowser等众多功能  <br>详情访问：<a>https://lucky666.cn/</a>",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180251",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "frpc",
-        "alias": "frpc客户端",
-        "manufacturer": "iKuai",
-        "version": "1.3.2",
-        "type": "external",
-        "description": "FRPC 客户端用于连接 FRP 服务器（FRPS），将本地服务（如 Web 服务、SSH、RDP 等）暴露给外部网络。FRPC 会主动连接 FRPS，并通过隧道将内网的流量转发到 FRPS",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180251",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "gecoos",
-        "alias": "集客AC",
-        "manufacturer": "iKuai",
-        "version": "2.0.5",
-        "type": "external",
-        "description": "GecoOS 集客 AC 是 GecoOS 操作系统中的一部分，主要用于提供集成管理的 无线局域网控制器(AC, Access Controller)。",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "x86_64"
-        ]
-    },
-    {
-        "name": "tailscale",
-        "alias": "Tailscale",
-        "manufacturer": "iKuai",
-        "version": "1.2.3",
-        "type": "external",
-        "description": "Tailscale 是一个基于 WireGuard 协议的 零配置 虚拟专用网络（VPN）解决方案，旨在为用户提供安全、简单和高效的网络连接。",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "x86_64"
-        ]
-    },
-    {
-        "name": "syslog",
-        "alias": "日志推送",
+        "name": "mitmproxy",
+        "alias": "Mitmproxy抓包",
         "manufacturer": "iKuai",
         "version": "1.0.4",
         "type": "external",
-        "description": "本插件允许将本地日志上传至指定的syslog服务器，或兼容syslog协议的腾讯云、阿里云等云服务的日志收集器。",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "all"
-        ]
-    },
-    {
-        "name": "vnts",
-        "alias": "VNT服务端",
-        "manufacturer": "iKuai",
-        "version": "2.0.2",
-        "type": "external",
-        "description": "VNT是一个简便高效的异地组网、内网穿透工具。<br>详情访问：<a>https://rustvnt.com/</a>",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "extapi",
-        "alias": "扩展API",
-        "manufacturer": "",
-        "version": "1.0.4",
-        "type": "external",
-        "description": "扩展API插件可以提供扩展API接口，用于外部系统调用来实现自动化功能。",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "all"
-        ]
-    },
-    {
-        "name": "socat",
-        "alias": "IPV6转发",
-        "manufacturer": "iKuai",
-        "version": "1.2.2",
-        "type": "external",
-        "description": "Socat (Socket CAT) 是一个功能强大的网络工具，它可以在不同类型的套接字（sockets）之间进行数据转发和代理。本插件可以实现将IPV6的端口转发到IPV4的端口。",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "x86_64"
-        ]
-    },
-    {
-        "name": "vremote",
-        "alias": "VRemote服务",
-        "manufacturer": "iKuai",
-        "version": "1.2.9",
-        "type": "external",
-        "description": "VRemote服务配合相应的移动端App，可实现对路由器远程管理及网络共享等功能。",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "all"
-        ]
-    },
-    {
-        "name": "zerotier",
-        "alias": "Zerotier",
-        "manufacturer": "iKuai",
-        "version": "1.2.2",
-        "type": "external",
-        "description": "ZeroTier 是一款开源的虚拟局域网（VPN）解决方案，旨在通过软件定义的网络技术让设备跨越不同的网络环境（如局域网、广域网、互联网等）进行无缝连接。<br>详情访问：<a>https://www.zerotier.com/</a>",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "x86_64"
-        ]
-    },
-    {
-        "name": "openp2p",
-        "alias": "OpenP2P",
-        "manufacturer": "iKuai",
-        "version": "2.0.4",
-        "type": "external",
-        "description": "OpenP2P是一个开源、免费、轻量级的P2P共享网络。你的设备将组成一个私有P2P网络，里面的设备可以直接访问其它成员，或者通过其它成员转发数据间接访问。 如果私有网络无法完成通信，将会到公有P2P网络寻找共享节点协助通信。 相比BT网络用来共享文件，OpenP2P网络用来共享带宽。<br>地址：<a>https://www.openp2p.cn/</a>",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
+        "description": "Mitmproxy 11 流量捕获与 HTTPS 解密插件：透明+显式双模式抓包，交互式 TLS 拦截代理，mitmweb Web 界面查看/分析/改写请求响应，支持插件化 addons、断点、脚本、HAR 导入导出。透明模式按设备(MAC/IP)精确 iptables 引流，不选设备绝不全局。插件页面与 mitmweb 界面均支持中英文切换。自带完整 Alpine(musl) Python 运行时，不依赖固件 libc。首次使用请在客户端安装并信任 CA 证书。",
+        "releasenotes": "① [orphan-fix] 修复改端口后旧引擎没被杀掉: PID 文件丢/错时 stop/状态/重启判断全部失灵, 设备上新旧两个 mitmweb 同时监听(18071/17071 实锤), iframe 连新端口被拒——改为 /proc 扫描引擎进程, 停止必杀干净; ② [web-i18n] mitmweb 上游界面支持中文: 注入式 DOM 翻译(171 条词典, 不动 app.js 逻辑), 语言随插件页切换同步, 无需重启引擎; ③ [iframe-reload] 改端口后 iframe 硬重建, 不再卡在连接被拒",
+        "build": "202611180316",
         "compatibility": [
             "x86_64"
         ]
@@ -259,106 +20,48 @@
         "type": "external",
         "description": "易有云（Yiyouyun）是一个提供 企业级云服务 的平台，主要面向 企业、政府机构以及开发者，提供包括 云计算、云存储、云数据库、云安全 等一系列云服务解决方案。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
+        "build": "202611180316",
         "compatibility": [
             "x86_64"
         ]
     },
     {
-        "name": "vnt",
-        "alias": "VNT客户端",
+        "name": "frpc",
+        "alias": "frpc客户端",
         "manufacturer": "iKuai",
-        "version": "1.2.11",
+        "version": "1.3.2",
+        "type": "external",
+        "description": "FRPC 客户端用于连接 FRP 服务器（FRPS），将本地服务（如 Web 服务、SSH、RDP 等）暴露给外部网络。FRPC 会主动连接 FRPS，并通过隧道将内网的流量转发到 FRPS",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
+            "x86_64"
+        ]
+    },
+    {
+        "name": "syslog",
+        "alias": "日志推送",
+        "manufacturer": "iKuai",
+        "version": "1.0.4",
+        "type": "external",
+        "description": "本插件允许将本地日志上传至指定的syslog服务器，或兼容syslog协议的腾讯云、阿里云等云服务的日志收集器。",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "all"
+        ]
+    },
+    {
+        "name": "vnts",
+        "alias": "VNT服务端",
+        "manufacturer": "iKuai",
+        "version": "2.0.2",
         "type": "external",
         "description": "VNT是一个简便高效的异地组网、内网穿透工具。<br>详情访问：<a>https://rustvnt.com/</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "nps",
-        "alias": "NPS服务端",
-        "manufacturer": "iKuai",
-        "version": "1.2.3",
-        "type": "external",
-        "description": "NPS (Nginx Proxy Switcher)是一种流行的工具，通常用于通过反向代理管理和切换不同的网络代理设置。它允许用户在同一台机器上管理不同的代理服务器，轻松切换和配置。</a>",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "frps",
-        "alias": "frps服务端",
-        "manufacturer": "iKuai",
-        "version": "1.3.1",
-        "type": "external",
-        "description": "frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP、UDP、HTTP、HTTPS 等多种协议。可以将内网服务以安全、便捷的方式通过具有公网 IP 节点的中转暴露到公网。",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "mitmproxy",
-        "alias": "Mitmproxy抓包",
-        "manufacturer": "iKuai",
-        "version": "1.0.3",
-        "type": "external",
-        "description": "Mitmproxy 11 流量捕获与 HTTPS 解密插件：透明+显式双模式抓包，交互式 TLS 拦截代理，mitmweb Web 界面查看/分析/改写请求响应，支持插件化 addons、断点、脚本、HAR 导入导出。透明模式按设备(MAC/IP)精确 iptables 引流，不选设备绝不全局。插件页面中英文一键切换。自带完整 Alpine(musl) Python 运行时，不依赖固件 libc。首次使用请在客户端安装并信任 CA 证书。",
-        "releasenotes": "新增中英文双语界面: 页面右上角一键切换(中文/English), 语言选择持久化到配置目录, 刷新/重启不丢失; 全部页面文案(状态标签/端口配置/设备选择/使用步骤/诊断面板/操作提示)双语化, 词典缺失键回退中文; mitmweb 内嵌界面为上游原生英文, 不在本插件翻译范围",
-        "build": "202611180252",
-        "compatibility": [
-            "x86_64"
-        ]
-    },
-    {
-        "name": "msd_lite",
-        "alias": "组播转换",
-        "manufacturer": "iKuai",
-        "version": "2.0.3",
-        "type": "external",
-        "description": "msd_lite - 轻量级多流守护进程。 这是一个轻量级的Multi Stream守护进程（msd）程序，用于通过HTTP在网络上组织IP电视流媒体。<br>详情查看：<a>https://github.com/rozhuk-im/msd_lite</a>",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "x86_64"
-        ]
-    },
-    {
-        "name": "npc",
-        "alias": "NPC客户端",
-        "manufacturer": "iKuai",
-        "version": "1.1.12",
-        "type": "external",
-        "description": "NPC (Nginx Proxy Switcher)是一种流行的工具，通常用于通过反向代理管理和切换不同的网络代理设置。它允许用户在同一台机器上管理不同的代理服务器，轻松切换和配置。</a>",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
-        "compatibility": [
-            "arm64",
-            "mipsle",
-            "x86_64"
-        ]
-    },
-    {
-        "name": "adguard",
-        "alias": "AdGuardHome",
-        "manufacturer": "iKuai",
-        "version": "2.1.7",
-        "type": "external",
-        "description": "AdGuard Home是一个用于拦截广告和跟踪的 DNS 服务器，使您网络冲浪更快速，更安全，更便捷！<br>官网地址：<a>https://adguard.com/</a>",
-        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
+        "build": "202611180316",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -373,8 +76,38 @@
         "type": "external",
         "description": "KMS 激活是微软的一种 批量激活 技术，允许通过公司或组织的内部服务器进行操作系统和软件的激活，而不是依赖微软的官方激活服务器。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611180252",
+        "build": "202611180316",
         "compatibility": [
+            "x86_64"
+        ]
+    },
+    {
+        "name": "vidblock",
+        "alias": "视频拦截",
+        "manufacturer": "iKuai",
+        "version": "2.0.4",
+        "type": "external",
+        "description": "本插件可以实现屏蔽视频类网站或APP的视频流量而不影响点赞、评论、收藏等操作。",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
+            "x86_64"
+        ]
+    },
+    {
+        "name": "uu",
+        "alias": "UU加速器",
+        "manufacturer": "iKuai",
+        "version": "2.0.6",
+        "type": "external",
+        "description": "网易UU网游加速器是由网易公司推出的游戏加速工具，于2013年3月正式上线。网易UU网游加速器提供游戏加速服务，支持3000余款手游加速，涵盖吃鸡类、MOBA类等多种游戏，可一键加速。",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
             "x86_64"
         ]
     },
@@ -386,8 +119,275 @@
         "type": "external",
         "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
         "releasenotes": "修复三处真机实测缺陷: ① netdiag 诊断返回非法 JSON(devices/scope 文件原文含裸换行, 拼进 JSON 字符串后整个 /Action/call 响应 JSON.parse 失败, 诊断面板打不开)——已 tr 掉控制字符; ② WebUI(18081) 长时间运行后 accept4: too many open files 整个拒服(浏览器/探针 keep-alive 连接只增不减吃光 nofile)——引擎加 IdleTimeout 90s 回收空闲连接(api/proxy/reverse 三个监听), start() 同时尽力抬高 fd 软限制兜底; ③ 定时抓包时段整体偏移 8 小时(设备 shell 时钟是 UTC, 用户按路由器本地时间填时段, 直接比 UTC 导致到点不上规则)——按配置库 time_zone 换算到本地时间再比。附带: TC-12 iptables 正向确认已由 netdiag 闭环",
-        "build": "202611180252",
+        "build": "202611180316",
         "compatibility": [
+            "x86_64"
+        ]
+    },
+    {
+        "name": "pppoe_scan",
+        "alias": "PPPoE Scan",
+        "manufacturer": "iKuai",
+        "version": "1.0.2",
+        "type": "external",
+        "description": "扫描 PPPoE 服务器",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "x86_64"
+        ]
+    },
+    {
+        "name": "vnt",
+        "alias": "VNT客户端",
+        "manufacturer": "iKuai",
+        "version": "1.2.11",
+        "type": "external",
+        "description": "VNT是一个简便高效的异地组网、内网穿透工具。<br>详情访问：<a>https://rustvnt.com/</a>",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
+            "x86_64"
+        ]
+    },
+    {
+        "name": "socat",
+        "alias": "IPV6转发",
+        "manufacturer": "iKuai",
+        "version": "1.2.2",
+        "type": "external",
+        "description": "Socat (Socket CAT) 是一个功能强大的网络工具，它可以在不同类型的套接字（sockets）之间进行数据转发和代理。本插件可以实现将IPV6的端口转发到IPV4的端口。",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "x86_64"
+        ]
+    },
+    {
+        "name": "vremote",
+        "alias": "VRemote服务",
+        "manufacturer": "iKuai",
+        "version": "1.2.9",
+        "type": "external",
+        "description": "VRemote服务配合相应的移动端App，可实现对路由器远程管理及网络共享等功能。",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "all"
+        ]
+    },
+    {
+        "name": "npc",
+        "alias": "NPC客户端",
+        "manufacturer": "iKuai",
+        "version": "1.1.12",
+        "type": "external",
+        "description": "NPC (Nginx Proxy Switcher)是一种流行的工具，通常用于通过反向代理管理和切换不同的网络代理设置。它允许用户在同一台机器上管理不同的代理服务器，轻松切换和配置。</a>",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
+            "x86_64"
+        ]
+    },
+    {
+        "name": "socks5",
+        "alias": "SK5分流",
+        "manufacturer": "iKuai",
+        "version": "4.2.3",
+        "type": "external",
+        "description": "Socks5 插件支持连接远程多个socks5服务器，同时支持本地设备进行分流",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
+            "x86_64"
+        ]
+    },
+    {
+        "name": "ddnstod",
+        "alias": "DDNSTO",
+        "manufacturer": "iKuai",
+        "version": "2.0.5",
+        "type": "external",
+        "description": "‌DDNSTO是一种远程控制工具，支持多种设备和应用，无需公网IP，提供多种远程控制功能。。<br>地址：<a>https://www.kooldns.cn/</a>",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
+            "x86_64"
+        ]
+    },
+    {
+        "name": "msd_lite",
+        "alias": "组播转换",
+        "manufacturer": "iKuai",
+        "version": "2.0.3",
+        "type": "external",
+        "description": "msd_lite - 轻量级多流守护进程。 这是一个轻量级的Multi Stream守护进程（msd）程序，用于通过HTTP在网络上组织IP电视流媒体。<br>详情查看：<a>https://github.com/rozhuk-im/msd_lite</a>",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "x86_64"
+        ]
+    },
+    {
+        "name": "openp2p",
+        "alias": "OpenP2P",
+        "manufacturer": "iKuai",
+        "version": "2.0.4",
+        "type": "external",
+        "description": "OpenP2P是一个开源、免费、轻量级的P2P共享网络。你的设备将组成一个私有P2P网络，里面的设备可以直接访问其它成员，或者通过其它成员转发数据间接访问。 如果私有网络无法完成通信，将会到公有P2P网络寻找共享节点协助通信。 相比BT网络用来共享文件，OpenP2P网络用来共享带宽。<br>地址：<a>https://www.openp2p.cn/</a>",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "x86_64"
+        ]
+    },
+    {
+        "name": "clash",
+        "alias": "Clash",
+        "manufacturer": "iKuai",
+        "version": "2.2.2",
+        "type": "external",
+        "description": "ShellClash <br>Github地址：<a>https://github.com/juewuy/ShellCrash</a>",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
+            "x86_64"
+        ]
+    },
+    {
+        "name": "nps",
+        "alias": "NPS服务端",
+        "manufacturer": "iKuai",
+        "version": "1.2.3",
+        "type": "external",
+        "description": "NPS (Nginx Proxy Switcher)是一种流行的工具，通常用于通过反向代理管理和切换不同的网络代理设置。它允许用户在同一台机器上管理不同的代理服务器，轻松切换和配置。</a>",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
+            "x86_64"
+        ]
+    },
+    {
+        "name": "gecoos",
+        "alias": "集客AC",
+        "manufacturer": "iKuai",
+        "version": "2.0.5",
+        "type": "external",
+        "description": "GecoOS 集客 AC 是 GecoOS 操作系统中的一部分，主要用于提供集成管理的 无线局域网控制器(AC, Access Controller)。",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "x86_64"
+        ]
+    },
+    {
+        "name": "zerotier",
+        "alias": "Zerotier",
+        "manufacturer": "iKuai",
+        "version": "1.2.2",
+        "type": "external",
+        "description": "ZeroTier 是一款开源的虚拟局域网（VPN）解决方案，旨在通过软件定义的网络技术让设备跨越不同的网络环境（如局域网、广域网、互联网等）进行无缝连接。<br>详情访问：<a>https://www.zerotier.com/</a>",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "x86_64"
+        ]
+    },
+    {
+        "name": "extapi",
+        "alias": "扩展API",
+        "manufacturer": "",
+        "version": "1.0.4",
+        "type": "external",
+        "description": "扩展API插件可以提供扩展API接口，用于外部系统调用来实现自动化功能。",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "all"
+        ]
+    },
+    {
+        "name": "tailscale",
+        "alias": "Tailscale",
+        "manufacturer": "iKuai",
+        "version": "1.2.3",
+        "type": "external",
+        "description": "Tailscale 是一个基于 WireGuard 协议的 零配置 虚拟专用网络（VPN）解决方案，旨在为用户提供安全、简单和高效的网络连接。",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "x86_64"
+        ]
+    },
+    {
+        "name": "adguard",
+        "alias": "AdGuardHome",
+        "manufacturer": "iKuai",
+        "version": "2.1.7",
+        "type": "external",
+        "description": "AdGuard Home是一个用于拦截广告和跟踪的 DNS 服务器，使您网络冲浪更快速，更安全，更便捷！<br>官网地址：<a>https://adguard.com/</a>",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
+            "x86_64"
+        ]
+    },
+    {
+        "name": "smartdns",
+        "alias": "SmartDNS",
+        "manufacturer": "iKuai",
+        "version": "2.1.1",
+        "type": "external",
+        "description": "smartdns - 一个本地DNS服务器，获取最快的网站IP，获得最佳上网体验，支持DoH，DoT。<br>详情查看:<a>https://github.com/pymumu/smartdns</a>",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
+            "x86_64"
+        ]
+    },
+    {
+        "name": "frps",
+        "alias": "frps服务端",
+        "manufacturer": "iKuai",
+        "version": "1.3.1",
+        "type": "external",
+        "description": "frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP、UDP、HTTP、HTTPS 等多种协议。可以将内网服务以安全、便捷的方式通过具有公网 IP 节点的中转暴露到公网。",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180316",
+        "compatibility": [
+            "arm64",
+            "mipsle",
+            "x86_64"
+        ]
+    },
+    {
+        "name": "lucky",
+        "alias": "Lucky(万吉)",
+        "manufacturer": "iKuai",
+        "version": "2.1.2",
+        "type": "external",
+        "description": "Lucky(万吉)是软硬路由公网神器,功能包括：ipv6/ipv4端口转发、反向代理、DDNS、WOL、ipv4 stun内网穿透、cron、ACME证书自动续签,阿里云盘、ftp、webdav、filebrowser等众多功能  <br>详情访问：<a>https://lucky666.cn/</a>",
+        "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
+        "build": "202611180317",
+        "compatibility": [
+            "arm64",
+            "mipsle",
             "x86_64"
         ]
     }
