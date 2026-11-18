@@ -112,6 +112,8 @@
             data: { 
                 autostart: false,
                 supportTtyd: false,
+                // [plugin-proxy] 新固件=1: 终端走同源代理路径(带 iKuai 鉴权)
+                proxyReady: 0,
                 configMode: "1",
                 status: 1,
                 statusMessage: "",
@@ -145,6 +147,7 @@
                             self.savedSubUrl = self.suburl;
                             self.autostart = data.autostart === 1;
                             self.supportTtyd = data.supportTtyd === 1;
+                            self.proxyReady = data.proxyReady === 1;
                             self.yamlStatus = data.yamlStatus;
                             self.jsonStatus = data.jsonStatus;
                             self.coreInfo = data.coreInfo;
@@ -354,7 +357,10 @@
                     };
                     AjaxPost('/Action/call', payload, (response) => {
                         if(response.Result % 10000 == 0) {
-                            window.open("http://"+window.location.hostname+":2222/", "_blank");
+                            // [plugin-proxy] 新固件: 同源 /plugin_proxy/clash/
+                            // (OpenResty 校验 sess_key 后转发到 127.0.0.1:2222,
+                            // ttyd 只绑本地, 直连已拒); 旧固件回退直连
+                            window.open(self.proxyReady ? "/plugin_proxy/clash/" : ("http://"+window.location.hostname+":2222/"), "_blank");
                         }
                         self.loading = false;
                     });

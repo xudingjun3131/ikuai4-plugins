@@ -7,11 +7,37 @@ PLUGIN_NAME=clash
 CRASHDIR=$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin
 CHROOTDIR=$(chrootmgt get_chroot_dir)
 
+# [plugin-proxy] iKuai 加固(Build202611181800 起固件支持): ttyd 原来直接绑
+# 0.0.0.0:2222 —— 那是**没有鉴权的 root shell 菜单**, 局域网内无痕窗口开
+# IP:2222 就是一台 shell, 比 webui 泄密更严重。修法: 新固件只绑 127.0.0.1,
+# 页面"打开终端"改走路由器同源 /plugin_proxy/clash/(OpenResty 校验 iKuai 登录
+# 会话 sess_key 后转发; ttyd 客户端路径从 location.pathname 构造, 天然兼容
+# 剥前缀代理, 无需 -b)。旧固件回退 0.0.0.0 直连(升级固件后自动收紧)。
+__PROXY_MIN_BUILD=202611181800
+__web_bind_addr()
+{
+	local __bd
+	__bd=$(grep '^BUILD_DATE=' /etc/release 2>/dev/null | cut -d= -f2)
+	case "$__bd" in ''|*[!0-9]*) echo 0.0.0.0; return ;; esac
+	if [ "$__bd" -ge "$__PROXY_MIN_BUILD" ]; then echo 127.0.0.1; else echo 0.0.0.0; fi
+}
+# OpenResty 代理按插件名查此文件找本地端口(启动写/停止删)
+PP_PORT_FILE=/tmp/iktmp/plugin_web/clash
+
 start_ttyd() {
 
 	killall ttyd
+	# [plugin-proxy] 重启先摘旧端口文件(下面按新绑址决定是否重写)
+	rm -f $PP_PORT_FILE
 
-	chrootmgt run "$CRASHDIR/ttyd -W -o -m 1 -p 2222 -i 0.0.0.0 $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin/menu.sh > /dev/null 2>&1 &"
+	local __bind
+	__bind=$(__web_bind_addr)
+	chrootmgt run "$CRASHDIR/ttyd -W -o -m 1 -p 2222 -i $__bind $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin/menu.sh > /dev/null 2>&1 &"
+	# [plugin-proxy] 落端口文件: /plugin_proxy/clash/ 代理按插件名查此文件
+	if [ "$__bind" = "127.0.0.1" ]; then
+		mkdir -p /tmp/iktmp/plugin_web 2>/dev/null
+		echo 2222 > $PP_PORT_FILE 2>/dev/null
+	fi
 	return 0
 }
 
@@ -45,6 +71,10 @@ __show_data() {
 	local supportTtyd=0
 	[ -f /usr/bin/ttyd ] && supportTtyd=1
 
+	# [plugin-proxy] 页面按此决定"打开终端"走同源代理路径还是直连
+	local proxyReady=0
+	[ "$(__web_bind_addr)" = "127.0.0.1" ] && proxyReady=1
+
 	. $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bin/configs/ShellCrash.cfg
 
 	local coreInfo=""
@@ -60,7 +90,7 @@ __show_data() {
 		runningTime="已运行: ${day}${time}"
 	fi
 
-	json_append __json_result__ status:int
+	json_append __json_result__ status:int proxyReady:int
 	json_append __json_result__ coreInfo:str
 	json_append __json_result__ runningTime:str
 	json_append __json_result__ autostart:int
