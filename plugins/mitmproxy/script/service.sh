@@ -90,8 +90,12 @@ __ports()
 __engine_pids()
 {
 	local f p ids=""
+	# [go-rewrite] 新引擎 bins/mitmproxy-go; 兼容旧 Python 引擎(≤1.0.7 的
+	# ld-musl loader): 升级时框架先换文件再跑 install.sh, 旧 Python 进程还占着
+	# 18070-18072 —— 不按旧模式匹配就杀不掉, 新引擎端口占用起不来(升级路径实锤)。
 	local pat="$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/mitmproxy-go"
-	for f in $(grep -l "$pat" /proc/[0-9]*/cmdline 2>/dev/null); do
+	local pat_old="$EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/bins/runtime/lib/ld-musl-x86_64[.]so[.]1"
+	for f in $(grep -lE "$pat|$pat_old" /proc/[0-9]*/cmdline 2>/dev/null); do
 		p=${f#/proc/}
 		p=${p%/*}
 		[ "$p" = "$$" ] && continue
