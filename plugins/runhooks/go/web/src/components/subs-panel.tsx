@@ -1,3 +1,4 @@
+import { apiURL } from "@/lib/api"
 import { useCallback, useEffect, useState } from "react"
 import { Download, Plus, RefreshCw, Trash2 } from "lucide-react"
 
@@ -76,7 +77,7 @@ export function SubsPanel() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/subscriptions")
+      const res = await fetch(apiURL("/api/subscriptions"))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const body = (await res.json()) as { subs: Sub[]; effective: Effective }
       setSubs(body.subs || [])
@@ -95,7 +96,7 @@ export function SubsPanel() {
     if (!url.trim()) return
     setBusy(true)
     try {
-      const res = await fetch("/api/subscriptions", {
+      const res = await fetch(apiURL("/api/subscriptions"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url.trim(), name: name.trim(), format, interval_min: intervalMin }),
@@ -114,7 +115,7 @@ export function SubsPanel() {
   const act = async (id: string, method: string, path = "", body?: unknown) => {
     setBusy(true)
     try {
-      const res = await fetch(`/api/subscriptions/${id}${path}`, {
+      const res = await fetch(apiURL(`/api/subscriptions/${id}${path}`), {
         method,
         headers: body ? { "Content-Type": "application/json" } : undefined,
         body: body ? JSON.stringify(body) : undefined,
@@ -134,7 +135,7 @@ export function SubsPanel() {
       return
     }
     try {
-      const res = await fetch(`/api/subscriptions/${id}/parsed`)
+      const res = await fetch(apiURL(`/api/subscriptions/${id}/parsed`))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const parsed = (await res.json()) as Parsed
       setDetail({ id, parsed })

@@ -1,11 +1,11 @@
 {
-  "name": "runhooks",
+  "name": "Runhooks",
   "alias": "巡流 NetLoom 观测台",
   "manufacturer": "iKuai",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "type": "external",
   "description": "巡流 NetLoom 路由器一体化局域网流量观测台(抓包解密与统计全部在网关本地完成): 全网设备画像, 时间轴会话瀑布, 域名热度与状态构成, 透明+显式双模式采集, HTTPS MITM 解密, 规则订阅(兼容 QuanX/Surge/纯列表), 请求改写与脚本断点收进次级运维工具箱, 定时自动更新。自带 Go 静态引擎, 不依赖固件 libc。首次使用请先在客户端安装并信任 CA 证书。",
-  "releasenotes": "v1.1.0 重做界面与特性: 全新巡流 NetLoom 局域网流量观测台, 浅色墨绿控制台与横向视图甲板; 新增总览 KPI 与流量脉搏, 设备星图拓扑与终端画像, 会话瀑布时间轴与右侧抽屉, 域名画像与慢端点洞察; 原请求改写/规则/订阅/编写/脚本降为次级运维工具箱; 去掉原有克隆品牌与写死代理地址; 引擎二进制与内嵌 WebUI 同步重建。",
+  "releasenotes": "v1.1.2 修复: HAR 导出响应头文件名由 proxying.har 改为 netloom.har, HAR creator 与根证书 DN 去除 proxying 品牌残留; 前端 API 与下载链接统一带 plugin_proxy/runhooks 前缀, 修复真机绝对根路径 404 导致导出内容不是 HAR 的问题; 插件标识改名 Runhooks 并同步 install.sh 页面 func_name service.sh 联动点。界面整合: 去掉新窗口全屏打开按钮, 观测台与全部配置按钮统一收进插件同一个页面, 新增本页内全屏观测台与收起设置, 引擎未启动给出占位提示, 观测台内嵌高度加大。",
   "arch": [
     "x86_64"
   ],

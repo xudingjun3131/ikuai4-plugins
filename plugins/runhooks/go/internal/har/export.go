@@ -105,7 +105,7 @@ func FromFlows(flows []store.Flow, appVersion string) Document {
 	return Document{
 		Log: Log{
 			Version: version,
-			Creator: Creator{Name: "proxying", Version: appVersion},
+			Creator: Creator{Name: "netloom", Version: appVersion},
 			Entries: entries,
 		},
 	}

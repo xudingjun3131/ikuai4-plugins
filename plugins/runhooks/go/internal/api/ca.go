@@ -18,7 +18,7 @@ func caPEMHandler(rootPEM func() []byte) http.HandlerFunc {
 			return
 		}
 		w.Header().Set("Content-Type", "application/x-pem-file")
-		w.Header().Set("Content-Disposition", `attachment; filename="ca.pem"`)
+		w.Header().Set("Content-Disposition", `attachment; filename="netloom-ca.pem"`)
 		_, _ = w.Write(pem)
 	}
 }

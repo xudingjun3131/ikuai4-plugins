@@ -54,7 +54,7 @@ func Test_FromFlows_HAR12_shape(t *testing.T) {
 		t.Fatalf("version = %v", log["version"])
 	}
 	creator, _ := log["creator"].(map[string]any)
-	if creator["name"] != "proxying" || creator["version"] != "1.2.3" {
+	if creator["name"] != "netloom" || creator["version"] != "1.2.3" {
 		t.Fatalf("creator = %v", creator)
 	}
 	entries, _ := log["entries"].([]any)

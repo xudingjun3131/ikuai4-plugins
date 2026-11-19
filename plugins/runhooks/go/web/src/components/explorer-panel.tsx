@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { flowHost } from "@/lib/api"
+import { flowHost, apiURL } from "@/lib/api"
 import type { FlowDTO } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 
@@ -32,7 +32,7 @@ export function ExplorerPanel({ flows, onHostFilter }: Props) {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/ui/prefs")
+      const res = await fetch(apiURL("/api/ui/prefs"))
       if (!res.ok) return
       const data = (await res.json()) as { prefs?: Prefs } & Prefs
       const p = data.prefs ?? data
@@ -58,7 +58,7 @@ export function ExplorerPanel({ flows, onHostFilter }: Props) {
   async function saveColumns(cols: string[]) {
     const next = { ...prefs, columns: cols, tab: "columns" }
     setPrefs(next)
-    await fetch("/api/ui/prefs", {
+    await fetch(apiURL("/api/ui/prefs"), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prefs: next }),

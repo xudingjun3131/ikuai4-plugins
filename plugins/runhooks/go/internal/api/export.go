@@ -20,7 +20,7 @@ func exportHARHandler(sink *store.Store, version string) http.HandlerFunc {
 		}
 		doc := har.FromFlows(flows, version)
 		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Content-Disposition", `attachment; filename="proxying.har"`)
+		w.Header().Set("Content-Disposition", `attachment; filename="netloom.har"`)
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(doc)
 	}

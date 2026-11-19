@@ -14,7 +14,12 @@
            对齐 iKuai4 .setting 内距与插件管理页 mgmt_section */
         body { padding: 0 20px; }
 
-        .runhooks-frame { width: 100%; height: calc(100vh - 300px); min-height: 520px; border: 1px solid #e4e7ed; border-radius: 4px; display: block; }
+        .runhooks-frame { width: 100%; height: calc(100vh - 210px); min-height: 520px; border: 1px solid #e4e7ed; border-radius: 4px; display: block; }
+        /* [one-page] 观测台「全屏」在当前页面内铺满, 不再另起独立窗口/弹出页:
+           fixed 相对本插件页视口铺满, z-index 盖住配置区; 退出后回到同页原位。 */
+        .runhooks-frame.is-full { position: fixed; inset: 0; width: 100vw; height: 100vh; min-height: 0; border: 0; border-radius: 0; z-index: 9000; }
+        .rq-fs-exit { position: fixed; top: 12px; right: 16px; z-index: 9100; }
+        .rq-offline { margin-top: 14px; padding: 26px; text-align: center; color: #909399; font-size: 13px; line-height: 1.9; background: #fff; border: 1px solid #ebeef5; border-radius: 8px; }
         .runhooks-card { border: 1px solid #ebeef5; border-radius: 8px; padding: 20px; margin-top: 12px; background: #fff; }  /* 对齐 iKuai4 .setting: 8px 圆角+20px 内距 */
         .runhooks-card h4 { margin: 0 0 10px 0; font-size: 13px; color: #303133; }
         .runhooks-card h4 span { font-weight: normal; color: #909399; font-size: 12px; padding-left: 8px; }
@@ -77,9 +82,12 @@
                     <span style="font-size:11px; color:#909399;">关闭抓包 = 撤网络规则 + 引擎暂停记录(显式代理的设备也不再落库)；开始/继续记录在下方界面点「继续」</span>
                     <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">下载 CA 证书</button>
                     <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
-                    <a v-if="status === 1" class="btn btn_default rounded height26" :href="uiUrl" target="_blank">新窗口全屏打开</a>
+                    <button type="button" class="btn btn_default rounded height26" @click="settingsOpen = !settingsOpen">{{ settingsOpen ? '收起设置' : '展开设置' }}</button>
+                    <button v-if="status === 1" type="button" class="btn btn_default rounded height26" @click="setFullscreen(true)">全屏观测台</button>
                     <button type="button" class="btn btn_default rounded height26" @click="loadInitData">刷新状态</button>
                 </div>
+                <!-- [one-page] 所有配置项与按钮都在本页; 可整体收起让观测台占满同一页面 -->
+                <div id="rq-settings" v-show="settingsOpen">
                 <div class="runhooks-row" style="margin-top:10px; padding:8px 10px; background:#f8f9fb; border-radius:6px;">
                     <label style="min-width:64px;">引擎端口</label>
                     <span style="font-size:12px; color:#606266;">显式代理</span>
@@ -92,7 +100,7 @@
                     <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。观测台界面不写死代理地址，端口以本页设置为准</span>
                 </div>
                 <div class="runhooks-tip">
-                    <b>观测步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>观测设备</b>里勾选要观测的终端（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方观测台查看总览、设备星图、会话瀑布与域名洞察；单请求改写/脚本在「运维工具箱」里。<br>
+                    <b>观测步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>观测设备</b>里勾选要观测的终端（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方观测台查看总览、设备星图、会话瀑布与域名洞察（点「全屏观测台」可在本页内铺满查看，不会新开窗口；「收起设置」让观测台占满本页）；单请求改写/脚本在「运维工具箱」里。<br>
                     <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
                 </div>
 
@@ -314,15 +322,20 @@
                         </div>
                     </template>
                 </div>
+                </div><!-- /settingsOpen -->
 
                 <!-- [iKuaiPatch] 引擎未启动时 apiPort 无监听, iframe 会渲染出 Chromium
                      的「xxx 拒绝了我们的连接请求」错误页; 用户要求"要么隐藏, 不要出现
                      这个提示"。故整块(含上下间距)只在引擎运行时出现。 -->
                 <template v-if="status === 1">
                 <div class="h20"></div>
-                <iframe class="runhooks-frame" :src="uiUrl"></iframe>
+                <iframe class="runhooks-frame" :class="{'is-full': fullscreen}" :src="uiUrl"></iframe>
+                <button v-if="fullscreen" type="button" class="btn btn_red rounded height26 rq-fs-exit" @click="setFullscreen(false)">退出全屏(返回本页)</button>
                 <div class="h20"></div>
                 </template>
+                <div v-else class="rq-offline">
+                    引擎未启动，观测台暂不可用。点上方「启动引擎」后，观测台会直接嵌在本页显示（无需新开窗口）。
+                </div>
             </div>
         </div>
     </div>
@@ -339,6 +352,8 @@ var app = new Vue({
         uiUrl: '', caUrl: '',
         // 布局折叠态: 2/3/4 是高级筛选, 默认收起省屏幕; 第1段抓包设备始终展开
         activeTab: 'devices',
+        // [one-page] 配置区是否展开 / 观测台是否在本页内全屏(不是新窗口)
+        settingsOpen: true, fullscreen: false,
         // 设备
         lanDevices: [], selectedDevices: [], groups: [],
         manualIp: '', manualMac: '', manualName: '', groupName: '',
@@ -377,8 +392,11 @@ var app = new Vue({
         this.caUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/api/ca.pem';
         this.loadInitData();
         this.loadDevices();
+        // [one-page] ESC 退出「本页内全屏」, 与浏览器全屏习惯一致
+        window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.fullscreen) this.setFullscreen(false); });
     },
     methods: {
+        setFullscreen(on) { this.fullscreen = !!on; },
         // [param-b64] 框架 /Action/call 的参数值禁止包含 引号/空格/$/&/;/|/\ 等
         // 字符(ikngx.lua __rest_check_illegality_char), JSON.stringify 的字符串
         // 含双引号必被拒(2005 Invalid characters)——曾导致保存设备/范围/分组/时段
@@ -387,7 +405,7 @@ var app = new Vue({
         // unescape(encodeURIComponent()) 保证中文设备名安全。
         b64enc(str) { return btoa(unescape(encodeURIComponent(str))); },
         callPlugin(action, param, cb) {
-            AjaxPost('/Action/call', {func_name: 'plugin_runhooks', action: action, param: param}, (response) => {
+            AjaxPost('/Action/call', {func_name: 'plugin_Runhooks', action: action, param: param}, (response) => {
                 cb(response);
             });
         },
@@ -608,7 +626,7 @@ var app = new Vue({
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'runhooks-ca.pem';
+                    a.download = 'netloom-ca.pem';
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);

@@ -136,8 +136,8 @@ func mintRoot() (*x509.Certificate, crypto.Signer, []byte, []byte, error) {
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
-			Organization: []string{"proxying"},
-			CommonName:   "proxying Root CA",
+			Organization: []string{"NetLoom"},
+			CommonName:   "NetLoom Root CA",
 		},
 		NotBefore:             now.Add(-leafNotBeforeSkew),
 		NotAfter:              now.Add(rootValidFor),
@@ -177,7 +177,7 @@ func (a *Authority) mintLeaf(host string) (*tls.Certificate, error) {
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
-			Organization: []string{"proxying"},
+			Organization: []string{"NetLoom"},
 			CommonName:   host,
 		},
 		NotBefore:             now.Add(-leafNotBeforeSkew),

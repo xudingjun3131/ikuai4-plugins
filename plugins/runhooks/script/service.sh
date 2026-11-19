@@ -4,14 +4,14 @@
 #   层1 iptables(本脚本): 按设备(MAC/IP)+接口/VLAN+端口+时段 精确引流, 绝不全局
 #   层2 引擎 scope.json:  按域名+目标IP+GEOIP 决定是否 MITM 解密
 #   层3 引擎记录层:       按路径/方法/UA/JA3/内容类型/大小 决定是否保存
-PLUGIN_NAME=runhooks
+PLUGIN_NAME=Runhooks
 # [storage-anchor] 环境变量由框架 helper 解析(存储卷上的 config.sh / p5 默认值),
 # 旧固件(无 helper)回退 sda3 引导文件
 . /usr/ikuai/script/plugin_env.sh 2>/dev/null || . /etc/mnt/plugins/configs/config.sh 2>/dev/null
 
 # [self-locate] 用脚本自身位置反推插件安装目录, 不盲信 config.sh 的 EXT_PLUGIN_INSTALL_DIR。
 # 实踩: 用户把插件存储从 /etc/mnt/plugin_store 改成 /etc/disk_user/plugins 后,
-# /usr/ikuai/function/plugin_runhooks 这个软链接和 config.sh 仍指向旧位置, 启动报
+# /usr/ikuai/function/plugin_Runhooks 这个软链接和 config.sh 仍指向旧位置, 启动报
 # ".../bins/runhooks-x86_64: No such file or directory", 而文件其实在新位置完好无损
 # —— 现象和"磁盘不足导致解压失败"一模一样, 但原因完全相反(这边是文件在、路径错)。
 # 框架是经软链接调用本脚本的, 所以必须先解析链接再取目录(readlink 取一级目标即可,
@@ -265,7 +265,7 @@ start()
 		done
 		if [ -n "$__alt" ]; then
 			echo "  ★ 在 $__alt 找到了完整的插件(含二进制)!"
-			echo "    原因: 插件存储路径改过, 但 /usr/ikuai/function/plugin_runhooks 软链接"
+			echo "    原因: 插件存储路径改过, 但 /usr/ikuai/function/plugin_Runhooks 软链接"
 			echo "          和 config.sh 还指向旧位置 $EXT_PLUGIN_INSTALL_DIR"
 			echo "    处理: 重新安装/更新一次本插件即可(install.sh 会重建软链接), 无需卸载数据"
 		else

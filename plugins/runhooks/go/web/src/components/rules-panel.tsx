@@ -1,3 +1,4 @@
+import { apiURL } from "@/lib/api"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Library, Pencil, Plus, Trash2, X } from "lucide-react"
 
@@ -118,7 +119,7 @@ export function RulesPanel() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/rules")
+      const res = await fetch(apiURL("/api/rules"))
       if (!res.ok) {
         setError(`加载失败 HTTP ${res.status}`)
         return
@@ -172,12 +173,12 @@ export function RulesPanel() {
     setError(null)
     try {
       const res = isNew
-        ? await fetch("/api/rules", {
+        ? await fetch(apiURL("/api/rules"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(stripEmpty(editing)),
           })
-        : await fetch(`/api/rules/${editing.id}`, {
+        : await fetch(apiURL(`/api/rules/${editing.id}`), {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(stripEmpty(editing)),
@@ -200,7 +201,7 @@ export function RulesPanel() {
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(`/api/rules/${id}`, { method: "DELETE" })
+      const res = await fetch(apiURL(`/api/rules/${id}`), { method: "DELETE" })
       if (!res.ok) {
         setError(await res.text())
         return
@@ -217,7 +218,7 @@ export function RulesPanel() {
   async function toggle(r: Rule) {
     setBusy(true)
     try {
-      await fetch(`/api/rules/${r.id}`, {
+      await fetch(apiURL(`/api/rules/${r.id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...r, enabled: !r.enabled }),
@@ -234,7 +235,7 @@ export function RulesPanel() {
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch("/api/rules", { method: "PUT" })
+      const res = await fetch(apiURL("/api/rules"), { method: "PUT" })
       if (!res.ok) {
         setError(await res.text())
         return

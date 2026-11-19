@@ -1,3 +1,4 @@
+import { apiURL } from "@/lib/api"
 import { useCallback, useEffect, useState } from "react"
 import { FileCode2, Sparkles } from "lucide-react"
 
@@ -18,7 +19,7 @@ export function ScriptsPanel() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/scripts/templates")
+      const res = await fetch(apiURL("/api/scripts/templates"))
       if (!res.ok) {
         setError(`HTTP ${res.status}`)
         return
@@ -39,7 +40,7 @@ export function ScriptsPanel() {
     setBusy(true)
     setMsg(null)
     try {
-      const res = await fetch("/api/scripts/templates", {
+      const res = await fetch(apiURL("/api/scripts/templates"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),

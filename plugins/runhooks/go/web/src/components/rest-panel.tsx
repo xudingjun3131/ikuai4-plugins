@@ -1,3 +1,4 @@
+import { apiURL } from "@/lib/api"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   FolderPlus,
@@ -139,14 +140,14 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
   const [busy, setBusy] = useState(false)
 
   const loadEnv = useCallback(async () => {
-    const res = await fetch("/api/rest/env")
+    const res = await fetch(apiURL("/api/rest/env"))
     if (!res.ok) return
     const data = (await res.json()) as { env: Record<string, string> }
     setEnvText(JSON.stringify(data.env ?? {}, null, 2))
   }, [])
 
   const loadCollections = useCallback(async () => {
-    const res = await fetch("/api/rest/collections")
+    const res = await fetch(apiURL("/api/rest/collections"))
     if (!res.ok) return
     const data = (await res.json()) as { collections?: Collection[] }
     const list = data.collections ?? []
@@ -191,7 +192,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
     setResult(null)
     try {
       const finalURL = applyQuery(url, params)
-      const res = await fetch("/api/rest/send", {
+      const res = await fetch(apiURL("/api/rest/send"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -221,7 +222,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
     setError(null)
     try {
       // API is POST
-      const res = await fetch(`/api/rest/from-flow/${flowId}`, { method: "POST" })
+      const res = await fetch(apiURL(`/api/rest/from-flow/${flowId}`), { method: "POST" })
       if (!res.ok) {
         setError(await res.text())
         return
@@ -248,7 +249,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
     setError(null)
     try {
       const env = JSON.parse(envText) as Record<string, string>
-      const res = await fetch("/api/rest/env", {
+      const res = await fetch(apiURL("/api/rest/env"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ env }),
@@ -272,7 +273,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
         name,
         requests: [],
       }
-      const res = await fetch("/api/rest/collections", {
+      const res = await fetch(apiURL("/api/rest/collections"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(col),
@@ -308,14 +309,14 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
         ...activeCollection,
         requests: [...(activeCollection.requests ?? []), req],
       }
-      const res = await fetch(`/api/rest/collections/${activeCollection.id}`, {
+      const res = await fetch(apiURL(`/api/rest/collections/${activeCollection.id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(next),
       })
       if (!res.ok) {
         // try POST full replace via POST if PUT path differs
-        const res2 = await fetch("/api/rest/collections", {
+        const res2 = await fetch(apiURL("/api/rest/collections"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(next),
@@ -335,7 +336,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
     if (!confirm("删除该集合？")) return
     setBusy(true)
     try {
-      await fetch(`/api/rest/collections/${id}`, { method: "DELETE" })
+      await fetch(apiURL(`/api/rest/collections/${id}`), { method: "DELETE" })
       if (activeCol === id) setActiveCol(null)
       await loadCollections()
     } finally {

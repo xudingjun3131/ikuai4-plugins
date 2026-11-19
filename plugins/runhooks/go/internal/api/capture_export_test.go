@@ -115,7 +115,7 @@ func Test_ExportHAR_returns_HAR12(t *testing.T) {
 		t.Fatalf("version = %v", log["version"])
 	}
 	creator, _ := log["creator"].(map[string]any)
-	if creator["name"] != "proxying" || creator["version"] != "9.9.9" {
+	if creator["name"] != "netloom" || creator["version"] != "9.9.9" {
 		t.Fatalf("creator = %v", creator)
 	}
 	entries, _ := log["entries"].([]any)

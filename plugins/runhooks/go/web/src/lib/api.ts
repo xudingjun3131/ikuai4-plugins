@@ -1,5 +1,15 @@
 import type { FlowDTO, FlowFilter, FlowsResponse } from "@/lib/types"
 
+// [plugin-proxy] <a href> 不经过 fetch/EventSource 包装, 必须在 URL 生成处就带上
+// Vite base 前缀(/plugin_proxy/runhooks)。否则真机点「导出 HAR」「下载 CA」会
+// 打到网关根路径 /api/... 被 Nginx 404 吃掉, 浏览器只能回退 download 属性存到
+// 404 HTML。引擎同时在裸 /api/* 与 /plugin_proxy/runhooks/api/* 两套路径挂载
+// (见 internal/api/server.go), 这里统一用带前缀的形式, 不再依赖运行期包装层。
+const BASE = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "")
+export function apiURL(path: string): string {
+  return `${BASE}${path}`
+}
+
 /** Same-origin control API (embedded SPA or Vite proxy). */
 function statusQueryValue(raw: string): string | null {
   const s = raw.trim()
@@ -11,7 +21,7 @@ function statusQueryValue(raw: string): string | null {
 }
 
 export function flowsURL(filter?: FlowFilter): string {
-  if (!filter) return "/api/flows"
+  if (!filter) return apiURL("/api/flows")
   const params = new URLSearchParams()
   if (filter.host.trim()) params.set("host", filter.host.trim())
   if (filter.method.trim()) params.set("method", filter.method.trim())
@@ -25,23 +35,23 @@ export function flowsURL(filter?: FlowFilter): string {
     .filter(Boolean)
   for (const c of conds) params.append("cond", c)
   const qs = params.toString()
-  return qs ? `/api/flows?${qs}` : "/api/flows"
+  return apiURL(qs ? `/api/flows?${qs}` : "/api/flows")
 }
 
 export function eventsURL(): string {
-  return "/api/events"
+  return apiURL("/api/events")
 }
 
 export function caPemURL(): string {
-  return "/api/ca.pem"
+  return apiURL("/api/ca.pem")
 }
 
 export function captureURL(): string {
-  return "/api/capture"
+  return apiURL("/api/capture")
 }
 
 export function exportHarURL(): string {
-  return "/api/export/har"
+  return apiURL("/api/export/har")
 }
 
 export async function fetchCapturePaused(

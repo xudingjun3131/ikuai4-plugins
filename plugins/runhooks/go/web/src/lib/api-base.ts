@@ -1,9 +1,9 @@
 // [plugin-proxy] iKuai 加固: WebUI 经路由器同源 /plugin_proxy/runhooks/ 代理
 // (OpenResty 校验 sess_key 后 StripPrefix 转发到 127.0.0.1:引擎端口)。
 // Vite base 即该前缀, index.html 的资源引用已由 Vite 改写为带前缀的绝对路径;
-// 但各组件里手写的 "/api/..." 绝对路径不走 Vite, 这里在入口最早包装
-// window.fetch / window.EventSource, 统一给 /api/ 绝对路径补上前缀——
-// 一处覆盖全部现有与未来的调用点, 不动 25 个业务调用。
+// 所有 URL 现在在 lib/api.ts 的 apiURL() 生成时就带前缀, 包括 <a href> ——
+// <a> 不走 fetch, 是此前真机 404 的根因。这里保留 fetch/EventSource 包装作为
+// 兜底: 任何后续手写或新增的 /api/ 绝对路径调用仍会被自动补前缀。
 // 引擎侧同时保留裸 /api/* 路由(插件 service.sh 本地调用用), 两者互不影响。
 const BASE = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "")
 
