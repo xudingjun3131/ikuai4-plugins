@@ -47,6 +47,13 @@
         .rq-tab b { font-weight: normal; color: #909399; padding-left: 2px; }
         .rq-tabpanel { border: 1px solid #ebeef5; border-top: none; border-radius: 0 0 8px 8px;
                        padding: 16px; background: #fff; }
+        /* [scope-capture] 主界面只放流量抓包相关控件; 端口/启动服务类收进折叠区 */
+        .rq-group-label { font-size:12px; color:#409eff; font-weight:600; padding-right:2px; }
+        .rq-service { margin-top:10px; border:1px solid #ebeef5; border-radius:6px; background:#fff; }
+        .rq-service-summary { cursor:pointer; padding:8px 12px; font-size:12px; color:#606266; user-select:none; }
+        .rq-service-summary:hover { color:#409eff; }
+        .rq-service-hint { color:#909399; font-weight:normal; padding-left:6px; }
+        .rq-service-body { padding:6px 12px 12px; border-top:1px solid #ebeef5; }
     </style>
 </head>
 <body>
@@ -70,11 +77,9 @@
                 </div>
                 <div class="h20"></div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                    <button v-if="status !== 1" type="button" class="btn btn_green rounded height26" @click="startEngine">启动引擎</button>
-                    <button v-else type="button" class="btn btn_red rounded height26" @click="stopEngine">停止引擎</button>
-                    <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#606266; cursor:pointer;">
-                        <input type="checkbox" v-model="autostart" @change="setAutostart">开机自启
-                    </label>
+                    <!-- [scope-capture] 本组只放流量抓包相关操作; 引擎启停/开机自启(启动服务类)
+                         与引擎端口(端口类)按需求收进下方「服务与端口」折叠区, 不占主界面。 -->
+                    <span class="rq-group-label">抓包操作</span>
                     <!-- [btn-dup-fix] 顶部"开启抓包"与下方 Runhooks 面板的"继续"是同一
                          功能(用户实锤), 去掉顶部的; 保留"关闭抓包"(撤规则+暂停, 面板
                          暂停管不到 iptables 规则)。开启改用面板的"继续"。 -->
@@ -88,22 +93,38 @@
                 </div>
                 <!-- [one-page] 所有配置项与按钮都在本页; 可整体收起让观测台占满同一页面 -->
                 <div id="rq-settings" v-show="settingsOpen">
-                <div class="runhooks-row" style="margin-top:10px; padding:8px 10px; background:#f8f9fb; border-radius:6px;">
-                    <label style="min-width:64px;">引擎端口</label>
-                    <span style="font-size:12px; color:#606266;">显式代理</span>
-                    <input v-model="proxyPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                    <span style="font-size:12px; color:#606266;">API/界面</span>
-                    <input v-model="apiPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                    <span style="font-size:12px; color:#606266;">透明监听</span>
-                    <input v-model="transparentPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                    <button type="button" class="btn btn_default rounded height26" @click="savePorts">保存端口</button>
-                    <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。观测台界面不写死代理地址，端口以本页设置为准</span>
-                </div>
+                <!-- [scope-capture] 端口/启动服务类: 按需求「可以不放进去」主界面,
+                     收进默认折叠(引擎未运行时自动展开以便启动)的次要区; 控件与后端动作不变。 -->
+                <details id="rq-service" class="rq-service" :open="status !== 1">
+                    <summary class="rq-service-summary">服务与端口 · 引擎启停 / 开机自启 / 监听端口<span class="rq-service-hint"> · 非流量抓包功能，引擎运行时默认收起</span></summary>
+                    <div class="rq-service-body">
+                        <div class="runhooks-row" style="margin-top:4px;">
+                            <button v-if="status !== 1" type="button" class="btn btn_green rounded height26" @click="startEngine">启动引擎</button>
+                            <button v-else type="button" class="btn btn_red rounded height26" @click="stopEngine">停止引擎</button>
+                            <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#606266; cursor:pointer;">
+                                <input type="checkbox" v-model="autostart" @change="setAutostart">开机自启
+                            </label>
+                        </div>
+                        <div class="runhooks-row" style="padding:8px 10px; background:#f8f9fb; border-radius:6px;">
+                            <label style="min-width:64px;">引擎端口</label>
+                            <span style="font-size:12px; color:#606266;">显式代理</span>
+                            <input v-model="proxyPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                            <span style="font-size:12px; color:#606266;">API/界面</span>
+                            <input v-model="apiPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                            <span style="font-size:12px; color:#606266;">透明监听</span>
+                            <input v-model="transparentPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                            <button type="button" class="btn btn_default rounded height26" @click="savePorts">保存端口</button>
+                            <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。观测台界面不写死代理地址，端口以本页设置为准</span>
+                        </div>
+                    </div>
+                </details>
                 <div class="runhooks-tip">
-                    <b>观测步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>观测设备</b>里勾选要观测的终端（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方观测台查看总览、设备星图、会话瀑布与域名洞察（点「全屏观测台」可在本页内铺满查看，不会新开窗口；「收起设置」让观测台占满本页）；单请求改写/脚本在「运维工具箱」里。<br>
+                    <b>观测步骤：</b>1. 在上方<b>服务与端口</b>里点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>观测设备</b>里勾选要观测的终端（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方观测台查看总览、设备星图、会话瀑布与域名洞察（点「全屏观测台」可在本页内铺满查看，不会新开窗口；「收起设置」让观测台占满本页）；单请求改写/脚本在「运维工具箱」里。<br>
                     <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
                 </div>
 
+                <!-- [scope-capture] 流量抓包相关配置全部放进本页主区 -->
+                <div class="rq-group-label" style="display:block; margin-top:12px;">抓包配置</div>
                 <!-- 1. 抓包设备 -->
                 <div class="rq-tabs">
                     <div class="rq-tab" :class="{on: activeTab==='devices'}" @click="activeTab='devices'">观测设备<b v-if="selectedDevices.length">({{ selectedDevices.length }})</b></div>
@@ -334,7 +355,7 @@
                 <div class="h20"></div>
                 </template>
                 <div v-else class="rq-offline">
-                    引擎未启动，观测台暂不可用。点上方「启动引擎」后，观测台会直接嵌在本页显示（无需新开窗口）。
+                    引擎未启动，观测台暂不可用。在上方「服务与端口」里点「启动引擎」后，观测台会直接嵌在本页显示（无需新开窗口）。
                 </div>
             </div>
         </div>
