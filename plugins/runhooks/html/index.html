@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <title>Runhooks抓包</title>
+    <title>巡流 NetLoom · 局域网流量观测台</title>
     <script src="../../static/js/vue.js"></script>
     <script src="../../static/js/plugin.js"></script>
     <script src="../../static/js/element.js"></script>
@@ -52,8 +52,8 @@
                 <div class="h20"></div>
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                     <div>
-                        <b style="font-size:15px;">Runhooks抓包</b>
-                        <span style="font-size:12px; color:#909399; padding-left:10px;">Runhooks 式流量捕获与 HTTPS 解密</span>
+                        <b style="font-size:15px;">巡流 NetLoom</b>
+                        <span style="font-size:12px; color:#909399; padding-left:10px;">局域网流量观测台 · 按设备 / 时间轴 / 域名聚合</span>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                         <el-tag size="small" :type="status === 1 ? 'success' : 'info'">{{ status === 1 ? '运行中' : '已停止' }}</el-tag>
@@ -89,16 +89,16 @@
                     <span style="font-size:12px; color:#606266;">透明监听</span>
                     <input v-model="transparentPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
                     <button type="button" class="btn btn_default rounded height26" @click="savePorts">保存端口</button>
-                    <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。引擎自带界面(18061)里显示的 proxy 地址是写死的默认值，以本页端口为准</span>
+                    <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。观测台界面不写死代理地址，端口以本页设置为准</span>
                 </div>
                 <div class="runhooks-tip">
-                    <b>使用步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>抓包设备</b>里勾选要调试的设备（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方界面查看解密后的请求/响应、改包、跑脚本。<br>
+                    <b>观测步骤：</b>1. 点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>观测设备</b>里勾选要观测的终端（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方观测台查看总览、设备星图、会话瀑布与域名洞察；单请求改写/脚本在「运维工具箱」里。<br>
                     <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
                 </div>
 
                 <!-- 1. 抓包设备 -->
                 <div class="rq-tabs">
-                    <div class="rq-tab" :class="{on: activeTab==='devices'}" @click="activeTab='devices'">抓包设备<b v-if="selectedDevices.length">({{ selectedDevices.length }})</b></div>
+                    <div class="rq-tab" :class="{on: activeTab==='devices'}" @click="activeTab='devices'">观测设备<b v-if="selectedDevices.length">({{ selectedDevices.length }})</b></div>
                     <div class="rq-tab" :class="{on: activeTab==='net'}" @click="activeTab='net'">网络范围</div>
                     <div class="rq-tab" :class="{on: activeTab==='dec'}" @click="activeTab='dec'">解密范围</div>
                     <div class="rq-tab" :class="{on: activeTab==='rec'}" @click="activeTab='rec'">记录范围</div>

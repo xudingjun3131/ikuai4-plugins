@@ -21,7 +21,7 @@ export function TrafficList({ flows, selectedId, onSelect, loading }: Props) {
       aria-label="Captured traffic"
     >
       <header className="flex h-9 shrink-0 items-center gap-2 border-b border-border/80 bg-card/60 px-3">
-        <span className="panel-title">Traffic</span>
+        <span className="panel-title">会话列表</span>
         <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[10px] text-primary tabular-nums ring-1 ring-primary/25">
           {flows.length}
         </span>
@@ -36,12 +36,12 @@ export function TrafficList({ flows, selectedId, onSelect, loading }: Props) {
 
       <ScrollArea className="min-h-0 flex-1">
         {loading && flows.length === 0 ? (
-          <p className="px-3 py-6 text-center text-xs text-muted-foreground">Loading captures…</p>
+          <p className="px-3 py-6 text-center text-xs text-muted-foreground">正在载入会话…</p>
         ) : flows.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-6 py-10 text-center" data-testid="traffic-empty">
-            <p className="text-sm font-medium text-foreground/90">No traffic yet</p>
+            <p className="text-sm font-medium text-foreground/90">暂无会话</p>
             <p className="max-w-[16rem] text-[11px] leading-relaxed text-muted-foreground">
-              Point HTTP(S)_PROXY to this proxy and open an app or curl a URL. Live flows appear here instantly.
+              在插件页勾选要观测的局域网设备并开启记录，会话会实时出现在这里。
             </p>
           </div>
         ) : (
@@ -85,12 +85,12 @@ export function TrafficList({ flows, selectedId, onSelect, loading }: Props) {
                           {host || "—"}
                         </span>
                         {flowIsTruncated(f) ? (
-                          <span className="rounded bg-amber-500/15 px-1 text-[9px] text-amber-300 ring-1 ring-amber-500/30">
+                          <span className="rounded bg-amber-500/15 px-1 text-[9px] text-amber-700 ring-1 ring-amber-500/30">
                             trunc
                           </span>
                         ) : null}
                         {f.highlightLabel ? (
-                          <span className="rounded bg-violet-500/15 px-1 text-[9px] text-violet-300 ring-1 ring-violet-500/30">
+                          <span className="rounded bg-violet-500/15 px-1 text-[9px] text-violet-700 ring-1 ring-violet-500/30">
                             {f.highlightLabel}
                           </span>
                         ) : null}

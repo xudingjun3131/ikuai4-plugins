@@ -1,6 +1,6 @@
-# Proxying — Panduan Penggunaan Lengkap
+# 巡流 NetLoom — 使用说明
 
-**Proxying** = MITM HTTP(S) lokal + Web UI + REST client (Compose) + MCP server.  
+**巡流 NetLoom** = 运行于网关的局域网流量观测台(设备星图 / 会话瀑布 / 域名洞察) + 抓包解密引擎 + 次级单请求调试工具箱 + MCP server.  
 Tanpa cloud, tanpa akun, tanpa lisensi online. Data default: `~/.proxying`.
 
 | Port default | Fungsi |

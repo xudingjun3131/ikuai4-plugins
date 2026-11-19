@@ -1,4 +1,4 @@
-// Command proxying is the personal local MITM + REST debug tool entrypoint.
+// Command proxying is the 巡流 NetLoom gateway traffic-observation engine entrypoint.
 package main
 
 import (

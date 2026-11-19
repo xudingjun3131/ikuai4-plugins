@@ -17,13 +17,13 @@ type Tab = "overview" | "headers" | "request" | "response"
 
 function HeaderTable({ headers }: { readonly headers: MessageDTO["headers"] }) {
   if (!headers || Object.keys(headers).length === 0) {
-    return <p className="px-3 py-3 text-[11px] text-muted-foreground">No headers</p>
+    return <p className="px-3 py-3 text-[11px] text-muted-foreground">暂无头部</p>
   }
   return (
     <dl className="divide-y divide-border/50 font-mono text-[11px]">
       {Object.entries(headers).map(([k, vals]) => (
         <div key={k} className="grid grid-cols-[minmax(7rem,11rem)_1fr] gap-2 px-3 py-1.5 hover:bg-muted/30">
-          <dt className="truncate font-semibold text-sky-300/90">{k}</dt>
+          <dt className="truncate font-semibold text-sky-700">{k}</dt>
           <dd className="min-w-0 break-all text-foreground/90">{vals.join(", ")}</dd>
         </div>
       ))}
@@ -49,7 +49,7 @@ function BodyBlock({ msg }: { readonly msg: MessageDTO }) {
     <div className="relative">
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5">
         {msg.truncated ? (
-          <Badge variant="outline" className="h-5 border-amber-500/40 text-[10px] text-amber-200">
+          <Badge variant="outline" className="h-5 border-amber-500/40 text-[10px] text-amber-700">
             truncated
           </Badge>
         ) : null}
@@ -78,10 +78,10 @@ function BodyBlock({ msg }: { readonly msg: MessageDTO }) {
 }
 
 const tabs: { id: Tab; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "headers", label: "Headers" },
-  { id: "request", label: "Request" },
-  { id: "response", label: "Response" },
+  { id: "overview", label: "概要" },
+  { id: "headers", label: "头部" },
+  { id: "request", label: "请求" },
+  { id: "response", label: "响应" },
 ]
 
 export function TrafficDetail({ flow }: Props) {
@@ -95,9 +95,9 @@ export function TrafficDetail({ flow }: Props) {
         aria-label="Flow detail"
       >
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-8 text-center">
-          <p className="text-sm font-medium text-foreground/80">详情</p>
+          <p className="text-sm font-medium text-foreground/80">会话切片</p>
           <p className="max-w-xs text-[11px] leading-relaxed text-muted-foreground">
-            Select a row to inspect method, status, timing, headers, and bodies — Runhooks-style detail pane.
+            在时间轴点开任意一行，查看该会话的方法、状态、耗时、请求头与原始报文。
           </p>
         </div>
       </section>
@@ -128,7 +128,7 @@ export function TrafficDetail({ flow }: Props) {
             </Badge>
           ) : null}
           {flowIsTruncated(flow) ? (
-            <Badge variant="outline" className="h-5 border-amber-500/40 text-[10px] text-amber-200">
+            <Badge variant="outline" className="h-5 border-amber-500/40 text-[10px] text-amber-700">
               truncated
             </Badge>
           ) : null}
@@ -167,7 +167,7 @@ export function TrafficDetail({ flow }: Props) {
       <ScrollArea className="min-h-0 flex-1">
         {tab === "overview" ? (
           <div className="grid gap-0 sm:grid-cols-2">
-            <MetaRow label="State" value={String(flow.state)} />
+            <MetaRow label="状态" value={String(flow.state)} />
             <MetaRow label="客户" value={flow.clientAddr ?? "—"} />
             <MetaRow label="进行中" value={flow.startedAt} />
             <MetaRow label="完成" value={flow.doneAt ?? "—"} />
@@ -176,7 +176,7 @@ export function TrafficDetail({ flow }: Props) {
             <MetaRow label="响应大小" value={formatBytes(flow.response.size)} />
             <MetaRow label="流量ID" value={flow.id} mono />
             {flow.error ? (
-              <div className="col-span-full border-t border-border/60 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+              <div className="col-span-full border-t border-border/60 bg-rose-50 px-3 py-2 text-xs text-rose-700">
                 {flow.error}
               </div>
             ) : null}
@@ -195,7 +195,7 @@ export function TrafficDetail({ flow }: Props) {
         {tab === "headers" ? (
           <div className="grid gap-0 lg:grid-cols-2">
             <div className="border-b border-border/60 lg:border-r lg:border-b-0">
-              <h3 className="panel-title bg-muted/30 px-3 py-2">Request headers</h3>
+              <h3 className="panel-title bg-muted/30 px-3 py-2">请求头</h3>
               <HeaderTable headers={flow.request.headers} />
             </div>
             <div>

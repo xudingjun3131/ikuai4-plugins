@@ -1,26 +1,26 @@
 <!doctype html>
-<html lang="en" class="dark" style="color-scheme: dark; background: #0b0f17">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#0b0f17" />
-    <title>Proxying</title>
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#0e211c" />
+    <title>巡流 NetLoom · 局域网流量观测台</title>
     <style>
-      /* Critical CSS before JS/CSS bundles — never flash white */
+      /* 关键 CSS: 浅色观测台底色, 避免加载瞬间闪深色 DevTools 画面 */
       html,
       body,
       #root {
         margin: 0;
         min-height: 100%;
-        background: #0b0f17 !important;
-        color: #e8eef8 !important;
-        color-scheme: dark;
+        background: #eef2ec !important;
+        color: #16241f !important;
+        color-scheme: light;
       }
     </style>
   </head>
-  <body class="dark" style="background: #0b0f17; color: #e8eef8">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

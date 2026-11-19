@@ -1,110 +1,156 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
-import { AppHeader } from "@/components/app-header"
+import {
+  ConsoleFooter,
+  ConsoleHeader,
+  ViewDeck,
+  type ToolId,
+  type ViewId,
+} from "@/components/console-shell"
+import { DevicesPanel } from "@/components/devices"
 import { ExplorerPanel } from "@/components/explorer-panel"
-import { FilterBar } from "@/components/filter-bar"
-import { NavRail, type AppView } from "@/components/nav-rail"
+import { InsightsPanel } from "@/components/insights"
+import { OverviewPanel } from "@/components/overview"
 import { RestPanel } from "@/components/rest-panel"
 import { RulesPanel } from "@/components/rules-panel"
 import { ScriptsPanel } from "@/components/scripts-panel"
+import { SessionsPanel } from "@/components/sessions"
 import { SubsPanel } from "@/components/subs-panel"
 import { TrafficDetail } from "@/components/traffic-detail"
 import { TrafficList } from "@/components/traffic-list"
 import { useFlows } from "@/hooks/use-flows"
+import { buildStats, shortAddr } from "@/lib/stats"
 
 function App() {
-  const [view, setView] = useState<AppView>("capture")
-  const {
-    flows,
-    selectedId,
-    select,
-    selected,
-    loading,
-    error,
-    capturePaused,
-    filter,
-    setFilter,
-    togglePause,
-    clear,
-    actionBusy,
-  } = useFlows()
+  const [view, setView] = useState<ViewId>("overview")
+  const [tool, setTool] = useState<ToolId>("rules")
+  const [focusDevice, setFocusDevice] = useState<string | null>(null)
+  const ctx = useFlows()
+
+  // 全部统计在浏览器侧从 /api/flows 聚合 —— 这是网关观测台独有的视角
+  const stats = useMemo(() => buildStats(ctx.flows), [ctx.flows])
+  const focusFlows = useMemo(
+    () =>
+      focusDevice === null
+        ? ctx.flows
+        : ctx.flows.filter((f) => shortAddr(f.clientAddr ?? "") === focusDevice),
+    [ctx.flows, focusDevice],
+  )
+
+  const openDevice = (short: string): void => {
+    setFocusDevice(short)
+    setView("sessions")
+  }
 
   return (
-    <div className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
-      <AppHeader
-        flowCount={flows.length}
-        capturePaused={capturePaused}
-        error={error}
-        onTogglePause={() => {
-          void togglePause()
-        }}
-        onClear={() => {
-          void clear()
-        }}
-        busy={actionBusy}
+    <div className="nl-app">
+      <ConsoleHeader
+        flowCount={ctx.flows.length}
+        deviceCount={stats.devices.length}
+        capturePaused={ctx.capturePaused}
+        error={ctx.error}
+        busy={ctx.actionBusy}
+        onTogglePause={() => void ctx.togglePause()}
+        onClear={() => void ctx.clear()}
+      />
+      <ViewDeck
+        view={view}
+        onChange={setView}
+        flowCount={ctx.flows.length}
+        tool={tool}
+        onToolChange={setTool}
       />
 
-      <div className="flex min-h-0 flex-1">
-        <NavRail view={view} onChange={setView} />
+      <main className="nl-main">
+        {view === "overview" ? (
+          <OverviewPanel stats={stats} onOpenDevices={() => setView("devices")} />
+        ) : null}
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          {view === "capture" ? (
-            <>
-              <div className="flex shrink-0 items-center gap-2 border-b border-border/70 bg-card/20 px-3 py-1.5">
-                <FilterBar filter={filter} onChange={setFilter} />
-              </div>
-              <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(22rem,34%)_1fr]">
-                <TrafficList
-                  flows={flows}
-                  selectedId={selectedId}
-                  onSelect={select}
-                  loading={loading}
-                />
-                <TrafficDetail flow={selected} />
-              </div>
-            </>
-          ) : null}
+        {view === "devices" ? (
+          <DevicesPanel stats={stats} onFocus={openDevice} />
+        ) : null}
 
-          {view === "rules" ? (
-            <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_minmax(20rem,28rem)]">
-              <div className="grid min-h-0 grid-cols-1 border-r border-border/70 lg:grid-cols-[minmax(18rem,40%)_1fr]">
-                <TrafficList
-                  flows={flows}
-                  selectedId={selectedId}
-                  onSelect={select}
-                  loading={loading}
-                />
-                <TrafficDetail flow={selected} />
-              </div>
-              <RulesPanel />
+        {view === "sessions" ? (
+          <SessionsPanel
+            flows={focusFlows}
+            selectedId={ctx.selectedId}
+            onSelect={ctx.select}
+            selected={ctx.selected}
+            loading={ctx.loading}
+            filter={ctx.filter}
+            onFilter={ctx.setFilter}
+            focusDevice={focusDevice}
+            onClearFocus={() => setFocusDevice(null)}
+          />
+        ) : null}
+
+        {view === "insights" ? <InsightsPanel stats={stats} /> : null}
+
+        {view === "toolbox" ? (
+          <>
+            <div className="nl-tool-note">
+              运维工具箱为次级功能：规则、订阅、单请求改写与脚本调试。
+              观测台的主视角是「全网设备 · 时间轴 · 域名画像」——数据来自整台网关，而不是某一台设备上的某个 App。
             </div>
-          ) : null}
-
-          {view === "rest" ? <RestPanel flowId={selectedId} /> : null}
-
-          {view === "explorer" ? (
-            <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(16rem,22rem)_1fr]">
-              <ExplorerPanel
-                flows={flows}
-                onHostFilter={(host) => setFilter({ ...filter, host })}
-              />
-              <div className="grid min-h-0 grid-cols-1 lg:grid-cols-[minmax(18rem,40%)_1fr]">
-                <TrafficList
-                  flows={flows}
-                  selectedId={selectedId}
-                  onSelect={select}
-                  loading={loading}
-                />
-                <TrafficDetail flow={selected} />
-              </div>
+            <div className="nl-tool-frame">
+              {tool === "rules" ? (
+                <div className="nl-tool-grid nl-tool-grid--rules">
+                  <div className="nl-tool-split">
+                    <TrafficList
+                      flows={ctx.flows}
+                      selectedId={ctx.selectedId}
+                      onSelect={ctx.select}
+                      loading={ctx.loading}
+                    />
+                    <TrafficDetail flow={ctx.selected} />
+                  </div>
+                  <RulesPanel />
+                </div>
+              ) : null}
+              {tool === "subs" ? (
+                <div className="nl-tool-grid nl-tool-grid--full">
+                  <SubsPanel />
+                </div>
+              ) : null}
+              {tool === "rest" ? (
+                <div className="nl-tool-grid nl-tool-grid--full">
+                  <RestPanel flowId={ctx.selectedId} />
+                </div>
+              ) : null}
+              {tool === "scripts" ? (
+                <div className="nl-tool-grid nl-tool-grid--full">
+                  <ScriptsPanel />
+                </div>
+              ) : null}
+              {tool === "explorer" ? (
+                <div className="nl-tool-grid nl-tool-grid--explorer">
+                  <ExplorerPanel
+                    flows={ctx.flows}
+                    onHostFilter={(host: string) =>
+                      ctx.setFilter({ ...ctx.filter, host })
+                    }
+                  />
+                  <div className="nl-tool-split">
+                    <TrafficList
+                      flows={ctx.flows}
+                      selectedId={ctx.selectedId}
+                      onSelect={ctx.select}
+                      loading={ctx.loading}
+                    />
+                    <TrafficDetail flow={ctx.selected} />
+                  </div>
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          </>
+        ) : null}
+      </main>
 
-          {view === "scripts" ? <ScriptsPanel /> : null}
-
-          {view === "subs" ? <SubsPanel /> : null}
-        </div>
-      </div>
+      <ConsoleFooter
+        flowCount={ctx.flows.length}
+        deviceCount={stats.devices.length}
+        capturePaused={ctx.capturePaused}
+      />
     </div>
   )
 }
