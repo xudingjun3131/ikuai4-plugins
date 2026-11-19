@@ -266,3 +266,11 @@ exec "$B/lib/ld-musl-x86_64.so.1" --library-path "$B/lib:$B/usr/lib" \
 2. 固件侧（见 /opt/ikuai4-enterprise AGENTS.md）：`__show_data` 的 jq 注入改 `--arg` 传值 + `_json` 空保护；`updateSoftwareSouce` 的 wget 失败不再写空缓存。
 
 **教训**：插件市场整页状态依赖**一个** JSON 响应，任何单个插件的脏 metadata/releasenotes 都能把整包响应打坏，伪装成「存储丢失」这类完全不同的故障。排查「页面显示成初始模板」先看**原始响应是否合法 JSON**，别去动磁盘/分区。
+
+## 发布侧防复发清单（2026-11-19，每次发版照做）
+
+1. **`metadata.json` 的 `releasenotes` / `upgradetype` 禁止裸双引号、反斜杠、换行、反引号、`$`**：固件 `plugin_pgstore.sh __show_data` 会把在线字段拼进 jq 表达式（新版已改 `jq --arg`，但设备可能跑旧固件、第三方源也不受控），一个双引号就让 `installed` 数组多出空元素 → 整包 `show` 响应非法 JSON → 前端误报「请先设置插件存储路径 / 未发现可用存储」。`build.py` 的 `validate_metadata()` 是硬门禁，CI 会拒绝构建；A/B 测试（正常放行 / 危险拦截）随每轮改动重跑。
+2. **发布后验收三件事**：① GitHub API `commits/gh-pages` 的 message 里 head_sha 是不是本次 main SHA（确认 CI 真部署了，别只看 `git push` 成功）；② API `contents/plugins.json?ref=gh-pages` + `Accept: application/vnd.github.raw` 读线上清单，验版本与 releasenotes 无危险字符（**绕开 raw.githubusercontent.com 的缓存**，它曾 5 分钟仍返回旧清单）；③ 下载 ipk 解包，验二进制 md5 与本地编译产物一致、静态无 PT_INTERP（uClibc 固件能执行）。
+3. **换底包 / 复制引擎必查品牌残留**：mitmproxy v2.0.0 把 `proxying`（小黄鸟/Reqable 同源）引擎整个复制过来，内嵌 WebUI 标题仍是 `Proxying`、代理提示写死 `RouterIP:18080`（实际 18070）、releasenotes 承诺中文却残留英文。改品牌必须**同时**改 `web/src` → `npm run build` 重建 dist → `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build` 重编译内嵌 WebUI 的引擎；只改源码不重编二进制等于没改（已发布包的 strings 实锤含 `<title>Proxying</title>`）。引擎内部协议头（`X-Proxying-*` 等）不能改，改了断功能。
+4. **版本号变化才会触发设备 `compare_version` 升级链**：发布新版本前把这条链当测试用例，专门喂带特殊字符的 releasenotes；发布后确认设备 `installed[].newversion` 与在线清单一致。
+5. **插件市场页面显示成初始模板 ≠ 存储丢失**：排查顺序、只读诊断命令与固件侧根治见固件仓库 `AGENTS.md §20`。本仓库只负责发布侧不产出脏数据。
