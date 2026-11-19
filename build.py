@@ -216,7 +216,7 @@ def build_plugin(plugin_path: str, output_dir: str) -> dict[str, str]:
     ts = get_timestamp()
     for arch in archs:
         build_sigle_plugin(plugin_path, output_dir, metadata, arch, ts)
-    return {
+    entry = {
         "name": metadata["name"],
         "alias": metadata["alias"],
         "manufacturer": metadata["manufacturer"],
@@ -227,6 +227,12 @@ def build_plugin(plugin_path: str, output_dir: str) -> dict[str, str]:
         "build": ts,
         "compatibility": archs
     }
+    # [upgrade-chain] 设备 upgrade_online 用 jq -r '.upgradetype' 取值传给 install.sh;
+    # 清单缺该字段会得到 null, 升级分支不命中, 引擎不重启(stale-proc)。仅为声明了
+    # upgradetype 的插件输出该字段, 其余插件的清单保持原样。
+    if metadata.get("upgradetype"):
+        entry["upgradetype"] = metadata["upgradetype"]
+    return entry
 
 def main():
     if len(sys.argv) != 3:

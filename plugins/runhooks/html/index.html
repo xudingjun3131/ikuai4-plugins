@@ -80,7 +80,7 @@
                     <!-- [scope-capture] 本组只放流量抓包相关操作; 引擎启停/开机自启(启动服务类)
                          与引擎端口(端口类)按需求收进下方「服务与端口」折叠区, 不占主界面。 -->
                     <span class="rq-group-label">抓包操作</span>
-                    <!-- [btn-dup-fix] 顶部"开启抓包"与下方 Runhooks 面板的"继续"是同一
+                    <!-- [btn-dup-fix] 顶部"开启抓包"与下方 runhooks 面板的"继续"是同一
                          功能(用户实锤), 去掉顶部的; 保留"关闭抓包"(撤规则+暂停, 面板
                          暂停管不到 iptables 规则)。开启改用面板的"继续"。 -->
                     <button v-if="capture === 1" type="button" class="btn btn_red rounded height26" @click="setCapture(false)">关闭抓包</button>
@@ -426,7 +426,7 @@ var app = new Vue({
         // unescape(encodeURIComponent()) 保证中文设备名安全。
         b64enc(str) { return btoa(unescape(encodeURIComponent(str))); },
         callPlugin(action, param, cb) {
-            AjaxPost('/Action/call', {func_name: 'plugin_Runhooks', action: action, param: param}, (response) => {
+            AjaxPost('/Action/call', {func_name: 'plugin_runhooks', action: action, param: param}, (response) => {
                 cb(response);
             });
         },
