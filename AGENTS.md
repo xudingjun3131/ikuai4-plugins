@@ -274,3 +274,19 @@ exec "$B/lib/ld-musl-x86_64.so.1" --library-path "$B/lib:$B/usr/lib" \
 3. **换底包 / 复制引擎必查品牌残留**：mitmproxy v2.0.0 把 `proxying`（小黄鸟/Reqable 同源）引擎整个复制过来，内嵌 WebUI 标题仍是 `Proxying`、代理提示写死 `RouterIP:18080`（实际 18070）、releasenotes 承诺中文却残留英文。改品牌必须**同时**改 `web/src` → `npm run build` 重建 dist → `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build` 重编译内嵌 WebUI 的引擎；只改源码不重编二进制等于没改（已发布包的 strings 实锤含 `<title>Proxying</title>`）。引擎内部协议头（`X-Proxying-*` 等）不能改，改了断功能。
 4. **版本号变化才会触发设备 `compare_version` 升级链**：发布新版本前把这条链当测试用例，专门喂带特殊字符的 releasenotes；发布后确认设备 `installed[].newversion` 与在线清单一致。
 5. **插件市场页面显示成初始模板 ≠ 存储丢失**：排查顺序、只读诊断命令与固件侧根治见固件仓库 `AGENTS.md §20`。本仓库只负责发布侧不产出脏数据。
+
+## 插件下线记录：mitmproxy（2026-11-19，用户确认）
+
+commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：抓包/MITM 能力已整合进 runhooks 一体化插件。**用户已明确「mitmproxy 插件要下线掉」，不要恢复目录，也不要把历史复盘里的案例当成待办去维护。**
+
+**下线机制**：`build.py main()` 遍历 `plugins/` 下的子目录逐个构建并生成 `plugins.json` —— **删掉目录就不再生成条目、ipk 与 logo，无需维护黑名单/开关**。CI（peaceiris 部署 gh-pages）会同步清理线上 ipk。本次已核验：线上清单 28 条无 mitmproxy、ipk 56 个无残留、最后部署 `0bfe34f`（来源 main `6102a91`）。
+
+**每次下线后的双向核验清单**：① 本地目录不存在；② GitHub API `contents/plugins.json?ref=gh-pages` + `Accept: application/vnd.github.raw` 无该 `name`（**绕 raw CDN 缓存**）；③ `contents/ipk?ref=gh-pages` 无该插件 ipk；④ `commits/gh-pages` 最后 message 的 head_sha 是下线后的 main SHA（确认 CI 真部署了）；⑤ 固件侧 grep 无硬编码路由。
+
+**保留但需识别的残留文字（都不是插件引用，不要误删）**：
+- `build.py` 注释里的 mitmproxy 案例（uClibc 例子、jq 事故复盘）。
+- `docs/mitmproxy-testcases.md`、`docs/插件验收报告-2026-11-18-mitmproxy1.0.2-reqable1.0.42.md` 等历史验证文档，保留作复盘。
+- `runhooks/service.sh` / `reqable/service.sh` 里的 `mitmproxy-ca-cert.pem`、`mitmproxy-ca-cert.p12` 是 **CA 证书文件名兼容**（读取旧证书让用户不必重装 CA），属功能代码，**严禁删除**。
+- `runhooks/metadata.json` 描述里「整合 mitmproxy 与小黄鸟能力」是产品措辞。
+
+**设备侧**：已安装的 mitmproxy 继续可用，但不再有新装/更新入口；引导用户改装 runhooks 后卸载旧插件。固件侧无硬编码 `/plugin_proxy/mitmproxy/`，无需为下线改固件。
