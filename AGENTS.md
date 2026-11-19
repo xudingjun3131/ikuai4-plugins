@@ -250,3 +250,19 @@ exec "$B/lib/ld-musl-x86_64.so.1" --library-path "$B/lib:$B/usr/lib" \
 **验证**：新二进制 PT_INTERP 段数=0（静态，uClibc 固件可执行）；字节级检查 `RouterIP:18080`/`<title>Proxying`/`proxying.har` 均为 0 次，`RouterIP:18070`/`Mitmproxy 抓包`/`mitmproxy.har` 各 1+ 次；本地起引擎实测 `GET /plugin_proxy/mitmproxy/` 返回 `<title>Mitmproxy</title>`、内嵌 JS 含全部新文案且无 Proxying/18080，`/api/capture` 返回 `{"paused":false}`；`python build.py` 全量构建通过，新 ipk 内二进制 md5 与编译产物一致。
 
 **发布**：main 分支提交触发 `build-and-deploy.yml`（paths 含 `plugins/**`）→ peaceiris 部署 gh-pages；设备点「更新软件源」后 mitmproxy 显示 2.0.1，升级即生效。
+
+## 「点了更新软件源 → 存储路径丢失」根因：releasenotes 双引号污染 show 响应（2026-11-19）
+
+**现象**（设备实锤，Build202611191110）：点「更新软件源」后插件市场页显示「请先设置插件存储路径 / 未发现可用存储」，看不到 mitmproxy 更新和 runhooks，用户以为存储又丢了。
+
+**只读诊断实锤（设备 API）**：
+- `plugin_pgstore show TYPE=data` 返回的 **JSON 非法**：`"installed":[{...01.ctpanel...},,{...reqable...}]` —— `},,` 一个空元素，前端 `JSON.parse` 整体失败 → Vue 状态全空 → 页面渲染成**初始模板**（未设置存储 / 无候选卷 / 旧插件列表），与真实配置无关。
+- 容错解析后真实值：`storageSet="yes"`、`storagePath=/etc/disk_user/plugins/plugins_installed`、`storageCandidates` 有 docker/other/plugins 三个卷；`disk_mgmt show` 里 sda7(plugins) 绑定行完好。**数据卷、绑定、标记、已装插件全没丢，纯显示事故**。
+- 空元素来自 `plugin_pgstore.sh __show_data`：`_json=$(echo $_json | jq ".newversion = \"$newversion\" | .releasenotes = \"$releasenotes\" | ...")` 把**在线清单的 releasenotes 直接字符串插值进 jq 表达式**（未转义）。mitmproxy 2.0.1 的 releasenotes 含 `{"paused":false}` 里的裸双引号 + 换行 → jq 语法错误输出空 → `_json` 被清空 → `installed+="${installed:+,}$_json"` 拼出空项 → `},,`。
+- 只在 `compare_version` 判定「有新版」时才走这条 jq 注入，所以**恰好在发布 2.0.1、用户点更新软件源拉到新清单后爆发**（旧版版本号相同不触发）。用户直觉「像是点击更新软件源导致」精准。
+
+**修复（发布侧 + 固件侧双保险）**：
+1. 发布侧：mitmproxy bump **2.0.2**，releasenotes 改纯文本（无裸双引号/反斜杠/换行）；clash/reqable/runhooks 的 releasenotes 里裸双引号一并净化；`build.py` 新增 `validate_metadata()` 门禁，`releasenotes`/`upgradetype` 含 `"` `\` 换行 反引号 `$` 直接拒绝构建（A/B 实测：正常放行、危险拦截）。
+2. 固件侧（见 /opt/ikuai4-enterprise AGENTS.md）：`__show_data` 的 jq 注入改 `--arg` 传值 + `_json` 空保护；`updateSoftwareSouce` 的 wget 失败不再写空缓存。
+
+**教训**：插件市场整页状态依赖**一个** JSON 响应，任何单个插件的脏 metadata/releasenotes 都能把整包响应打坏，伪装成「存储丢失」这类完全不同的故障。排查「页面显示成初始模板」先看**原始响应是否合法 JSON**，别去动磁盘/分区。

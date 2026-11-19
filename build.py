@@ -185,9 +185,31 @@ def build_sigle_plugin(plugin_path: str, output_dir: str, metadata: dict[str, st
                 dest_path = os.path.basename(bin_files)
                 add_file(tar, src_path, f"{base_dir}/{dest_path}")
 
+def validate_metadata(metadata: dict, path: str) -> None:
+    """发布门禁: 固件 plugin_pgstore.sh __show_data 把 releasenotes/upgradetype
+    直接字符串插值进 jq 表达式(见 ".newversion = \"$newversion\" | ..."),
+    值里出现双引号/反斜杠/换行会让 jq 表达式语法错误 → jq 输出空 → 安装条目
+    被清空 → installed 拼出空元素(},,) → 整个 show 响应 JSON 非法 → 前端
+    JSON.parse 失败后显示成初始模板, 误报「请先设置插件存储路径」, 并连带
+    看不到任何插件更新/新插件(设备实锤 2026-11-19, mitmproxy 2.0.1 触发)。
+    固件侧已改用 jq --arg 根治, 这里再卡一道发布侧, 双保险。
+    """
+    for key in ("releasenotes", "upgradetype"):
+        value = metadata.get(key, "")
+        if not isinstance(value, str):
+            continue
+        bad = [c for c in ('"', "\\", "\n", "\r", "`", "$") if c in value]
+        if bad:
+            raise ValueError(
+                f"{path}: metadata.{key} 含禁止字符 {bad!r} —— 会让固件插件市场 "
+                f"jq 注入失败并污染整个 show 响应; 去掉裸双引号/反斜杠/换行后再发布"
+            )
+
+
 def build_plugin(plugin_path: str, output_dir: str) -> dict[str, str]:
     with open(os.path.join(plugin_path, 'metadata.json'), 'r', encoding='utf-8') as f:
         metadata = json.load(f)
+    validate_metadata(metadata, os.path.join(plugin_path, 'metadata.json'))
     archs = metadata.get("arch", [])
     if not archs:
         archs = ["all"]

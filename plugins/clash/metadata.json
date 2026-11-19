@@ -6,7 +6,7 @@
   "type": "external",
   "upgradetype": "reinstall",
   "description": "ShellClash <br>Github地址：<a>https://github.com/juewuy/ShellCrash</a>",
-  "releasenotes": "安全加固: ttyd 高级模式终端原来直接绑 0.0.0.0:2222 —— 那是没有鉴权的 root shell 菜单, 局域网内无痕窗口开 IP:2222 就是一台 shell(比 webui 泄密更严重)。本版起(需固件 Build202611181800+)ttyd 只绑 127.0.0.1, 页面\"高级模式\"改走路由器同源 /plugin_proxy/clash/(OpenResty 校验 iKuai 登录会话 sess_key 后转发; ttyd 客户端路径从 location.pathname 构造, 天然兼容剥前缀代理, 无需 -b base-path), 直连 IP:2222 已拒; 旧固件按 BUILD_DATE 自适应回退直连。",
+  "releasenotes": "安全加固: ttyd 高级模式终端原来直接绑 0.0.0.0:2222 —— 那是没有鉴权的 root shell 菜单, 局域网内无痕窗口开 IP:2222 就是一台 shell(比 webui 泄密更严重)。本版起(需固件 Build202611181800+)ttyd 只绑 127.0.0.1, 页面「高级模式「改走路由器同源 /plugin_proxy/clash/(OpenResty 校验 iKuai 登录会话 sess_key 后转发; ttyd 客户端路径从 location.pathname 构造, 天然兼容剥前缀代理, 无需 -b base-path), 直连 IP:2222 已拒; 旧固件按 BUILD_DATE 自适应回退直连。",
   "arch": [
     "arm64",
     "mipsle",

@@ -5,7 +5,7 @@
   "version": "1.0.1",
   "type": "external",
   "description": "Runhooks 路由器一体化抓包解包插件(整合 mitmproxy 与小黄鸟能力, 全部在路由器上完成): 透明+显式双模式抓包, HTTPS MITM 解密, 请求/返回改写(规则+脚本+断点), 规则订阅(兼容 QuanX/Surge/纯列表, 自动适配为解密范围+改写规则+脚本), 定时自动更新。自带 Go 静态引擎, 不依赖固件 libc。首次使用请先在客户端安装并信任 CA 证书。",
-  "releasenotes": "浏览器自测修复: ① [严重] 引擎 /api/subscriptions 空数组回 null(Go nil slice), WebUI 订阅面板与插件页订阅 tab 的 .length/.map 直接抛 TypeError——React 整个 app 白屏、Vue 面板失灵(真实浏览器点击\"订阅\"tab 复现, 控制台 Cannot read properties of undefined (reading 'map'))。修复: Go 侧 subs/effective/parsed 三处 nil slice 归一成 [](manager.ParsedOf + api handler), 前端两端同步加 || [] 防御; ② 引擎二进制与内嵌 WebUI 重建(订阅面板防御性渲染)。",
+  "releasenotes": "浏览器自测修复: ① [严重] 引擎 /api/subscriptions 空数组回 null(Go nil slice), WebUI 订阅面板与插件页订阅 tab 的 .length/.map 直接抛 TypeError——React 整个 app 白屏、Vue 面板失灵(真实浏览器点击「订阅「tab 复现, 控制台 Cannot read properties of undefined (reading 'map'))。修复: Go 侧 subs/effective/parsed 三处 nil slice 归一成 [](manager.ParsedOf + api handler), 前端两端同步加 || [] 防御; ② 引擎二进制与内嵌 WebUI 重建(订阅面板防御性渲染)。",
   "arch": [
     "x86_64"
   ],
