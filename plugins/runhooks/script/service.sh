@@ -86,6 +86,77 @@ GEOIP_URL2="https://cdn.jsdelivr.net/gh/sapics/ip-location-db@main/geolite2-coun
 # 确保目录存在(配置动作可能先于 start 被调用)
 mkdir -p $DATADIR $DATA_DIR $LOGDIR $GROUPS_DIR 2>/dev/null
 
+# ============ 引擎 HTTP 通道(统一) ============
+# [engine-api] 真机实测: service.sh 到处是裸 wget --method/--body-data, 设备用户态
+# 的 busybox wget 不认这两个选项, 请求根本没发出去, 代码却只判响应体空就报
+# 「引擎无响应」——「添加订阅」(POST) 与「关抓包后记录层该暂停」(PUT /api/capture)
+# 同时受害, 排查方向被误导成引擎没运行(测试报告 D-01 / D-03 / 修复报告 P3)。
+# 统一走这里: 优先固件自带 GNU wget(/usr/bin/wget-ssl), 其次 curl(构建机冒烟),
+# 最后 busybox wget 的 GET/POST 兜底。所有调用都用 $(...) 捕获输出, 不往 stdout
+# 漏东西(show 动作的 stdout 必须是干净 JSON)。
+__WGET_SSL=""
+[ -x /usr/bin/wget-ssl ] && __WGET_SSL=/usr/bin/wget-ssl
+
+__engine_api()
+{
+	local method=$1 path=$2 body=${3-} tmo=${4:-10}
+	local url="http://127.0.0.1:$API_PORT$path" out=""
+	if [ -n "$__WGET_SSL" ]; then
+		if [ -n "$body" ]; then
+			out=$($__WGET_SSL -q -O - -T $tmo --method=$method --body-data="$body" \
+				--header="Content-Type: application/json" "$url" 2>/dev/null)
+		else
+			out=$($__WGET_SSL -q -O - -T $tmo --method=$method "$url" 2>/dev/null)
+		fi
+	elif command -v curl >/dev/null 2>&1; then
+		if [ -n "$body" ]; then
+			out=$(curl -s --max-time $tmo -X $method -H "Content-Type: application/json" \
+				-d "$body" "$url" 2>/dev/null)
+		else
+			out=$(curl -s --max-time $tmo -X $method "$url" 2>/dev/null)
+		fi
+	else
+		# busybox wget 只有 GET 与 --post-data 的 POST, PUT/DELETE 无法表达。
+		case "$method" in
+			GET)  out=$(wget -q -O - -T $tmo "$url" 2>/dev/null) ;;
+			POST) [ -n "$body" ] && out=$(wget -q -O - -T $tmo --post-data="$body" "$url" 2>/dev/null) ;;
+			*) echo "引擎 API $method $path 失败: 本机无 GNU wget 或 curl" >&2; return 1 ;;
+		esac
+	fi
+	printf '%s' "$out"
+	return 0
+}
+
+# 引擎记录层当前是否暂停(返回 true/false; 拿不到返回空)
+__engine_paused()
+{
+	local raw=$(__engine_api GET /api/capture "" 5 2>/dev/null)
+	[ -n "$raw" ] && echo "$raw" | jq -r '.paused // empty' 2>/dev/null
+	return 0
+}
+
+# 把记录层暂停态对齐抓包总开关, 并回读强校验(不静默相信 PUT 的结果)
+__align_capture_pause()
+{
+	local want=true cur i on msg
+	[ -f $CAPTURE_FLAG ] && want=false
+	[ "$want" = "false" ] && on=1 || on=0
+	for i in 1 2 3; do
+		__engine_capture $on
+		cur=$(__engine_paused)
+		[ "$cur" = "$want" ] && return 0
+		sleep 1
+	done
+	msg="警告: 引擎记录层暂停态未对齐总开关(期望 paused=$want, 实际=${cur:-无响应})"
+	echo "$msg"
+	echo "$msg" >> $LOGDIR/runhooks.log 2>/dev/null
+	return 1
+}
+
+# [watchdog] 引擎「期望运行」标志: start 写、stop 删。
+RUNNING_FLAG=$DATADIR/engine_wanted
+
+
 # [data-dir-fix] 一次性迁移: 旧版引擎数据在配置分区(DATADIR), 搬到 DATA_DIR。
 # 用 mv 不用 cp —— 搬完 sda3 才真腾出空间。CA 必须搬: 用户客户端上装的是旧 CA 根证书,
 # 删了重建会导致全部设备证书不受信、要逐个重装。rules/env 是用户建的改写规则/REST 环境,
@@ -223,36 +294,52 @@ in_schedule()
 	fi
 }
 
-# 调度循环: 每 30s 按 总开关+时段 协调规则(随代理进程存活)
-scheduler_loop()
+# [watchdog] 看门狗循环: 原来以「PIDFILE 里的进程还活着」为条件, 引擎一旦自退
+# (真机 O-03: 周期性 502, 日志 shutdown reason=context canceled), 循环立刻退出
+# 并撤掉 iptables, 之后再没有人把引擎拉起来 —— 页面一直停在
+# 「plugin web ui not available」, 只能用户手动点启动。改为以 RUNNING_FLAG 为条件:
+#   ① 用 /api/health 探活(kill -0 对僵尸仍为真, 502 时 PID 在但已不服务), 自退就重新拉起;
+#   ② 每轮持续对齐记录层暂停态(修启动竞态: capture=0 却 enginePaused=0);
+#   ③ 照旧按时段/总开关协调 iptables。
+watchdog_loop()
 {
-	while kill -0 $(cat $PIDFILE 2>/dev/null) 2>/dev/null; do
+	while [ -f $RUNNING_FLAG ]; do
+		if ! wget -q -O /dev/null -T3 http://127.0.0.1:$API_PORT/api/health 2>/dev/null; then
+			[ -f $PIDFILE ] && kill -9 $(cat $PIDFILE) 2>/dev/null
+			rm -f $PIDFILE
+			__spawn_engine >/dev/null 2>&1
+		fi
+		if [ -f $PIDFILE ]; then
+			local want=true cur on
+			[ -f $CAPTURE_FLAG ] && want=false
+			[ "$want" = "false" ] && on=1 || on=0
+			cur=$(__engine_paused)
+			if [ -n "$cur" ] && [ "$cur" != "$want" ]; then
+				__engine_capture $on >/dev/null 2>&1
+			fi
+		fi
 		if [ -f $CAPTURE_FLAG ] && in_schedule; then
 			[ -f $RULES_FLAG ] || iptables_add >/dev/null 2>&1
 		else
-			[ -f $RULES_FLAG ] && iptables_del
+			[ -f $RULES_FLAG ] && iptables_del >/dev/null 2>&1
 		fi
 		sleep 10
 	done
-	iptables_del
+	iptables_del >/dev/null 2>&1
 }
 
-start()
+# 拉起引擎进程本身(不含看门狗): start 与 watchdog 共用, 避免递归启调度循环。
+__spawn_engine()
 {
 	mkdir -p $DATADIR $DATA_DIR $LOGDIR $GROUPS_DIR
 	# GEOIP 数据在大容量分区(配置分区空间不足), 保持软链到引擎 dataDir
 	[ -s $EXT_PLUGIN_INSTALL_DIR/../.geoip_cache/geoip.csv ] && ln -sf $EXT_PLUGIN_INSTALL_DIR/../.geoip_cache/geoip.csv $DATA_DIR/geoip.csv
-	if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null; then
-		return 0
-	fi
 	# [bin-preflight] 安装时 tar 解压错误被框架静默(2>/dev/null 且不查退出码),
 	# 磁盘不足时小文件(html/script)解压成功、唯独末尾 19MB 的 bins/ 失败,
 	# 结果插件页正常渲染但一起机就 "No such file or directory", 完全看不出原因。
-	# 这里先把最常见的原因摆出来。
 	if [ ! -f "$BIN" ]; then
 		echo "引擎启动失败: 找不到引擎二进制 $BIN"
 		echo "  插件目录内容: $(ls -la $EXT_PLUGIN_INSTALL_DIR/$PLUGIN_NAME/ 2>/dev/null | tr '\n' ' ')"
-		# [self-locate] 区分两种完全相反的原因, 别都归成"磁盘不足"
 		__alt=""
 		for __d in /etc/disk_user/*/plugins_installed /etc/mnt/plugin_store/plugins_installed /etc/log/plugins_installed; do
 			[ -d "$__d" ] || continue
@@ -284,17 +371,9 @@ start()
 		[ -x "$BIN" ] || { echo "  chmod 失败, 请检查文件系统是否只读"; return 1; }
 		echo "  已自动补上可执行权限, 重试启动"
 	fi
-	# [data-dir-fix] 旧版数据搬迁(幂等, 搬完即不再触发) + 引擎 data-dir 指向数据分区
 	__migrate_data_dir
-	# [fd-limit] 真机实测(2026-11-17): WebUI 18061 跑几小时后日志刷
-	# "accept tcp [::]:18061: accept4: too many open files; retrying in 1s" ——
-	# 浏览器/探针的 keep-alive 连接只增不减, 把默认 nofile(1024) 吃光, 之后
-	# WebUI 整个拒服。引擎侧已加 IdleTimeout(90s 回收空闲连接, 见 /opt/runhooks
-	# internal/{api,proxy}), 这里再把 fd 软限制尽量抬高兜底(抬不过硬限制就
-	# 静默失败, 不影响启动)。
+	# [fd-limit] 抬高 nofile 兜底(引擎侧另有 IdleTimeout 回收空闲连接)
 	for __n in 65536 32768 8192 4096; do ulimit -n $__n 2>/dev/null && break; done
-	# [plugin-proxy] WebUI 绑址见 __web_bind_addr: 新固件只绑 127.0.0.1(代理转发),
-	# 旧固件 0.0.0.0 直连。代理/透明端口保持 0.0.0.0(设备要用)。
 	local __web_bind
 	__web_bind=$(__web_bind_addr)
 	$BIN -proxy-addr 0.0.0.0:$PROXY_PORT -transparent-addr 0.0.0.0:$TRANSPARENT_PORT \
@@ -302,39 +381,48 @@ start()
 		-data-dir $DATA_DIR -transparent -scope-file $SCOPE_FILE \
 		>>$LOGDIR/runhooks.log 2>&1 </dev/null &
 	echo $! > $PIDFILE
-	# [plugin-proxy] 落端口文件: OpenResty /plugin_proxy/runhooks/ 代理按插件名
-	# 查此文件找本地端口; 只绑 127.0.0.1 时这是唯一入口(直连已拒)
+	# [plugin-proxy] 落端口文件: OpenResty 代理按插件名查此文件找本地端口
 	if [ "$__web_bind" = "127.0.0.1" ]; then
 		mkdir -p /tmp/iktmp/plugin_web 2>/dev/null
 		echo $API_PORT > $PP_PORT_FILE 2>/dev/null
 	fi
 	sleep 1
-	# 健康检查 + CA 预热
 	wget -q -O /dev/null -T3 http://127.0.0.1:$API_PORT/api/ca.pem 2>/dev/null
-	# [capture-pause] 启动后把引擎记录层对齐总开关: 开关关着(无 flag)时引擎必须
-	# 是暂停态 —— 否则"关了抓包再重启引擎"会静默恢复记录, 又变成关了还在抓。
-	# (引擎每次启动 paused 默认 false, 不对齐就等于拿用户的开关状态开玩笑)
-	if [ -f $CAPTURE_FLAG ]; then
-		__engine_capture 1
+	# [capture-pause-verify] 引擎每次启动 paused 默认 false; 总开关关着时必须变成
+	# true, 且必须回读确认。原实现只发一次 PUT 不校验, 在频繁重启竞态下经常没
+	# 生效 → 用户看到「抓包已关」但流量还在涨(D-03)。
+	__align_capture_pause
+	return 0
+}
+
+start()
+{
+	if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null; then
+		# 引擎在跑: 仍要确认看门狗在(升级/异常重启后可能只剩引擎没有看门狗)
+		if [ -f $SCHED_PIDFILE ] && kill -0 $(cat $SCHED_PIDFILE) 2>/dev/null; then
+			return 0
+		fi
 	else
-		__engine_capture 0
+		touch $RUNNING_FLAG
+		__spawn_engine || { rm -f $RUNNING_FLAG; return 1; }
+		if ! kill -0 $(cat $PIDFILE) 2>/dev/null; then
+			echo "引擎启动失败, 日志尾部:"
+			tail -3 $LOGDIR/runhooks.log 2>/dev/null
+			rm -f $PIDFILE $RUNNING_FLAG
+			return 1
+		fi
 	fi
-	# 启动自检: 进程或端口不在要报出来(否则用户看到"已启动"但端口没监听)
-	if ! kill -0 $(cat $PIDFILE) 2>/dev/null; then
-		echo "引擎启动失败, 日志尾部:"
-		tail -3 $LOGDIR/runhooks.log 2>/dev/null
-		rm -f $PIDFILE
-		return 1
-	fi
-	# 时段调度循环(总开关开着才会上规则)
+	touch $RUNNING_FLAG
 	[ -f $SCHED_PIDFILE ] && kill $(cat $SCHED_PIDFILE) 2>/dev/null
-	( scheduler_loop ) >/dev/null 2>&1 &
+	( watchdog_loop ) >/dev/null 2>&1 </dev/null &
 	echo $! > $SCHED_PIDFILE
 	return 0
 }
 
 stop()
 {
+	# [watchdog] 先撤「期望运行」标志, 否则看门狗可能在 kill 窗口里又拉起引擎
+	rm -f $RUNNING_FLAG
 	[ -f $SCHED_PIDFILE ] && kill $(cat $SCHED_PIDFILE) 2>/dev/null
 	rm -f $SCHED_PIDFILE
 	# [plugin-proxy] 停止即摘掉代理端口文件: 文件在=代理可转发, 文件不在=代理
@@ -383,8 +471,7 @@ __engine_capture()
 {
 	local on=$1 paused=true
 	[ "$on" = "1" ] && paused=false
-	wget -q -O /dev/null -T3 --method=PUT --body-data="{\"paused\":$paused}" \
-		http://127.0.0.1:$API_PORT/api/capture 2>/dev/null
+	__engine_api PUT /api/capture "{\"paused\":$paused}" 5 >/dev/null 2>&1
 	return 0
 }
 
@@ -589,7 +676,7 @@ set_auto_start()
 
 clear_flows()
 {
-	wget -q -O /dev/null --method=DELETE http://127.0.0.1:$API_PORT/api/flows 2>/dev/null
+	__engine_api DELETE /api/flows "" 10 >/dev/null 2>&1
 	return 0
 }
 
@@ -605,22 +692,27 @@ sub_add()
 	local u=$(__param_decode url_b64 url)
 	local nm=$(__param_decode name_b64 name)
 	[ -z "$u" ] && { echo "缺少订阅地址"; return 1; }
+	# [interval-guard] jq --argjson 遇到空串/非数字会让整条表达式报错 → body 为空
+	# → 请求发出去也没内容 → 上层误判「引擎无响应」。先规整成合法非负整数。
+	local iv="${interval_min:-0}"
+	echo "$iv" | grep -qE '^[0-9]+$' || iv=0
 	local body
-	body=$(jq -nc --arg u "$u" --arg n "$nm" --arg f "${format:-auto}" --argjson i "${interval_min:-0}" \
+	body=$(jq -nc --arg u "$u" --arg n "$nm" --arg f "${format:-auto}" --argjson i "$iv" \
 		'{url:$u, name:$n, format:$f, interval_min:$i}')
+	[ -n "$body" ] || { echo "添加订阅失败: 参数构造失败(订阅地址含非法字符)"; return 1; }
 	local res
-	res=$(wget -q -O - -T 30 --method=POST --body-data="$body" \
-		--header="Content-Type: application/json" \
-		http://127.0.0.1:$API_PORT/api/subscriptions 2>/dev/null)
+	res=$(__engine_api POST /api/subscriptions "$body" 30 2>/dev/null)
+	# [error-honesty] 原文案「引擎未运行或地址无效」与实况相反(同一 URL 直连引擎
+	# 201 成功), 把排查方向带偏。改成如实说明是中转通道没拿到响应, 并回传引擎原文。
 	if [ -z "$res" ]; then
-		echo "添加订阅失败: 引擎无响应(引擎未运行或地址无效)"
+		echo "添加订阅失败: 引擎 API(端口 $API_PORT) 未返回内容, 请确认引擎在运行且订阅地址可拉取"
 		return 1
 	fi
 	if echo "$res" | jq -e '.id' >/dev/null 2>&1; then
 		echo "订阅已添加并生效"
 		return 0
 	fi
-	echo "添加订阅失败: $res"
+	echo "添加订阅失败: $(echo "$res" | tr -d '\n' | head -c 200)"
 	return 1
 }
 
@@ -630,7 +722,7 @@ sub_del()
 	[ -z "$id" ] && { echo "缺少订阅 id"; return 1; }
 	echo "$id" | grep -qE '^sub-[A-Za-z0-9_-]+$' || { echo "id 格式不正确"; return 1; }
 	local res
-	res=$(wget -q -O - -T 15 --method=DELETE http://127.0.0.1:$API_PORT/api/subscriptions/$id 2>/dev/null)
+	res=$(__engine_api DELETE /api/subscriptions/$id "" 15 2>/dev/null)
 	[ -n "$res" ] || { echo "删除失败: 引擎无响应"; return 1; }
 	echo "订阅已删除"
 	return 0
@@ -643,9 +735,7 @@ sub_toggle()
 	local en=false
 	[ "$enabled" = "true" ] && en=true
 	local res
-	res=$(wget -q -O - -T 15 --method=PUT --body-data="{\"enabled\":$en}" \
-		--header="Content-Type: application/json" \
-		http://127.0.0.1:$API_PORT/api/subscriptions/$id 2>/dev/null)
+	res=$(__engine_api PUT /api/subscriptions/$id "{\"enabled\":$en}" 15 2>/dev/null)
 	[ -n "$res" ] || { echo "操作失败: 引擎无响应"; return 1; }
 	echo "订阅已$( [ "$en" = "true" ] && echo 启用 || echo 暂停 )"
 	return 0
@@ -656,7 +746,7 @@ sub_update()
 {
 	[ -z "$id" ] && { echo "缺少订阅 id"; return 1; }
 	local res
-	res=$(wget -q -O - -T 60 --method=POST http://127.0.0.1:$API_PORT/api/subscriptions/$id/update 2>/dev/null)
+	res=$(__engine_api POST /api/subscriptions/$id/update "" 60 2>/dev/null)
 	if [ -z "$res" ]; then
 		echo "更新失败: 引擎无响应"
 		return 1
@@ -677,9 +767,7 @@ sub_meta()
 	local body
 	body=$(jq -nc --arg n "$nm" --argjson i "${interval_min:--1}" '{name:$n, interval_min:$i}')
 	local res
-	res=$(wget -q -O - -T 15 --method=PUT --body-data="$body" \
-		--header="Content-Type: application/json" \
-		http://127.0.0.1:$API_PORT/api/subscriptions/$id 2>/dev/null)
+	res=$(__engine_api PUT /api/subscriptions/$id "$body" 15 2>/dev/null)
 	[ -n "$res" ] || { echo "保存失败: 引擎无响应"; return 1; }
 	echo "已保存"
 	return 0
@@ -757,7 +845,7 @@ __show_ca()
 __show_subs()
 {
 	local raw
-	raw=$(wget -q -O - -T 10 http://127.0.0.1:$API_PORT/api/subscriptions 2>/dev/null)
+	raw=$(__engine_api GET /api/subscriptions "" 10 2>/dev/null)
 	if [ -z "$raw" ]; then
 		__json_result__='{"subs":[],"effective":{"domains":[],"dst_ips":[],"countries":[],"paths":[],"user_agents":[],"rules":0,"scripts":0},"engine":false}'
 		return 0
@@ -774,7 +862,7 @@ __show_subdetail()
 {
 	[ -z "$id" ] && { __json_result__='{"error":"missing id"}'; return 0; }
 	local raw
-	raw=$(wget -q -O - -T 10 http://127.0.0.1:$API_PORT/api/subscriptions/$id/parsed 2>/dev/null)
+	raw=$(__engine_api GET /api/subscriptions/$id/parsed "" 10 2>/dev/null)
 	if [ -z "$raw" ]; then
 		__json_result__='{"error":"engine offline or sub not found"}'
 		return 0
@@ -800,13 +888,13 @@ __show_data()
 	local caok=0
 	{ [ -f $DATA_DIR/ca.pem ] || [ -f $DATA_DIR/mitmproxy-ca-cert.pem ] || [ -f $DATA_DIR/ca-cert.pem ] || [ -f $DATADIR/ca.pem ] || [ -f $DATADIR/mitmproxy-ca-cert.pem ] || [ -f $DATADIR/ca-cert.pem ]; } && caok=1
 	local flows=0
-	flows=$(wget -q -O - http://127.0.0.1:$API_PORT/api/flows 2>/dev/null | jq '.flows | length' 2>/dev/null)
+	flows=$(__engine_api GET /api/flows "" 10 2>/dev/null | jq '.flows | length' 2>/dev/null)
 	[ -z "$flows" ] && flows=0
 	# [capture-pause] 引擎记录层是否暂停(WebUI 里点过"暂停"即为 1)。
 	# 总开关开着但引擎暂停时页面要显示"已暂停"—— 否则用户看着"抓包中"却
 	# 一条不记, 又以为是坏了(和"关了还在抓"是同一类状态不透明)。
 	local enginePaused=0
-	local __paused=$(wget -q -O - http://127.0.0.1:$API_PORT/api/capture 2>/dev/null | jq -r '.paused' 2>/dev/null)
+	local __paused=$(__engine_paused)
 	[ "$__paused" = "true" ] && enginePaused=1
 	local proxyPort=$PROXY_PORT
 	local apiPort=$API_PORT

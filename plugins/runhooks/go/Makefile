@@ -1,11 +1,19 @@
-.PHONY: build build-web build-go test run clean release
+.PHONY: build build-web build-go test run clean release version
 
 BINARY := bin/runhooks
 CMD    := ./cmd/proxying
 WEB    := web
 UI_DIST := internal/webui/dist
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 1.0.0)
+# [version-single-source] 引擎版本号唯一真值来源 = 插件 metadata.json。
+# 原来用 git describe, 结果 /api/health 报的是 commit hash 或上一次手工传入的
+# 1.1.2, 而 metadata 与线上清单已到 1.1.4 —— 版本号漂移(测试报告 D-01)。
+# 用 := 禁止命令行覆盖: 重编前必须先改 metadata.json 并升 version。
+VERSION := $(shell python3 -c "import json;print(json.load(open('../metadata.json'))['version'])")
 LDFLAGS := -X main.Version=$(VERSION)
+
+# 构建前打印本次注入的版本, 便于人工核对(与 build.py 的版本门禁互为双保险)。
+version:
+	@echo $(VERSION)
 
 build-web:
 	cd $(WEB) && npm ci && npm run build

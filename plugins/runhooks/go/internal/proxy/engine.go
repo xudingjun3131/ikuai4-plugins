@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -302,8 +303,63 @@ func headerFirst(h http.Header, key string) string {
 	return h.Get(key)
 }
 
+// [self-probe-filter] 路由器自身对各监听口的健康探测(实测: 对透明口 18062
+// 的 https 探测约 200 次/秒, 全部为 state=error 的 flow, clientAddr 唯一值
+// 是路由器自己的 LAN IP, 能把 5000 条 ring buffer 顶满、把真实设备画像挤成
+// 「1 台(路由器自己)」)。这类流量不是用户要观测的局域网设备流量, 在统一记录
+// 入口排除掉。只按源 IP 判, 不动转发链路 —— 探测连接照常走完代理/握手流程,
+// 只是不落库。
+// 逃生开关 RUNHOOKS_RECORD_SELF_TRAFFIC=1 用于本地冒烟测试(从 127.0.0.1 造流)。
+var (
+	selfIPOnce sync.Once
+	selfIPv4s  map[string]bool
+)
+
+func localIPv4Set() map[string]bool {
+	selfIPOnce.Do(func() {
+		selfIPv4s = make(map[string]bool)
+		addrs, err := net.InterfaceAddrs()
+		if err != nil {
+			return
+		}
+		for _, a := range addrs {
+			ipNet, ok := a.(*net.IPNet)
+			if !ok {
+				continue
+			}
+			if v4 := ipNet.IP.To4(); v4 != nil {
+				selfIPv4s[v4.String()] = true
+			}
+		}
+	})
+	return selfIPv4s
+}
+
+// isSelfClient 判断 "host:port" / 裸 IP / "[ipv6]:port" 是否来自本机。
+func isSelfClient(clientAddr string) bool {
+	host := clientAddr
+	if h, _, err := net.SplitHostPort(clientAddr); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]")
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() {
+		return true
+	}
+	if v4 := ip.To4(); v4 != nil {
+		return localIPv4Set()[v4.String()]
+	}
+	return false
+}
+
 // record 记录层过滤: 命中范围规则的才保存(MITM 已发生, 只是不落库)。
 func (e *Engine) record(f store.Flow) (store.FlowID, bool) {
+	if os.Getenv("RUNHOOKS_RECORD_SELF_TRAFFIC") != "1" && isSelfClient(f.ClientAddr) {
+		return "", false
+	}
 	if e.scope != nil && !e.scope.ShouldRecord(
 		f.Request.Method,
 		pathOf(f.Request.URL),

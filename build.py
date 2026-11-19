@@ -1,5 +1,6 @@
 import json
 import os, io
+import re
 import shutil
 import struct
 import sys
@@ -206,10 +207,55 @@ def validate_metadata(metadata: dict, path: str) -> None:
             )
 
 
+def check_engine_version(plugin_path: str, metadata: dict) -> None:
+    """[version-gate] Go 引擎内嵌版本必须与 metadata.version 逐字节一致。
+
+    真机实测(D-01): v1.1.3/v1.1.4 只换了前端与元数据、没重编 Go 引擎,
+    /api/health 一直报 1.1.2, 而 metadata 和线上 plugins.json 已是 1.1.4。
+    根因是 Makefile 的 VERSION 取自 git describe、与插件版本没有强绑定,
+    发布链路也没有一道关卡去比对二进制。这里在打包时直接读二进制里
+    Go 链接器写下的 -X main.Version=<ver> 并与 metadata 比对: 不一致就
+    拒绝构建, 逼出「改版本 → 重编引擎 → 打包」的完整动作。
+    只管带 -X main.Version= 的 Go 引擎二进制, 其它二进制(uClibc/musl)
+    不受影响。
+    """
+    bins = metadata.get("bin", {})
+    candidates = []
+    for spec in bins.values():
+        if isinstance(spec, dict):
+            candidates.extend(spec.keys())
+        elif isinstance(spec, list):
+            candidates.extend(spec)
+        elif isinstance(spec, str):
+            candidates.append(spec)
+    want = metadata["version"].encode()
+    for rel in candidates:
+        path = os.path.join(plugin_path, rel)
+        if not os.path.isfile(path):
+            continue
+        with open(path, "rb") as f:
+            blob = f.read()
+        if b"-X main.Version=" not in blob:
+            continue
+        found = set(re.findall(rb"-X main\.Version=([0-9][0-9A-Za-z._+-]*)", blob))
+        if found != {want}:
+            raise SystemExit(
+                f"\n[version-gate] 拒绝打包: {path} 内嵌引擎版本与 metadata 不一致\n"
+                f"  二进制内嵌版本: {sorted(v.decode(errors='replace') for v in found)}\n"
+                f"  metadata.version: {metadata['version']}\n"
+                f"  修法: 改 plugins/<name>/metadata.json 的 version 后, 到 go/ 目录执行\n"
+                f"        make build-go  (VERSION 已从 ../../metadata.json 单点读取),\n"
+                f"        把 bin/runhooks 拷回 bins/<arch 二进制名>, 再重新打包。\n"
+                f"  /api/health.version / 包内 metadata.version / plugins.json.version\n"
+                f"  三者必须相等, 否则设备升级后仍报旧版本。\n"
+            )
+
+
 def build_plugin(plugin_path: str, output_dir: str) -> dict[str, str]:
     with open(os.path.join(plugin_path, 'metadata.json'), 'r', encoding='utf-8') as f:
         metadata = json.load(f)
     validate_metadata(metadata, os.path.join(plugin_path, 'metadata.json'))
+    check_engine_version(plugin_path, metadata)
     archs = metadata.get("arch", [])
     if not archs:
         archs = ["all"]
