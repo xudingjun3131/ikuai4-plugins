@@ -1,3 +1,8 @@
 .vscode
 build
 docs/
+
+# 冒烟测试产物与 Python 缓存（非源码，含测试 CA 私钥，禁止入库）
+.smoke-data/
+__pycache__/
+*.pyc
