@@ -142,6 +142,8 @@ mkdir -p /tmp/oneplug && cp -a plugins/reqable /tmp/oneplug/ && python3 build.py
 
 **metadata.json 字段**：`name`（目录名即插件名）、`alias`（页面中文名）、`manufacturer`、`version`、`type`（external/internal）、`description`、`releasenotes`、`arch`（`["x86_64"]`/`["arm64"]`/`["mipsle"]`/`["all"]`）、`bin`（arch → 文件映射）、`include`（额外打包路径）、`compatibility`、`upgradetype`。
 
+> ⚠️ **`name` 是设备侧主键，不是产品名，禁止因「品牌改名 / 大小写规范化」改动**：必须与 `plugins/<目录名>/` 及**设备已装版本**的字面值逐字节一致（大小写敏感）。改它等于切断设备升级链（已装项匹配不到在线清单 → 无 `newversion`、无升级按钮），详见文末「插件标识大小写」章节。改中文名/品牌只动 `alias`、`description`、WebUI 标题。
+
 **改插件的标准动作**：改 `plugins/<name>/` 源码 → metadata.json version +1（assert 新号 > 旧号）→ 本地 build.py 验证打包 → 提交推送（CI 发布）→ 设备 updateSoftwareSouce → 升级。
 
 ### 3.2 发布（CI → GitHub Pages）
@@ -290,3 +292,23 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 - `runhooks/metadata.json` 描述里「整合 mitmproxy 与小黄鸟能力」是产品措辞。
 
 **设备侧**：已安装的 mitmproxy 继续可用，但不再有新装/更新入口；引导用户改装 runhooks 后卸载旧插件。固件侧无硬编码 `/plugin_proxy/mitmproxy/`，无需为下线改固件。
+
+---
+
+## 插件标识大小写：设备升级链的匹配键（2026-11-19，runhooks v1.1.2 → v1.1.4 实锤）
+
+**现象**：本地 HEAD = origin/main = gh-pages 部署 SHA，线上 `plugins.json` 已是新版、ipk 可下载、设备软件源 URL 正确且缓存里也刷到了新清单，但插件市场里已装的 `runhooks 1.1.0` 始终不出升级按钮，新版本反而以 `Runhooks` 另起一条出现在「可安装插件」。表象像「没推送 / CDN 缓存（10 分钟）/ 软件源 URL 残留」，实际都不是。
+
+**根因**：17:58 的改名派单把 `metadata.json` 的 `name` 由 `runhooks` 改成 `Runhooks`（产品品牌改名），并连带改了页面 `func_name: 'plugin_Runhooks'`、`service.sh` 的 `PLUGIN_NAME=Runhooks`、`build.py` 产出的 ipk / plugins.json / logo 命名；当时已留过一句「改名后旧标识的设备不会识别为同一插件的升级，留档待评估」，但没当场处理，2 小时后爆发。固件 `plugin_pgstore.sh __show_data` 用 `jq select(.name == "$name")` **区分大小写**匹配在线清单，`upgrade_online` 也按 name 查缓存 → 已装项 `runhooks` 匹配不到 `Runhooks` → 不注入 `newversion` → `compare_version` 失败 → 不渲染升级按钮；旧安装项成孤儿，手工点升级会拼出空版本 URL 404。**改名当时「刻意保留 `/plugin_proxy/runhooks/` 小写前缀」也是同类隐患**：固件/Go 引擎侧按小写硬编码，跨仓库标识符一旦不同步就是另一处断裂。
+
+**修法（v1.1.4 / `4267578`）**：`name` 改回小写 `runhooks`，同步回 `plugin_runhooks` / `PLUGIN_NAME=runhooks`，version `1.1.3`→`1.1.4`（必须高于线上，否则 compare_version 不注入升级字段），补 `upgradetype:"upgrade"`，releasenotes 重写过 `validate_metadata()` 门禁；目录名不变 → 配置/CA 不丢。同时 `build.py` 改为「仅对声明了 upgradetype 的插件在 plugins.json 输出该字段」，避免 `null` 传给 `install.sh` 导致升级后引擎不重启（stale-proc 坑）。已按大写名**全新安装**过的设备没有旧名安装项，无平滑路径，只能卸载重装。
+
+**注意事项（改任何插件 / 接到改名派单前照做）**
+
+1. **`name` 是设备侧主键，不是可改的产品名**：中文名/品牌改名只动 `alias`、`description`、`releasenotes`、WebUI 标题；`name` 必须与 `plugins/<目录名>/` 及**设备已装版本的字面值**逐字节一致（含大小写）。别做「首字母大写规范化」这类顺手改动。
+2. **标识符四处（+框架派生）同改，缺一即断**：`metadata.json name` ↔ `html/index.html` 的 `func_name: 'plugin_<name>'` ↔ `script/service.sh` 的 `PLUGIN_NAME=<name>` ↔ 目录名；框架据此派生 `/usr/ikuai/function/plugin_<name>` 软链、`/plugin_proxy/<name>/` 命名空间、ipk/plugins.json/logo 文件名、包内路径。改完 `grep -rn 'Runhooks\|plugin_Runhooks\|PLUGIN_NAME=Runhooks'` 全仓回扫，残留 0 才提交；固件仓库 `/opt/ikuai4-enterprise` 与 Go 引擎侧的前缀也要一起核，跨仓库不一致同样断链。
+3. **凡设备侧按字符串比较的标识一律视为大小写敏感**：name / func_name / PLUGIN_NAME / 目录名 / 软链 / plugin_proxy 前缀 / 清单条目名 / ipk 文件名。Linux 文件系统同样区分大小写，目录名大小写一变 `ln -sf` 就指向不存在的路径，报 `No such file or directory`——与「磁盘不足解压失败」是同族假象（见 §2.2）。
+4. **改名派单当场评估升级链，不许「留档待评估」**：先问一句「设备上已装的是哪个字面 name、改完还能不能匹配上」，答不上就别改。当时留的那句话 2 小时后就变成了线上事故。
+5. **排查「推送了但设备不出升级按钮」的顺序**：先只读拉 `plugin_pgstore show TYPE=data`，把 `installed[].name` 与线上 `plugins.json` 的 `name` **逐字节比对**，并确认响应是合法 JSON（脏 releasenotes 会整包打坏，见上一节）；不一致就是标识断裂，别去等 CDN 缓存、别去动软件源 URL、别重复 push。
+6. **改回 name 必须同时升 version**：`compare_version` 是严格语义化比较，新号不大于线上旧号就不注入升级字段，写成比线上更低比不升更糟（§2.6）。
+7. **升级链自检**：本地 `python3 build.py plugins build` 后验 `build/plugins.json` 里该插件只有一条、`name`/`version`/`upgradetype` 正确，解包 ipk 核对包内 metadata/index.html/service.sh 三处标识符一致；发布后按「发布侧防复发清单」四步验收，确认设备 `installed[].newversion` 出现、升级后引擎 stop+start、配置/CA 保留。
