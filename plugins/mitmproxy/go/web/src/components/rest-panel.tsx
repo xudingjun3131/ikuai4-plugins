@@ -398,7 +398,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
           disabled={busy || !flowId}
           onClick={() => void fromFlow()}
           data-testid="rest-from-flow"
-          title={flowId ? `Load from capture ${flowId}` : "Select a capture first"}
+          title={flowId ? `从流量 ${flowId} 载入` : "请先选择一条流量"}
         >
           <Import className="h-3.5 w-3.5" />
           来自流量
@@ -473,7 +473,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
               ))}
               {collections.length === 0 ? (
                 <li className="px-3 py-6 text-center text-[11px] text-muted-foreground">
-                  No collections yet. Click + to create one, then Save a request.
+                  暂无集合。点击 + 新建一个，然后保存请求。
                 </li>
               ) : null}
             </ul>

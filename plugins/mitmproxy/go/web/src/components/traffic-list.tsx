@@ -18,10 +18,10 @@ export function TrafficList({ flows, selectedId, onSelect, loading }: Props) {
     <section
       className="flex h-full min-h-0 flex-col border-r border-border/80 bg-card/40"
       data-testid="traffic-list"
-      aria-label="Captured traffic"
+      aria-label="已捕获流量"
     >
       <header className="flex h-9 shrink-0 items-center gap-2 border-b border-border/80 bg-card/60 px-3">
-        <span className="panel-title">Traffic</span>
+        <span className="panel-title">流量列表</span>
         <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[10px] text-primary tabular-nums ring-1 ring-primary/25">
           {flows.length}
         </span>
@@ -36,12 +36,12 @@ export function TrafficList({ flows, selectedId, onSelect, loading }: Props) {
 
       <ScrollArea className="min-h-0 flex-1">
         {loading && flows.length === 0 ? (
-          <p className="px-3 py-6 text-center text-xs text-muted-foreground">Loading captures…</p>
+          <p className="px-3 py-6 text-center text-xs text-muted-foreground">加载中…</p>
         ) : flows.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-6 py-10 text-center" data-testid="traffic-empty">
-            <p className="text-sm font-medium text-foreground/90">No traffic yet</p>
+            <p className="text-sm font-medium text-foreground/90">暂无流量</p>
             <p className="max-w-[16rem] text-[11px] leading-relaxed text-muted-foreground">
-              Point HTTP(S)_PROXY to this proxy and open an app or curl a URL. Live flows appear here instantly.
+              把客户端代理设为「路由器IP:18070」后访问任意应用或 curl 一个网址，流量会实时出现在这里。
             </p>
           </div>
         ) : (

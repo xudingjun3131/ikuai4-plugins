@@ -29,7 +29,7 @@ export function AppHeader({
   onTogglePause,
   onClear,
   busy = false,
-  proxyHint = "RouterIP:18080",
+  proxyHint = "RouterIP:18070",
 }: Props) {
   return (
     <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/80 bg-gradient-to-r from-card via-card to-primary/5 px-3">
@@ -38,8 +38,8 @@ export function AppHeader({
           <Activity className="h-4 w-4 text-primary" />
         </div>
         <div className="leading-tight">
-          <h1 className="text-sm font-semibold tracking-tight">Proxying</h1>
-          <p className="text-[10px] text-muted-foreground">API debug · MITM</p>
+          <h1 className="text-sm font-semibold tracking-tight">Mitmproxy 抓包</h1>
+          <p className="text-[10px] text-muted-foreground">流量捕获 · HTTPS 解密</p>
         </div>
       </div>
 
@@ -47,7 +47,7 @@ export function AppHeader({
 
       <div className="hidden items-center gap-1.5 rounded-md bg-muted/50 px-2 py-1 font-mono text-[10px] text-muted-foreground ring-1 ring-border/60 md:flex">
         <Radio className="h-3 w-3 text-primary" />
-        proxy {proxyHint}
+        代理 {proxyHint}
       </div>
 
       <div className="flex-1" />
@@ -118,7 +118,7 @@ export function AppHeader({
           variant="secondary"
           size="sm"
           className="h-8 gap-1.5"
-          render={<a href={exportHarURL()} download="proxying.har" data-testid="export-har" />}
+          render={<a href={exportHarURL()} download="mitmproxy.har" data-testid="export-har" />}
         >
           <Download className="h-3.5 w-3.5" />
           HAR导出

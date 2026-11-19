@@ -2,10 +2,10 @@
   "name": "mitmproxy",
   "alias": "Mitmproxy抓包",
   "manufacturer": "iKuai",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "type": "external",
   "description": "MITM 流量捕获与 HTTPS 解密插件（Go 引擎）：透明+显式双模式抓包，交互式 TLS 拦截代理，Web 界面查看/分析/改写请求响应/规则/断点/脚本",
-  "releasenotes": "2.0.0（重大版本：Python 运行时 → 自研 Go 引擎重写）：\n1. 【引擎重写】mitmproxy(Python 3.14+mitmproxy 11, ~100MB Alpine 运行时) 整体替换为自研 Go 引擎(CGO_ENABLED=0 全静态 ~19MB)：冷启动从最长 60 秒健康等待降到毫秒级(实测 API 首响 ~20ms)，彻底消除冷启动误报\"启动异常\"与慢启动导致的界面语言不同步问题；无 musl loader/Python 依赖。\n2. 【界面】WebUI 中文原生（流量/规则/断点/脚本全部中文），不再需要 lang.json 同步与选项汉化注入；沿用与 reqable 同款的信息架构：流量列表+详情、规则改写、断点、REST 重放、脚本。\n3. 【功能全覆盖】显式代理(18070)+透明模式(iptables REDIRECT, 18072)双监听并存；HTTPS MITM 解密+CA 自签；流量实时推送(SSE)；抓包暂停/恢复；清空；断点拦截改包；规则引擎；脚本。\n4. 【安全】沿用同源 /plugin_proxy/mitmproxy/ 鉴权代理(校验 iKuai sess_key)，引擎只绑 127.0.0.1，端口文件协议不变；旧固件按 BUILD_DATE 自适应回退直连。\n5. 【兼容】插件页交互/端口/设备选择/iptables 规则全部不变；API 语义兼容 mitmweb(/api/flows、/api/capture、/api/ca.pem、/api/events)。",
+  "releasenotes": "2.0.1（WebUI 品牌/端口修正）：\n1. 【实锤 bug】v2.0.0 的 Go 引擎从 proxying(小黄鸟/Reqable) 引擎复制时，内嵌 WebUI 顶部标题仍是 「Proxying / API debug · MITM」，并把代理地址提示写死为 RouterIP:18080 —— 那是 Reqable 的端口，而 mitmproxy 实际显式代理端口是 18070。设备实锤：mitmproxy 插件页下方 iframe 显示小黄鸟界面且提示 proxy RouterIP:18080，用户按它配代理必然连不上。\n2. 【修复】WebUI 标题改「Mitmproxy 抓包」、副标题「流量捕获 · HTTPS 解密」，代理提示改 RouterIP:18070（与 service.sh DEF_PROXY 一致），HAR 导出文件名与 Content-Disposition 改 mitmproxy.har，页面 lang=zh-CN；列表区残留英文（Traffic/Captured traffic/No traffic yet/Load from capture/No collections yet）全部中文化。引擎 Go 代码里的 X-Proxying-* 协议头保持不变（改了会断功能）。\n3. 【验证】npm run build + CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build 重建内嵌 WebUI 的静态二进制（PT_INTERP 段数=0，uClibc 固件可直接执行）；本地起引擎实测 GET /plugin_proxy/mitmproxy/ 返回 <title>Mitmproxy</title> 且内嵌 JS 含 Mitmproxy 抓包/RouterIP:18070，无 Proxying/18080；/api/capture 正常返回 {\"paused\":false}。",
   "arch": [
     "x86_64"
   ],

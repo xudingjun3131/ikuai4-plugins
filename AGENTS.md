@@ -233,3 +233,20 @@ exec "$B/lib/ld-musl-x86_64.so.1" --library-path "$B/lib:$B/usr/lib" \
 - clash：ttyd 只绑 127.0.0.1（**ttyd 客户端路径同样从 `window.location.pathname` 构造，天然兼容剥前缀，不需要 `-b`**）；页面"高级模式"改开 `/plugin_proxy/clash/`
 
 **28 插件审计结论**：零鉴权已修=clash ttyd/reqable/mitmweb；有自带认证=adguard 3000（bcrypt，模板密码公开用户应改）、frps 面板 7001（默认 admin/admin 用户应改）、nps/lucky（各自登录体系）；其余无 webui。
+
+## 插件 WebUI 品牌/端口串台：mitmproxy v2.0.1（2026-11-19）
+
+**用户报告**（截图）：「这个 mitmproxy 的页面下面的 webui 变成了小黄鸟的 webui 了」——插件外壳是 Mitmproxy抓包（端口 18070/18071/18072），下面的 iframe 却显示 `Proxying / API debug - MITM / proxy RouterIP:18080 / TRAFFIC / HAR / 编写` 那套 Reqable(小黄鸟) 界面。
+
+**根因（源码+二进制双实锤）**：v2.0.0「Python→Go 重写」实际把 `github.com/GitterBois/proxying`（Reqable/runhooks 同源的 Proxying 引擎）整个复制成 mitmproxy 的 Go 引擎（`plugins/mitmproxy/go/`，Makefile 里 `BINARY := bin/proxying`、`CMD := ./cmd/proxying`），**内嵌 Vite WebUI 没做 mitmproxy 品牌隔离**：
+- `web/src/components/app-header.tsx`：`proxyHint = "RouterIP:18080"`（写死 Reqable 端口，而 mitmproxy 实际显式代理是 18070；`config.go` 的 `DefaultProxyAddr` 本来就是 18070，纯粹是前端硬编码串台）、`<h1>Proxying</h1>`、`API debug · MITM`、`proxying.har`
+- `traffic-list.tsx` / `rest-panel.tsx` 残留英文 `Traffic` / `Captured traffic` / `No traffic yet` / `Load from capture` / `No collections yet`，与 metadata 承诺的「WebUI 中文原生」不符
+- `internal/api/export.go` 的 HAR `Content-Disposition` 也是 `proxying.har`
+- 已发布二进制 strings 实锤含 `<title>Proxying</title>` 和 `RouterIP:18080`；`web/index.html` 源码虽已改 `<title>Mitmproxy</title>`，但构建时用的 dist 是旧 proxying 的 → 必须重新 `npm run build` + 重编译 Go 引擎才会生效。
+- 注意 `X-Proxying-Highlight` / `X-Proxying-Script` 等是引擎内部协议头，**不能改**（改了断功能）。
+
+**修复（v2.0.1）**：品牌/端口/文案隔离（标题「Mitmproxy 抓包」、副标题「流量捕获 · HTTPS 解密」、代理提示 RouterIP:18070、HAR 文件名 mitmproxy.har、lang=zh-CN、英文空态中文化），`npm ci && npm run build` → 复制 dist 到 `internal/webui/dist` → `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.Version=2.0.1" ./cmd/proxying` 重建内嵌 WebUI 的静态二进制替换 `bins/mitmproxy-go`。
+
+**验证**：新二进制 PT_INTERP 段数=0（静态，uClibc 固件可执行）；字节级检查 `RouterIP:18080`/`<title>Proxying`/`proxying.har` 均为 0 次，`RouterIP:18070`/`Mitmproxy 抓包`/`mitmproxy.har` 各 1+ 次；本地起引擎实测 `GET /plugin_proxy/mitmproxy/` 返回 `<title>Mitmproxy</title>`、内嵌 JS 含全部新文案且无 Proxying/18080，`/api/capture` 返回 `{"paused":false}`；`python build.py` 全量构建通过，新 ipk 内二进制 md5 与编译产物一致。
+
+**发布**：main 分支提交触发 `build-and-deploy.yml`（paths 含 `plugins/**`）→ peaceiris 部署 gh-pages；设备点「更新软件源」后 mitmproxy 显示 2.0.1，升级即生效。
