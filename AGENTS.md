@@ -389,3 +389,24 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 - **复核（不是只看能不能编译）**：`defaults.go` 确有 `*` 标记；`bytesResp` 返回非 nil Header；`go build ./...` 通过；**全量 `go test ./...` 全绿**；`internal/proxy/cors_integration_test.go` 是真端到端（起 httptest 源站 OPTIONS 回 405 + `NewChain` 挂引擎 Rules 钩子 + 真 `http.Client` 走代理），断言带凭证 GET 回显具体 Origin/ACAC、预检本地 204 且**源站收到预检 0 次**、ACAM=PUT / ACAH=x-token。规则单测另覆盖回显/保留源站/无 Origin 不注入/停用规则不短路/无 Origin 不短路。
 - **已提交推送** `9227d1f`（4 个源码/测试文件，无二进制；`go/bin/` 被 .gitignore 忽略）。发布链复核：CI run `44708892520` success、gh-pages `3d71f0ce` 含 `9227d1f…`、线上清单仍 `1.1.11 / build 202611200913`、线上 ipk `7851392` 字节解包 5 项 ✓。
 - **坑（务必记住）**：`build.py` 只把 `bins/` 下**已编译**的二进制打进 ipk，提交 `go/` 源码**不会**让线上包变化 —— 字节级实锤包内二进制仍是 1.1.11 且不含 `wildcardCORSEnabled`/`applyWildcardCORS`。所以**设备上的 CORS 报错目前仍未解决**：要生效必须用含本次 CORS 改动的 HEAD 源码重编引擎（`make build-go`）、按 `check_engine_version()` bump 到 1.1.12、再打包发布，设备升级后才吃到修复。别把「源码已提交」当成「问题已修好」。
+
+## v1.1.12 代理 CORS 修复正式生效（2026-11-20，用户「继续解决」）
+
+承接上一节：源码 `9227d1f` 已合入，但线上 ipk 内二进制仍是 1.1.11、不含修复。本轮把修复编进引擎并发布，设备升级后生效。
+
+**链路**：
+1. 主仓库 metadata `1.1.11→1.1.12`（写前重读断言旧号；releasenotes 只追加一句、过 `validate_metadata()` A/B；`name`/`upgradetype` 不动）。
+2. `git archive HEAD plugins/runhooks/go | tar -x -C /tmp/rhbuild4` 导出**含 CORS 改动的 HEAD 源码**（`9227d1f` 已提交），把主仓库新 metadata 拷到 `/tmp/rhbuild4/plugins/runhooks/metadata.json`；`export PATH=/usr/local/go/bin:$PATH` 后 `make build-go`（Makefile 的 `VERSION` 从 `../metadata.json` 单点读取）。**这次绝不能再用「不含 CORS 的干净源码」** —— 那正是上一版二进制没修复的原因。
+3. 二进制：内嵌 1.1.12、`PT_INTERP=0`、体积 `20508856→20517048`（+8192 字节，代码确实编入）。
+4. 拷回 `bins/runhooks-x86_64`，本地 `build.py` 单插件包内 8 项断言全过。
+5. 提交 `0ce8699`（只 2 个文件：metadata + 二进制；html 本轮未改），推送。
+
+**验证判据纠正（重要）**：前几轮用 `b.count(b'wildcardCORSEnabled')==0` 判「二进制不含 CORS 修复」**不可靠** —— `go build -ldflags "-s -w"` 剥离符号表，函数名字符串无论是否编入都可能为 0，那个 0 不能当证据。改用**修复独有的字符串常量**：`Access-Control-Allow-Private-Network`、`Access-Control-Allow-Credentials`、`Access-Control-Max-Age`、`GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS`；`git grep HEAD~2` 确认修复前源码无这些串 → 二进制里出现即铁证。本轮本地与线上 ipk 均验到。
+
+**真实引擎冒烟（最强证据）**：用刚编译的二进制起引擎（`-proxy-addr 127.0.0.1:19170 -api-addr 127.0.0.1:19171 -data-dir /tmp/rhsmoke_data`）+ 本地源站（OPTIONS 故意回 405），`curl -x --noproxy ""` 走代理发请求：OPTIONS 预检本地 **204**（不是源站 405）、ACAO 回显 `https://app.example.com`、ACAC=true、ACAM=PUT、ACAH=x-token、Max-Age=600、三个 Vary；带凭证 GET 200 且源站 body 正常、ACAO 回显具体 Origin。**7 项全过**。这才是「问题解决」的判据，不是「源码已提交」。
+
+**发布验收**：CI `44710072551` success、gh-pages `aa0f77af` 含 `0ce8699…`、线上清单 `1.1.12 / build 202611200922 / upgradetype upgrade / releasenotes 无危险字符`、线上 ipk `7855630` 字节解包 7 项全 ✓（含 CORS 修复已编进包内二进制、横向 tab CSS 未回归）。
+
+**API 额度坑**：匿名 GitHub API 60/h 在连续多轮验收后耗尽（`403 rate limit exceeded`）。绕法：① 清单用 `raw.githubusercontent.com/<owner>/<repo>/gh-pages/plugins.json?_=<ns>`（不消耗 API 额度，本轮先读到 1.1.12）；② 部署 SHA 用 `github.com/<owner>/<repo>/commits/gh-pages.atom`（Atom feed，实证 `Deploy plugins build 0ce8699…`）；③ Pages `github.io/plugins.json?nocache=` 有 10 分钟 CDN 缓存、加 query 也滞后，别拿它判「没发布」；④ 查 `api.github.com/rate_limit` 的 reset，等重置后重跑完整四步脚本。
+
+**设备侧**：点「更新软件源」→ 已装 1.1.11 出 1.1.12 升级按钮 → 升级（保留配置/CA）→ 引擎重启后 CORS 报错消除。
