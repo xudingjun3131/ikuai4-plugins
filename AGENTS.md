@@ -380,3 +380,12 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 **A/B 脚本坑**：复制旧脚本改端口时**只改了 server 绑定端口、没改 URL 里的端口** → chromium `ERR_CONNECTION_REFUSED`、`--dump-dom` 返回空 → 四组全「无探针数据」。改端口要同时改 `url=f'http://127.0.0.1:<port>/...'`，调试先打印 `returncode` + `stderr`。
 
 **发布**：`1.1.10 → 1.1.11`，引擎按 `check_engine_version()` 从干净 HEAD 源码重编（内嵌 1.1.11 / PT_INTERP=0 / 无未提交 CORS 串），本地 `build.py` 单插件包内 7 项断言全过。提交 `f94a9f0`；验收四步全过：CI run `44708004935` success、gh-pages `092d1992` 含 `f94a9f0…`、API raw 线上清单 `1.1.11 / build 202611200908 / upgradetype upgrade / releasenotes 无危险字符`、线上 ipk `7851394` 字节解包 11 项全 ✓（复核包内 metadata 与二进制内嵌版本均为 1.1.11）。设备点「更新软件源」→ 升级 → Ctrl+Shift+R 强刷（html 文件名未变）。
+
+## 代理 CORS 跨域修复复核与提交（2026-11-20，用户「看看是不是其他 agent 修复了」）
+
+- **来源**：`git status` 里 4 个遗留文件（`internal/rules/hooks.go` 改 13 行 + 新增 `cors.go` / `cors_test.go` / `internal/proxy/cors_integration_test.go`）从未提交过，是共享工作区里别的成员留下的未提交改动（符合用户猜测），不是已合入的修复。注释标注 `[cors-fix]`，复现的是 1.1.8 真机「使用代理时部分跨域请求报 CORS 错」。
+- **根因链（`cors.go` 注释实锤）**：内置 `builtin-cors` 规则（`defaults.go` 里 `Access-Control-Allow-Origin: *`）对所有响应无条件 Set 三个通配头 → ① credentials 模式 ACAO 不能是 `*`；② ACAH/ACAM 的 `*` 对凭证请求同样不被接受；③ 覆盖源站本来就正确的具体 ACAO；④ 无 Origin 的同源响应被注入且无 `Vary: Origin` 污染缓存；⑤ OPTIONS 预检转发源站常被 403/405；⑥ Chrome PNA 预检需 `Access-Control-Allow-Private-Network`。
+- **修法**：把 `*` 当「按请求动态展开」的标记值而非字面回写；`isWildcardCORS` 只识别响应阶段 ACAO=`*` 的规则（用户自定义具体值规则走原 `applyHeader`，语义不变；老装机 rules.json 里固化的旧规则升级即生效）；`applyWildcardCORS` 回显 Origin + `Allow-Credentials: true` + ACRM/ACRH、尊重源站具体 ACAO、加 Vary、处理 PNA；`isPreflight` + `preflightResponse` 本地 204 应答，放在 `OnRequest` 所有规则之后（不绕过 host_block/map_local）。
+- **复核（不是只看能不能编译）**：`defaults.go` 确有 `*` 标记；`bytesResp` 返回非 nil Header；`go build ./...` 通过；**全量 `go test ./...` 全绿**；`internal/proxy/cors_integration_test.go` 是真端到端（起 httptest 源站 OPTIONS 回 405 + `NewChain` 挂引擎 Rules 钩子 + 真 `http.Client` 走代理），断言带凭证 GET 回显具体 Origin/ACAC、预检本地 204 且**源站收到预检 0 次**、ACAM=PUT / ACAH=x-token。规则单测另覆盖回显/保留源站/无 Origin 不注入/停用规则不短路/无 Origin 不短路。
+- **已提交推送** `9227d1f`（4 个源码/测试文件，无二进制；`go/bin/` 被 .gitignore 忽略）。发布链复核：CI run `44708892520` success、gh-pages `3d71f0ce` 含 `9227d1f…`、线上清单仍 `1.1.11 / build 202611200913`、线上 ipk `7851392` 字节解包 5 项 ✓。
+- **坑（务必记住）**：`build.py` 只把 `bins/` 下**已编译**的二进制打进 ipk，提交 `go/` 源码**不会**让线上包变化 —— 字节级实锤包内二进制仍是 1.1.11 且不含 `wildcardCORSEnabled`/`applyWildcardCORS`。所以**设备上的 CORS 报错目前仍未解决**：要生效必须用含本次 CORS 改动的 HEAD 源码重编引擎（`make build-go`）、按 `check_engine_version()` bump 到 1.1.12、再打包发布，设备升级后才吃到修复。别把「源码已提交」当成「问题已修好」。
