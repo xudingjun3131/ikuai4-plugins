@@ -1,0 +1,10 @@
+[
+  {
+    "id": "default-audit",
+    "name": "默认: 全量行为审计(不拦截)",
+    "enabled": true,
+    "priority": 9999,
+    "action": "audit",
+    "note": "首次安装只记录不拦截, 在策略页确认后再启用管控规则, 避免装完就断网"
+  }
+]

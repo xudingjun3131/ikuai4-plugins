@@ -1,0 +1,13 @@
+[
+  {"app": "抖音",     "category": "video",  "domains": ["douyin.com", "douyinvod.com", "snssdk.com", "amemv.com"]},
+  {"app": "快手",     "category": "video",  "domains": ["kuaishou.com", "gifshow.com"]},
+  {"app": "B站",      "category": "video",  "domains": ["bilibili.com", "bilivideo.com", "hdslb.com"]},
+  {"app": "腾讯视频", "category": "video",  "domains": ["qqlive.com", "video.qq.com"]},
+  {"app": "微信",     "category": "social", "domains": ["weixin.qq.com", "wechat.com", "wx.qq.com"]},
+  {"app": "QQ",       "category": "social", "domains": ["qzone.com"]},
+  {"app": "微博",     "category": "social", "domains": ["weibo.com", "weibocdn.com"]},
+  {"app": "王者荣耀", "category": "game",   "domains": ["pvp.qq.com", "tencentgames.com"]},
+  {"app": "Steam",    "category": "game",   "domains": ["steampowered.com", "steamstatic.com"]},
+  {"app": "迅雷",     "category": "p2p",    "domains": ["xunlei.com"]},
+  {"app": "企业办公", "category": "work",   "domains": ["feishu.cn", "dingtalk.com", "wework.com", "office.com"]}
+]

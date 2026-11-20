@@ -1,0 +1,2 @@
+# 构建产物只留 bins/ 下的发货二进制; 本地 make build-go 输出不入库
+bin/
