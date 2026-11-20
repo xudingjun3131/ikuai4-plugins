@@ -342,3 +342,23 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 - **发布验收四步全过**：① CI run `44702926137` `conclusion=success`；② gh-pages 最新部署 `bec88ad6` message 含本次 main SHA `e438d219...`；③ API `contents/plugins.json?ref=gh-pages` + `Accept: application/vnd.github.raw`（绕 raw CDN 缓存）读到 `runhooks 1.1.9 / build 202611200829 / upgradetype upgrade / releasenotes 无危险字符`；④ 下载线上 ipk `7849679` 字节解包，10 项断言全 ✓（html 新 CSS 标记/单行省略/紧凑内距、metadata version/name/upgradetype/releasenotes、二进制内嵌 1.1.9/PT_INTERP=0/无 CORS 串）。
 - **API 小坑**：`commits/gh-pages` 返回**单个 commit 对象**（dict），拿它当 list 遍历会 `TypeError: string indices must be integers`；查部署历史要用 `commits?sha=gh-pages&per_page=N`（返回 list）。
 - **设备侧下一步**：点「更新软件源」→ 已装 1.1.8 应出现 `newversion 1.1.9` 升级按钮 → 升级走保留配置分支，配置与 CA 证书不丢。
+
+## v1.1.10 左右分栏 tab：消除嵌套边角（2026-11-20）
+
+**用户反馈**：`upload_krdy1mik.png` 问「出现了多久嵌套的多余的边角的情况了」；`upload_y65hpvd9.png` 红框（`x[164,3208] y[509,667]`）圈出「服务与端口」折叠条 +「观测步骤」提示条，要求「不要占据额外的空间。和下面的做成左右的 tab 切换」。澄清问题超时未答，按推荐方案（左侧竖排 tab + 右侧内容面板）落地，已在回复里说明一句话可改口径。
+
+**溯源（`git log -S`，回答「多久」）**：`.runhooks-tip` / `.rq-tabpanel` 自带边框从 `72e3a06`（v1.0.0, 11-18）就有；`.rq-service` 卡片边框从 `de24ee5`（v1.1.3, 11-19）引入；**外层白卡的圆角+描边+阴影（`box-shadow:0 2px 12px`）只在 `e438d21`（今天 v1.1.9）出现** —— 多层「边角套娃」是 v1.1.9 把外层做成显眼白卡后才暴露，内层两块更早。
+
+**改造**（`plugins/runhooks/html/index.html`）：
+- 设置区改 `.nl-split` 左右 grid（`152px minmax(0,1fr)`）：左列 `.nl-tabs` 竖排 7 项（服务与端口 / 使用说明 / 观测设备(计数) / 网络范围 / 解密范围 / 记录范围 / 规则订阅），右列 `.nl-panel` 单一内容面板。窄屏（<820px）左列变横向可滚动。
+- 框选两块**整块搬进** `activeTab==='service'` / `activeTab==='help'` 面板，DOM / 绑定 / 文案原样搬，运行态默认完全不出现在顶部。
+- **只留外层白卡一层边角**：`.nl-panel .rq-tabpanel` / `.rq-service` / `.runhooks-tip` 全部 `border:0!important; border-radius:0!important; background:transparent`，`.nl-split` 只留一条顶部分隔线 + 左列底色；`.runhooks-tip` 只保留左侧 3px 主色条（装饰线，不是完整边框）。使用说明面板里步骤完整显示，不再单行省略。
+
+**不自锁硬约束（关键）**：把「启动引擎」藏进默认不显示的 tab 会让引擎永远起不来。data 加 `tabInitDone:false`，`loadInitData()` 首次数据回来按 `status` 落一次 tab：停止态 → `service`（启动入口一步可点），运行态 → `devices`；之后用户手动切换不再被覆盖。停止态 `details :open="status !== 1"` 仍自动展开。
+
+**功能零回归验证**：原有 `@click` / `v-model` / `v-if` / `v-for` 表达式集合**全部保留**，只新增 2 个 tab 切换 `@click` + 2 个面板 `v-show`（用户明确要求的新 tab 项）；`div` 配平 63→68；`node --check` 通过。
+真 Chromium A/B（桩支持 status=1/0 两态、Referer 传状态）：改后 `splitDisplay=grid / cols=152px 1142px / leftRight=OK / tabs=7`；`paneBorder 1px→0px`、`serviceBorder 1px→0px`；`settingsH 317/436→264`（约 -40%）；三个 tab 点击切换全 `OK`；停止态 `activeTab=服务与端口` + `启动引擎 VISIBLE` + iframe 门控 `NOFRAME`；运行态 `activeTab=观测设备`（框选内容完全收起）；`console error 0`。OCR 预览实锤左列 7 个 tab 在 x≈66、右侧面板内容从 x≈211 起。
+
+**验证脚本两个坑**：① 服务面板的可见性判据要用通用控件「保存端口」，别用「启动引擎」——运行态渲染的是「停止引擎」，会误报 WRONG；② Vue `v-show` 是 nextTick 异步，点 tab 后必须 `setTimeout(...,80)` 再读可见面板，同步读拿到的是旧面板。
+
+**发布**：`1.1.9 → 1.1.10`，引擎按 `check_engine_version()` 从干净 HEAD 源码重编（内嵌 1.1.10 / PT_INTERP=0 / 无未提交 CORS 串），本地 `build.py` 单插件包内 8 项断言全过。提交 `5fefe5b`；验收四步全过：CI run `44705595054` success、gh-pages 部署 `1d0a87bf` 含 `5fefe5b…`、API raw 线上清单 `1.1.10 / build 202611200849 / upgradetype upgrade / releasenotes 无危险字符`、线上 ipk `7851349` 字节解包 11 项断言全 ✓（前两次下载 404 是 Pages CDN 传播延迟，第三次成功）。设备点「更新软件源」→ 升级按钮 → 升级（保留配置/CA）。
