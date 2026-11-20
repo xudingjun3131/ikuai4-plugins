@@ -436,3 +436,22 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 坑：`--dump-dom` 对父页面只输出父文档，子 iframe 里写 `document.title` 读不到，必须写 `window.parent.document.title`；`/tmp/fix_p` 固件 www 在构建后会被 umount，跑桩前要重新挂载，否则 `vue.js` 404 → Vue 未定义 → 探针读到未编译模板的假数据。
 
 **发布**：`1.1.12 → 1.1.13`，`releasenotes` **替换**（145→161 字，不追加，遵守「只留当前版本」纪律），引擎按 `check_engine_version()` 从含 CORS 的 HEAD 源码重编（内嵌 1.1.13 / PT_INTERP=0）。提交 `c624e31`；验收四步全过：CI `44715191885` success、gh-pages `5436a512` 含 SHA、线上清单 `1.1.13 / build 202611200958 / description 96 / releasenotes 161 / 无危险字符`、线上 ipk `7854563` 字节解包 9 项全 ✓（含 CORS 与横向 tab 未回归）。设备点「更新软件源」→ 升级 1.1.13 → 全屏按钮常显、点击铺满整个平台。
+
+## v1.1.14 全屏消除 4 条边缘空隙：提升整条 iframe 链（2026-11-20）
+
+**用户反馈**：`upload_wbq2d8z4.png` —— 全屏后仍露出平台顶栏与左侧菜单，「多了框选出来的 4 个边缘空隙部分」。
+
+**根因**：插件页被嵌**两层** iframe（SPA → `02.pgstore` 插件管理页 → 插件功能页 `html/index.html`）。v1.1.13 只提升 `window.frameElement`（最内层 plugframe），只铺满 02.pgstore 那一层；SPA 顶栏(60px) 与左侧菜单(220px) 仍露在外面 = 4 条空隙。两层 iframe 的 A/B 实测 `frames=2`、顶层 iframe `position=absolute`、`covers=NO_220,60,1180,753,1400,813`、`topbarCovered=NO`，与真机截图吻合。
+
+**修法**：
+- `frameChain()` 沿 `window.parent` 链收集**每一层** `frameElement`（try/catch 兜跨域），`setFrameFullscreen(on)` 对全部层统一提升：`position:fixed` + `top/left/right/bottom:0` + `width/height:100%` + `margin:0` + `border:0` + `z-index:99999` + `background:#fff`（全 `important` 压过 SPA 内联）；退出时按保存的 `__frameStyles[]` 逐层 `setAttribute('style', ...)` 恢复。
+- **坑（实测）**：iframe 是 replaced element，`width/height:auto` 会退回默认 **300×150**（第一版 A/B `covers=NO_0,0,300,150,...`），必须用 `100%`（fixed 元素的 100% 相对父文档视口）；也别只写 `inset:0` 不给尺寸。样式作用在**父文档里的 iframe 元素**上，所以 `100%`/vw 都相对父视口，不是 iframe 自身视口 —— v1.1.13 注释里那句「vw/vh 在 iframe 里相对自身视口」是错的。
+- 全屏态给 `body` 加 `platform-fullscreen` class，CSS 把 body padding / `.box` padding / `.margin_phone` padding、边框、圆角、阴影全部归零，观测台 iframe 真正贴边；退出移除 class。
+- parity 全等（`div 68:68`、各绑定不变），`node --check` 通过。
+
+**真浏览器 A/B**（两层 iframe 模拟平台：顶层 topbar+sidebar → pgstore iframe → 插件页 iframe，探针写 `window.top.document.title` 才能被 `--dump-dom` 读到）：before `topPos=absolute / covers=NO_220,60,... / topbarCovered=NO`；after `topPos=fixed / topZ=99999 / covers=OK / topbarCovered=OK_pgstore / restored=OK`；四组 `console error 0`。
+
+**发布**：`1.1.13→1.1.14`（releasenotes 替换 161→207 字，仍精简；引擎按 version-gate 从含 CORS 的 HEAD 源码重编，内嵌 1.1.14）。提交 `234fdb7`；验收四步全过：CI `44717763005` success、gh-pages `dc48780f` 含 SHA、线上清单 `1.1.14 / build 202611201016 / description 96 / releasenotes 207 / 无危险字符`、线上 ipk `7854906` 字节解包 11 项全 ✓（CORS 与横向 tab 未回归）。
+- 验收脚本坑：从上一版复制脚本时**比较值替换了但标签文字和阈值没同步**（`metadata 1.1.13` 标签、`releasenotes<200` 阈值 vs 实际 207 字）→ 首轮误报 INCOMPLETE；按实际值复核后 PUBLISH VERIFIED。复制验收脚本要连标签和阈值一起改。
+
+**设备侧**：点「更新软件源」→ 升级 1.1.14 → 全屏观测台铺满整个平台，顶栏/菜单不再露出。
