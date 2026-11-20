@@ -455,3 +455,10 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 - 验收脚本坑：从上一版复制脚本时**比较值替换了但标签文字和阈值没同步**（`metadata 1.1.13` 标签、`releasenotes<200` 阈值 vs 实际 207 字）→ 首轮误报 INCOMPLETE；按实际值复核后 PUBLISH VERIFIED。复制验收脚本要连标签和阈值一起改。
 
 **设备侧**：点「更新软件源」→ 升级 1.1.14 → 全屏观测台铺满整个平台，顶栏/菜单不再露出。
+
+## v1.1.15 去掉插件详情页四周灰色间隙（2026-11-20）
+
+- 用户澄清「插件的详情页和上面返回插件列表中间的间隙不需要，上下左右都有灰色间隙」—— 指**普通状态**，不是全屏。两层都要改：插件页 `body` 灰底+`padding:14px 16px` 与白卡边角；固件 `02.pgstore` 的 `.plugin_frame` padding/描边/圆角/上下 20px 灰边 + 标题栏与 iframe 之间的 `<div class="h20">`。
+- 插件页 CSS-only：`body{background:#fff!important;padding:0!important;margin:0!important}`、`#app .box`/`.box_block` padding/margin 归零、`.margin_phone` 去 `border/radius/box-shadow` 但**保留内容内距 12px 16px 14px**（白底不是灰边）。**口径反转**：旧「灰底 + 白卡浮起」曾因用户要求背景区分而加，现明确取消，灰色间隙一律不要；文档/skill 同步。
+- 两层 A/B（父 pgstore 模拟 + 插件页 iframe）：before `gapPx=20 / plugBodyPad=14px / plugBodyBg=rgb(233,237,244)`；after `gapPx=0 / plugBodyPad=0 / plugBodyBg=rgb(255,255,255)`、iframe `rect=0,41,1400,772` 左右贴边紧贴标题栏；`console error 0`。parity 全等、`node --check` 通过。
+- 发布 `1.1.14→1.1.15`（releasenotes 替换 207→171 字，仍精简；引擎按 version-gate 重编内嵌 1.1.15）。固件侧见固件仓库 `AGENTS.md §25`。设备需**同时**刷固件 `Build202611202028` 与升级插件 1.1.15 才完全无间隙。
