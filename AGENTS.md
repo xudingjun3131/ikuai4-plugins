@@ -362,3 +362,21 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 **验证脚本两个坑**：① 服务面板的可见性判据要用通用控件「保存端口」，别用「启动引擎」——运行态渲染的是「停止引擎」，会误报 WRONG；② Vue `v-show` 是 nextTick 异步，点 tab 后必须 `setTimeout(...,80)` 再读可见面板，同步读拿到的是旧面板。
 
 **发布**：`1.1.9 → 1.1.10`，引擎按 `check_engine_version()` 从干净 HEAD 源码重编（内嵌 1.1.10 / PT_INTERP=0 / 无未提交 CORS 串），本地 `build.py` 单插件包内 8 项断言全过。提交 `5fefe5b`；验收四步全过：CI run `44705595054` success、gh-pages 部署 `1d0a87bf` 含 `5fefe5b…`、API raw 线上清单 `1.1.10 / build 202611200849 / upgradetype upgrade / releasenotes 无危险字符`、线上 ipk `7851349` 字节解包 11 项断言全 ✓（前两次下载 404 是 Pages CDN 传播延迟，第三次成功）。设备点「更新软件源」→ 升级按钮 → 升级（保留配置/CA）。
+
+## v1.1.11 口径纠正：用户说的「左右的 tab」= 横向 tab 行（2026-11-20）
+
+**理解错了一次，记牢**：v1.1.10 把「和下面的做成左右的 tab 切换」理解成**左右分栏**（左侧竖排 tab 列 + 右侧内容面板），用户 `upload_ci499zqh.png` 用红框 `x[90,315] y[326,757]` 圈住整条竖列，回一句「这个还是改成左右的 tab」—— 意思是 **tab 项要横向左右排开**（普通横向 tab 行），不是布局左右分栏。上一轮 clarify 超时未答，按推荐方案（选项 1）做错方向；用户连续两次用截图纠正，说明「左右 tab」在这套语境里一律先按**横向排列的 tab** 理解，别默认侧边栏。
+
+**改动：纯 CSS，DOM 一字未动**（`plugins/runhooks/html/index.html`）：
+- `.nl-split` `display:grid(152px 1fr)` → `display:block`（不再分栏）
+- `.nl-tabs` `flex-direction:column` → `row` + `flex-wrap:wrap`，底部一条分隔线；`.nl-tab` 选中态从左侧 3px 色条改为底部 3px 色条 + 上方圆角
+- `.nl-panel` 内距 `12px 14px` → `12px 0 0`，面板落在 tab 行下方
+- **保留** v1.1.10 的两项成果：7 个 tab 项（框选两块仍在 tab 里、运行态不占顶部）、内层 `border:0!important` 只留外层白卡一层边角；`tabInitDone` 停止态自动落服务 tab 保证「启动引擎」可点，逻辑不动
+- 窄屏 media query 改为只缩 tab 内距（横向行本就自动换行）
+
+**验证**：`style` 之外与 v1.1.10 完全一致，`@click 37 / v-model 32 / v-if 31 / v-show 8 / v-for 8 / :class 8 / div 68:68` 全部相等，`node --check` 通过。
+真 Chromium 两态 A/B：改前 `splitDisplay=grid / tabsDir=column / tabSameRow=DIFF_210(不在同一行)`；改后 `splitDisplay=block / tabsDir=row / tabSameRow=OK(7 项同一行) / panelBelow=OK`；`settingsH 264→201/185`；内层边框仍 `0px`；两态 tab 切换 3/3 OK、停止态 `启动引擎 VISIBLE`、运行态落在观测设备、可见按钮文本集合前后一致、`console error 0`。OCR 预览实锤 7 个 tab 全在 y≈193-214 同一行（x 从 59 到 582 横向排开），面板内容从 y≈240 起。
+
+**A/B 脚本坑**：复制旧脚本改端口时**只改了 server 绑定端口、没改 URL 里的端口** → chromium `ERR_CONNECTION_REFUSED`、`--dump-dom` 返回空 → 四组全「无探针数据」。改端口要同时改 `url=f'http://127.0.0.1:<port>/...'`，调试先打印 `returncode` + `stderr`。
+
+**发布**：`1.1.10 → 1.1.11`，引擎按 `check_engine_version()` 从干净 HEAD 源码重编（内嵌 1.1.11 / PT_INTERP=0 / 无未提交 CORS 串），本地 `build.py` 单插件包内 7 项断言全过。提交 `f94a9f0`；验收四步全过：CI run `44708004935` success、gh-pages `092d1992` 含 `f94a9f0…`、API raw 线上清单 `1.1.11 / build 202611200908 / upgradetype upgrade / releasenotes 无危险字符`、线上 ipk `7851394` 字节解包 11 项全 ✓（复核包内 metadata 与二进制内嵌版本均为 1.1.11）。设备点「更新软件源」→ 升级 → Ctrl+Shift+R 强刷（html 文件名未变）。
