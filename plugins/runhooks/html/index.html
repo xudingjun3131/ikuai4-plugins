@@ -143,6 +143,38 @@ body{background:var(--nl-bg)!important;padding:14px 16px!important;color:var(--n
   .nl-header{align-items:flex-start;}
   .nl-status{justify-content:flex-start;}
 }
+/* ===== [split-tabs] 左右 tab: 框选的「服务与端口」+「观测步骤」收进左列 tab,
+   不再在顶部独占空间; 整个设置区只保留外层白卡一层边角, 内层不再各自带框 ===== */
+.nl-split{display:grid;grid-template-columns:152px minmax(0,1fr);margin-top:10px;
+  border-top:1px solid var(--nl-soft);}
+.nl-tabs{display:flex;flex-direction:column;gap:2px;padding:10px 8px;background:#f7f9fc;
+  border-right:1px solid var(--nl-soft);}
+.nl-tab{padding:8px 10px;font-size:12px;color:var(--nl-sub);cursor:pointer;user-select:none;
+  border-radius:6px;border-left:3px solid transparent;white-space:nowrap;transition:.15s;}
+.nl-tab:hover{color:var(--nl-primary);background:#eef4fd;}
+.nl-tab.on{color:var(--nl-primary);background:#fff;border-left-color:var(--nl-primary);font-weight:700;}
+.nl-tab b{font-weight:400;color:var(--nl-mute);padding-left:2px;}
+.nl-panel{padding:12px 14px;min-width:0;background:#fff;}
+/* 内部块一律去边框/圆角/阴影: 只剩左列底色与分隔线, 消除多层套娃边角 */
+.nl-panel .rq-tabpanel{border:0!important;border-radius:0!important;background:transparent!important;
+  padding:0!important;box-shadow:none!important;}
+.nl-panel .rq-service{border:0!important;background:transparent!important;border-radius:0!important;
+  box-shadow:none!important;overflow:visible!important;margin-top:0!important;}
+.nl-panel .rq-service-body{border:0!important;background:transparent!important;padding:0 0 4px!important;}
+.nl-panel .rq-service-summary{padding:6px 0!important;}
+.nl-panel .runhooks-tip{border:0!important;border-left:3px solid var(--nl-primary)!important;
+  border-radius:0!important;box-shadow:none!important;background:#f7f9fc;}
+/* 使用说明面板里完整显示步骤, 不再折叠省略 */
+.nl-panel .nl-pane>.runhooks-tip,.nl-panel .nl-pane .runhooks-tip{white-space:normal!important;
+  max-height:none!important;overflow:visible!important;text-overflow:clip!important;}
+/* 窄屏: 左列 tab 变横向可滚动, 内容区落到下方 */
+@media (max-width:820px){
+  .nl-split{grid-template-columns:1fr;}
+  .nl-tabs{flex-direction:row;overflow-x:auto;gap:4px;padding:8px;border-right:0;
+    border-bottom:1px solid var(--nl-soft);}
+  .nl-tab{border-left:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0;}
+  .nl-tab.on{border-left:0;border-bottom-color:var(--nl-primary);}
+}
 @media (max-width:820px){
   .nl-header{flex-direction:column;}
   .nl-actions-hint{order:0;}
@@ -191,44 +223,50 @@ body{background:var(--nl-bg)!important;padding:14px 16px!important;color:var(--n
                 <div id="rq-settings" v-show="settingsOpen">
                 <!-- [scope-capture] 端口/启动服务类: 按需求「可以不放进去」主界面,
                      收进默认折叠(引擎未运行时自动展开以便启动)的次要区; 控件与后端动作不变。 -->
-                <details id="rq-service" class="rq-service" :open="status !== 1">
-                    <summary class="rq-service-summary">服务与端口 · 引擎启停 / 开机自启 / 监听端口<span class="rq-service-hint"> · 非流量抓包功能，引擎运行时默认收起</span></summary>
-                    <div class="rq-service-body">
-                        <div class="runhooks-row" style="margin-top:4px;">
-                            <button v-if="status !== 1" type="button" class="btn btn_green rounded height26" @click="startEngine">启动引擎</button>
-                            <button v-else type="button" class="btn btn_red rounded height26" @click="stopEngine">停止引擎</button>
-                            <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#606266; cursor:pointer;">
-                                <input type="checkbox" v-model="autostart" @change="setAutostart">开机自启
-                            </label>
-                        </div>
-                        <div class="runhooks-row" style="padding:8px 10px; background:#f8f9fb; border-radius:6px;">
-                            <label style="min-width:64px;">引擎端口</label>
-                            <span style="font-size:12px; color:#606266;">显式代理</span>
-                            <input v-model="proxyPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                            <span style="font-size:12px; color:#606266;">API/界面</span>
-                            <input v-model="apiPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                            <span style="font-size:12px; color:#606266;">透明监听</span>
-                            <input v-model="transparentPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                            <button type="button" class="btn btn_default rounded height26" @click="savePorts">保存端口</button>
-                            <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。观测台界面不写死代理地址，端口以本页设置为准</span>
-                        </div>
+                <div class="nl-split">
+                    <div class="nl-tabs">
+                        <div class="nl-tab" :class="{on: activeTab==='service'}" @click="activeTab='service'">服务与端口</div>
+                        <div class="nl-tab" :class="{on: activeTab==='help'}" @click="activeTab='help'">使用说明</div>
+                        <div class="nl-tab" :class="{on: activeTab==='devices'}" @click="activeTab='devices'">观测设备<b v-if="selectedDevices.length">({{ selectedDevices.length }})</b></div>
+                        <div class="nl-tab" :class="{on: activeTab==='net'}" @click="activeTab='net'">网络范围</div>
+                        <div class="nl-tab" :class="{on: activeTab==='dec'}" @click="activeTab='dec'">解密范围</div>
+                        <div class="nl-tab" :class="{on: activeTab==='rec'}" @click="activeTab='rec'">记录范围</div>
+                        <div class="nl-tab" :class="{on: activeTab==='subs'}" @click="activeTab='subs'; loadSubs()">规则订阅<b v-if="subs.length">({{ subs.length }})</b></div>
                     </div>
-                </details>
-                <div class="runhooks-tip">
-                    <b>观测步骤：</b>1. 在上方<b>服务与端口</b>里点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>观测设备</b>里勾选要观测的终端（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方观测台查看总览、设备星图、会话瀑布与域名洞察（点「全屏观测台」可在本页内铺满查看，不会新开窗口；「收起设置」让观测台占满本页）；点<b>断点改包</b>进运维工具箱的图形化工作台, 可视化挂起并编辑 body/headers、一键 Map Local、对比两条会话 diff、查看脚本异常; 单请求改写/脚本也在「运维工具箱」里。<br>
-                    <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
-                </div>
+                    <div class="nl-panel">
+                        <div class="rq-tabpanel nl-pane" v-show="activeTab==='service'">
+                            <details id="rq-service" class="rq-service" :open="status !== 1">
+                                <summary class="rq-service-summary">服务与端口 · 引擎启停 / 开机自启 / 监听端口<span class="rq-service-hint"> · 非流量抓包功能，引擎运行时默认收起</span></summary>
+                                <div class="rq-service-body">
+                                    <div class="runhooks-row" style="margin-top:4px;">
+                                        <button v-if="status !== 1" type="button" class="btn btn_green rounded height26" @click="startEngine">启动引擎</button>
+                                        <button v-else type="button" class="btn btn_red rounded height26" @click="stopEngine">停止引擎</button>
+                                        <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#606266; cursor:pointer;">
+                                            <input type="checkbox" v-model="autostart" @change="setAutostart">开机自启
+                                        </label>
+                                    </div>
+                                    <div class="runhooks-row" style="padding:8px 10px; background:#f8f9fb; border-radius:6px;">
+                                        <label style="min-width:64px;">引擎端口</label>
+                                        <span style="font-size:12px; color:#606266;">显式代理</span>
+                                        <input v-model="proxyPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                                        <span style="font-size:12px; color:#606266;">API/界面</span>
+                                        <input v-model="apiPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                                        <span style="font-size:12px; color:#606266;">透明监听</span>
+                                        <input v-model="transparentPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
+                                        <button type="button" class="btn btn_default rounded height26" @click="savePorts">保存端口</button>
+                                        <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。观测台界面不写死代理地址，端口以本页设置为准</span>
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                        <div class="rq-tabpanel nl-pane" v-show="activeTab==='help'">
+                            <div class="runhooks-tip">
+                                <b>观测步骤：</b>1. 在上方<b>服务与端口</b>里点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>观测设备</b>里勾选要观测的终端（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方观测台查看总览、设备星图、会话瀑布与域名洞察（点「全屏观测台」可在本页内铺满查看，不会新开窗口；「收起设置」让观测台占满本页）；点<b>断点改包</b>进运维工具箱的图形化工作台, 可视化挂起并编辑 body/headers、一键 Map Local、对比两条会话 diff、查看脚本异常; 单请求改写/脚本也在「运维工具箱」里。<br>
+                                <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
+                            </div>
 
-                <!-- [scope-capture] 流量抓包相关配置全部放进本页主区 -->
-                <div class="nl-section-label">抓包配置</div>
-                <!-- 1. 抓包设备 -->
-                <div class="rq-tabs">
-                    <div class="rq-tab" :class="{on: activeTab==='devices'}" @click="activeTab='devices'">观测设备<b v-if="selectedDevices.length">({{ selectedDevices.length }})</b></div>
-                    <div class="rq-tab" :class="{on: activeTab==='net'}" @click="activeTab='net'">网络范围</div>
-                    <div class="rq-tab" :class="{on: activeTab==='dec'}" @click="activeTab='dec'">解密范围</div>
-                    <div class="rq-tab" :class="{on: activeTab==='rec'}" @click="activeTab='rec'">记录范围</div>
-                    <div class="rq-tab" :class="{on: activeTab==='subs'}" @click="activeTab='subs'; loadSubs()">规则订阅<b v-if="subs.length">({{ subs.length }})</b></div>
-                </div>
+                            <!-- [scope-capture] 流量抓包相关配置全部放进本页主区 -->
+                        </div>
                 <div class="rq-tabpanel" v-show="activeTab==='devices'">
                     <div class="runhooks-row">
                         <button type="button" class="btn btn_blue rounded height26" @click="loadDevices">刷新设备列表</button>
@@ -439,6 +477,8 @@ body{background:var(--nl-bg)!important;padding:14px 16px!important;color:var(--n
                         </div>
                     </template>
                 </div>
+                    </div><!-- /nl-panel -->
+                </div><!-- /nl-split -->
                 </div><!-- /settingsOpen -->
 
                 <!-- [iKuaiPatch] 引擎未启动时 apiPort 无监听, iframe 会渲染出 Chromium
@@ -468,7 +508,10 @@ var app = new Vue({
         proxyPort: 18060, apiPort: 18061, transparentPort: 18062, geoLoaded: 0, inWindow: 0, enginePaused: 0, proxyReady: 0,
         uiUrl: '', caUrl: '',
         // 布局折叠态: 2/3/4 是高级筛选, 默认收起省屏幕; 第1段抓包设备始终展开
-        activeTab: 'devices',
+        activeTab: 'service',
+        // [tab-init] 首次 show 数据回来时按引擎状态落一次 tab: 停止态落在「服务与端口」
+        // 保证「启动引擎」一步可点, 运行态落在「观测设备」; 之后用户手动切换不再被覆盖。
+        tabInitDone: false,
         // [one-page] 配置区是否展开 / 观测台是否在本页内全屏(不是新窗口)
         settingsOpen: true, fullscreen: false,
         // 设备
@@ -539,6 +582,10 @@ var app = new Vue({
                 if (response.Result % 10000 == 0 && response.Data) {
                     const d = response.Data;
                     this.status = d.status || 0;
+                    if (!this.tabInitDone) {
+                        this.activeTab = (this.status === 1) ? 'devices' : 'service';
+                        this.tabInitDone = true;
+                    }
                     this.capture = d.capture || 0;
                     this.rulesOn = d.rulesOn || 0;
                     this.autostart = d.autostart || 0;
