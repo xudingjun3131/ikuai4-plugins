@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "巡流 NetLoom 观测台",
   "manufacturer": "iKuai",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "巡流 NetLoom 路由器一体化局域网流量观测台(抓包解密与统计全部在网关本地完成): 全网设备画像, 时间轴会话瀑布, 域名热度与状态构成, 透明+显式双模式采集, HTTPS MITM 解密, 规则订阅(兼容 QuanX/Surge/纯列表), 请求改写与脚本断点收进次级运维工具箱, 定时自动更新。自带 Go 静态引擎, 不依赖固件 libc。首次使用请先在客户端安装并信任 CA 证书。",
-  "releasenotes": "v1.1.5 修复三桩挂账缺陷。一 添加订阅按钮不可用: service.sh 中转引擎 API 统一改走 GNU wget 通道, 修掉 busybox wget 不认 method 与 body-data 参数导致的静默失败, 同时纠正误导性报错文案。二 引擎稳定性: 启动后回读引擎接口强校验记录层暂停态与抓包总开关一致, 看门狗在引擎自退后自动拉起并保持暂停态, Go 记录层排除路由器自身 IP 的探测流量。三 版本对齐: 引擎版本收敛为 metadata.json 单点来源, 构建时校验二进制内嵌版本与清单一致, 本版重编引擎为 1.1.5。升级走保留配置分支, 安装后自动重启引擎加载新二进制, 配置与 CA 证书不丢。",
+  "releasenotes": "v1.1.6 修复 P1 添加订阅在真机仍不可用。复测实证: 上一版修好了引擎中转通道, 但 service.sh 构造请求 body 用的 jq -nc --argjson 在设备固件自带 jq 上恒返回空, 导致同一 URL 直连引擎 201 成功而页面点击恒回参数构造失败。本版 sub_add 与 sub_meta 去掉 --argjson, 改用 --arg 加 tonumber 的可移植写法; 设备 jq 形态异常或无 jq 时走纯 shell 受控构造兜底, 对引号反斜杠控制字符做 JSON 转义; body 为空时回显 jq 真实 stderr, 不再假归因订阅地址含非法字符。构建机冒烟新增设备固件 jq 形态用例做互锁。版本五方对齐 1.1.6, 引擎已重编。升级走保留配置分支, 配置与 CA 证书不丢。",
   "arch": [
     "x86_64"
   ],

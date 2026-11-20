@@ -686,29 +686,84 @@ clear_flows()
 # 页面经本 func 中转(引擎 API 只绑 127.0.0.1), 参数走 base64(URL 常含 ?&=,
 # 明文必被框架 __rest_check_illegality_char 拒掉)。
 
+# ---- 设备固件 jq 形态适配(v1.1.6 / P1 真机回归根因) ----
+# v1.1.5 复测报告 §4.2 实证: 设备固件自带 jq 与构建机 GNU jq 形态不一致 ——
+# jq -nc --argjson ... 在设备上恒返回空(连纯字母 URL 都失败), 而 jq -c / jq -r
+# 正常工作。上一版把 __engine_api 统一通道修好了, 却没同步修 body 构造层,
+# 于是「添加订阅」仍落到 [ -n "$body" ] 判空分支, 甩出「订阅地址含非法字符」
+# 的假归因。这里三管齐下:
+#   ① 主路径去掉 --argjson, 用 --arg + ($i|tonumber)(jq 1.4+ 皆支持);
+#   ② 设备 jq 连 -n/--arg 整条都不支持或返回空时, 走纯 shell 受控 printf
+#      构造, 不依赖任何 jq, 且对引号/反斜杠/控制字符做 JSON 转义;
+#   ③ 构造失败时把 jq 真实 stderr 回显, 不再误导归因。
+__json_escape()
+{
+	local s=$1 out="" i c o
+	for (( i=0; i<${#s}; i++ )); do
+		c=${s:i:1}
+		if   [ "$c" = '\' ];    then out="$out"'\\'
+		elif [ "$c" = '"' ];    then out="$out"'\"'
+		elif [ "$c" = $'\n' ];  then out="$out"'\n'
+		elif [ "$c" = $'\r' ];  then out="$out"'\r'
+		elif [ "$c" = $'\t' ];  then out="$out"'\t'
+		else
+			o=$(printf '%d' "'$c" 2>/dev/null)
+			if [ -n "$o" ] && [ "$o" -lt 32 ] 2>/dev/null; then
+				out="$out"$(printf '\\u%04x' "$o")
+			else
+				out="$out$c"
+			fi
+		fi
+	done
+	printf '%s' "$out"
+}
+
+# 跑一条 jq -nc 构造: stdout 只保留以 { 开头的合法 JSON, stderr 落到 $1 文件,
+# 供调用方在 body 为空时回显真因。命令替换是子 shell, 变量带不出来, 用文件传。
+__jq_nc()
+{
+	local errf=$1; shift
+	: > "$errf"
+	jq -nc "$@" 2>"$errf"
+}
+
 # sub_add url_b64=<b64> [name_b64=<b64>] [format=auto] [interval_min=0]
 sub_add()
 {
 	local u=$(__param_decode url_b64 url)
 	local nm=$(__param_decode name_b64 name)
 	[ -z "$u" ] && { echo "缺少订阅地址"; return 1; }
-	# [interval-guard] jq --argjson 遇到空串/非数字会让整条表达式报错 → body 为空
-	# → 请求发出去也没内容 → 上层误判「引擎无响应」。先规整成合法非负整数。
+	# [interval-guard] 规整成合法非负整数, 别让空串/脏值进 jq 或进数字字段。
 	local iv="${interval_min:-0}"
 	echo "$iv" | grep -qE '^[0-9]+$' || iv=0
-	local body
-	body=$(jq -nc --arg u "$u" --arg n "$nm" --arg f "${format:-auto}" --argjson i "$iv" \
-		'{url:$u, name:$n, format:$f, interval_min:$i}')
-	[ -n "$body" ] || { echo "添加订阅失败: 参数构造失败(订阅地址含非法字符)"; return 1; }
-	local res
-	res=$(__engine_api POST /api/subscriptions "$body" 30 2>/dev/null)
-	# [error-honesty] 原文案「引擎未运行或地址无效」与实况相反(同一 URL 直连引擎
-	# 201 成功), 把排查方向带偏。改成如实说明是中转通道没拿到响应, 并回传引擎原文。
-	if [ -z "$res" ]; then
-		echo "添加订阅失败: 引擎 API(端口 $API_PORT) 未返回内容, 请确认引擎在运行且订阅地址可拉取"
+	local f="${format:-auto}"
+	local errf="$DATADIR/.sub_jq_err.$$" jqerr="" body=""
+	body=$(__jq_nc "$errf" --arg u "$u" --arg n "$nm" --arg f "$f" --arg i "$iv" \
+		'{url:$u, name:$n, format:$f, interval_min:($i|tonumber)}')
+	[ -s "$errf" ] && jqerr=$(tr '\n' ' ' < "$errf")
+	rm -f "$errf"
+	case "$body" in '{'*) ;; *) body="" ;; esac
+	# [jq-fallback] 设备裁剪版 jq 或 jq 缺位时, 纯 shell 受控构造兜底。
+	if [ -z "$body" ]; then
+		body=$(printf '{"url":"%s","name":"%s","format":"%s","interval_min":%s}' \
+			"$(__json_escape "$u")" "$(__json_escape "$nm")" \
+			"$(__json_escape "$f")" "$iv")
+	fi
+	if [ -z "$body" ]; then
+		echo "添加订阅失败: 参数构造失败(jq: ${jqerr:-设备 jq 未返回内容, 已尝试无 jq 兜底})"
 		return 1
 	fi
-	if echo "$res" | jq -e '.id' >/dev/null 2>&1; then
+	local res
+	res=$(__engine_api POST /api/subscriptions "$body" 30 2>/dev/null)
+	# [error-honesty] 如实说明是中转通道没拿到响应(同一 URL 直连引擎 201 成功,
+	# 与「引擎未运行或地址无效」相反), 并回传引擎原文。
+	if [ -z "$res" ]; then
+		echo "添加订阅失败: 引擎 API(端口 $API_PORT) 未返回内容, 请确认引擎在运行且订阅地址可拉取(jq: ${jqerr:-无})"
+		return 1
+	fi
+	# 设备裁剪版 jq 可能不支持 -e, 退化为结构匹配, 保证无 jq 时也能判成功。
+	if echo "$res" | jq -e '.id' >/dev/null 2>&1 || \
+	   echo "$res" | grep -q '"id"[[:space:]]*:'; then
 		echo "订阅已添加并生效"
 		return 0
 	fi
@@ -764,11 +819,28 @@ sub_meta()
 {
 	[ -z "$id" ] && { echo "缺少订阅 id"; return 1; }
 	local nm=$(__param_decode name_b64 name)
-	local body
-	body=$(jq -nc --arg n "$nm" --argjson i "${interval_min:--1}" '{name:$n, interval_min:$i}')
+	# 与 sub_add 同源(v1.1.6): 去掉 --argjson, 设备 jq 异常时走纯 shell 兜底,
+	# 失败回显 jq 真实 stderr。旧版同样用 jq -nc --argjson, 复测 §4.2 实测
+	# 「保存失败: 引擎无响应」也是这层 body 构造返回空导致的, 一并修掉。
+	local iv="${interval_min:--1}"
+	echo "$iv" | grep -qE '^-?[0-9]+$' || iv=-1
+	local errf="$DATADIR/.sub_jq_err.$$" jqerr="" body=""
+	body=$(__jq_nc "$errf" --arg n "$nm" --arg i "$iv" \
+		'{name:$n, interval_min:($i|tonumber)}')
+	[ -s "$errf" ] && jqerr=$(tr '\n' ' ' < "$errf")
+	rm -f "$errf"
+	case "$body" in '{'*) ;; *) body="" ;; esac
+	if [ -z "$body" ]; then
+		body=$(printf '{"name":"%s","interval_min":%s}' \
+			"$(__json_escape "$nm")" "$iv")
+	fi
+	if [ -z "$body" ]; then
+		echo "保存失败: 参数构造失败(jq: ${jqerr:-设备 jq 未返回内容, 已尝试无 jq 兜底})"
+		return 1
+	fi
 	local res
 	res=$(__engine_api PUT /api/subscriptions/$id "$body" 15 2>/dev/null)
-	[ -n "$res" ] || { echo "保存失败: 引擎无响应"; return 1; }
+	[ -n "$res" ] || { echo "保存失败: 引擎无响应(jq: ${jqerr:-无})"; return 1; }
 	echo "已保存"
 	return 0
 }
