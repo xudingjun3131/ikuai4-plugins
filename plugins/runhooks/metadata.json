@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "巡流 NetLoom 观测台",
   "manufacturer": "iKuai",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "巡流 NetLoom 路由器一体化局域网流量观测台(抓包解密与统计全部在网关本地完成): 全网设备画像, 时间轴会话瀑布, 域名热度与状态构成, 透明+显式双模式采集, HTTPS MITM 解密, 规则订阅(兼容 QuanX/Surge/纯列表), 请求改写与脚本断点收进次级运维工具箱, 定时自动更新。自带 Go 静态引擎, 不依赖固件 libc。首次使用请先在客户端安装并信任 CA 证书。",
-  "releasenotes": "v1.1.6 修复 P1 添加订阅在真机仍不可用。复测实证: 上一版修好了引擎中转通道, 但 service.sh 构造请求 body 用的 jq -nc --argjson 在设备固件自带 jq 上恒返回空, 导致同一 URL 直连引擎 201 成功而页面点击恒回参数构造失败。本版 sub_add 与 sub_meta 去掉 --argjson, 改用 --arg 加 tonumber 的可移植写法; 设备 jq 形态异常或无 jq 时走纯 shell 受控构造兜底, 对引号反斜杠控制字符做 JSON 转义; body 为空时回显 jq 真实 stderr, 不再假归因订阅地址含非法字符。构建机冒烟新增设备固件 jq 形态用例做互锁。版本五方对齐 1.1.6, 引擎已重编。升级走保留配置分支, 配置与 CA 证书不丢。",
+  "releasenotes": "v1.1.7 修复 v1.1.6 复测遗留 P3：重复订阅 URL 二次点击时，设备 GNU wget 对 HTTP 4xx 静默丢弃响应体，页面误报引擎 API 未返回内容并把 jq 的 stderr 拼进文案，引擎业务原文该订阅地址已存在没透传。本版 __engine_api 透传 4xx 响应体（curl 用 -w 取状态码，GNU wget 用 --content-on-error 加 -S 解析状态行），sub_add 与 sub_meta 把引擎业务原文回给页面；jqerr 只在 body 构造真正失败分支回显，纯 shell 兜底成功后清空；老 wget 拿不到 4xx 响应体时用订阅列表反查重复地址回业务文案。构建机冒烟新增重复 URL 页面文案判据与两种 wget 形态互锁用例。版本按单点重编对齐 1.1.7。升级走保留配置分支，配置与 CA 证书不丢。",
   "arch": [
     "x86_64"
   ],

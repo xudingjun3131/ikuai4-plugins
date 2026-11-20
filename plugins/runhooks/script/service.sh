@@ -97,32 +97,92 @@ mkdir -p $DATADIR $DATA_DIR $LOGDIR $GROUPS_DIR 2>/dev/null
 __WGET_SSL=""
 [ -x /usr/bin/wget-ssl ] && __WGET_SSL=/usr/bin/wget-ssl
 
+# [engine-api-side-channel] $(...) 是子 shell, 里面算出的 HTTP 状态码与工具 stderr
+# 带不出来。用 DATADIR 下两个固定小文件回传给调用方(每次调用先清空), 供 sub_add/
+# sub_meta 在 4xx / 无响应时给出诚实归因, 不再把 jq 的 stderr 乱拼进引擎错误文案。
+ENGINE_API_CODE_FILE=$DATADIR/.engine_api_code
+ENGINE_API_ERR_FILE=$DATADIR/.engine_api_err
+
+# 取本次 __engine_api 调用拿到的 HTTP 状态码(000=没拿到)
+__engine_api_code()
+{
+	local c=""
+	[ -f "$ENGINE_API_CODE_FILE" ] && c=$(cat "$ENGINE_API_CODE_FILE" 2>/dev/null)
+	case "$c" in [0-9][0-9][0-9]) printf '%s' "$c" ;; *) printf '000' ;; esac
+}
+
+# 取本次 __engine_api 调用的工具 stderr(截断, 只用于如实回报)
+__engine_api_err()
+{
+	local e=""
+	[ -f "$ENGINE_API_ERR_FILE" ] && e=$(tr '\n' ' ' < "$ENGINE_API_ERR_FILE" 2>/dev/null | head -c 200)
+	printf '%s' "$e"
+}
+
+# 引擎 4xx 业务原文: JSON 取 .error/.message, http.Error 的纯文本退化到原文。
+__engine_err_text()
+{
+	local raw=$1 txt=""
+	[ -z "$raw" ] && return 0
+	txt=$(printf '%s' "$raw" | jq -r '(.error // .message // empty)' 2>/dev/null)
+	[ -z "$txt" ] && txt=$(printf '%s' "$raw" | tr -d '\n' | head -c 200)
+	printf '%s' "$txt"
+}
+
 __engine_api()
 {
 	local method=$1 path=$2 body=${3-} tmo=${4:-10}
-	local url="http://127.0.0.1:$API_PORT$path" out=""
+	local url="http://127.0.0.1:$API_PORT$path" out="" code="000" raw="" errf="$ENGINE_API_ERR_FILE"
+	: > "$errf" 2>/dev/null
+	: > "$ENGINE_API_CODE_FILE" 2>/dev/null
 	if [ -n "$__WGET_SSL" ]; then
+		# [4xx-passthrough] GNU wget 默认对 4xx/5xx 静默丢弃响应体(-q -O - 拿不到),
+		# 引擎「该订阅地址已存在」这类业务错误曾因此被误报成「引擎 API 未返回内容」。
+		# --content-on-error 让错误响应体照常写 stdout; -S 把状态行写进 stderr 供解析。
+		# 设备 wget-ssl 支持 --method/--body-data(GNU wget 1.20+), 同版本即有此选项。
 		if [ -n "$body" ]; then
-			out=$($__WGET_SSL -q -O - -T $tmo --method=$method --body-data="$body" \
-				--header="Content-Type: application/json" "$url" 2>/dev/null)
+			out=$($__WGET_SSL -q -S -O - -T $tmo --content-on-error \
+				--method=$method --body-data="$body" \
+				--header="Content-Type: application/json" "$url" 2>"$errf")
 		else
-			out=$($__WGET_SSL -q -O - -T $tmo --method=$method "$url" 2>/dev/null)
+			out=$($__WGET_SSL -q -S -O - -T $tmo --content-on-error \
+				--method=$method "$url" 2>"$errf")
 		fi
+		# 老 wget 不认 --content-on-error: 去掉它重试一次(2xx 仍正常, 4xx 由
+		# 调用方的订阅列表反查兜底), 并把「不支持该选项」如实留在 stderr。
+		if [ -z "$out" ] && grep -qi 'unrecognized option\|invalid option\|unknown option' "$errf" 2>/dev/null; then
+			: > "$errf"
+			if [ -n "$body" ]; then
+				out=$($__WGET_SSL -q -S -O - -T $tmo --method=$method --body-data="$body" \
+					--header="Content-Type: application/json" "$url" 2>"$errf")
+			else
+				out=$($__WGET_SSL -q -S -O - -T $tmo --method=$method "$url" 2>"$errf")
+			fi
+		fi
+		code=$(grep '^ *HTTP/' "$errf" 2>/dev/null | tail -1 | awk '{print $2}')
+		case "$code" in [0-9][0-9][0-9]) ;; *) code="000" ;; esac
 	elif command -v curl >/dev/null 2>&1; then
+		# curl 用 -w 把状态码附在末行, 拆开后 body 原样回传(4xx 也不吞)。
 		if [ -n "$body" ]; then
-			out=$(curl -s --max-time $tmo -X $method -H "Content-Type: application/json" \
-				-d "$body" "$url" 2>/dev/null)
+			raw=$(curl -sS --max-time $tmo -X $method -H "Content-Type: application/json" \
+				-d "$body" -w $'\n%{http_code}' "$url" 2>"$errf")
 		else
-			out=$(curl -s --max-time $tmo -X $method "$url" 2>/dev/null)
+			raw=$(curl -sS --max-time $tmo -X $method -w $'\n%{http_code}' "$url" 2>"$errf")
 		fi
+		case "$raw" in
+			*$'\n'*) code=${raw##*$'\n'}; out=${raw%$'\n'*} ;;
+			*) code="000"; out="" ;;
+		esac
+		case "$code" in [0-9][0-9][0-9]) ;; *) code="000" ;; esac
 	else
 		# busybox wget 只有 GET 与 --post-data 的 POST, PUT/DELETE 无法表达。
 		case "$method" in
-			GET)  out=$(wget -q -O - -T $tmo "$url" 2>/dev/null) ;;
-			POST) [ -n "$body" ] && out=$(wget -q -O - -T $tmo --post-data="$body" "$url" 2>/dev/null) ;;
+			GET)  out=$(wget -q -O - -T $tmo "$url" 2>"$errf") ;;
+			POST) [ -n "$body" ] && out=$(wget -q -O - -T $tmo --post-data="$body" "$url" 2>"$errf") ;;
 			*) echo "引擎 API $method $path 失败: 本机无 GNU wget 或 curl" >&2; return 1 ;;
 		esac
 	fi
+	printf '%s' "$code" > "$ENGINE_API_CODE_FILE" 2>/dev/null
 	printf '%s' "$out"
 	return 0
 }
@@ -727,6 +787,27 @@ __jq_nc()
 	jq -nc "$@" 2>"$errf"
 }
 
+# 中转层实在拿不到 4xx 响应体(老 wget / busybox wget)时, 用引擎订阅列表反查
+# 重复地址回业务文案, 而不是甩「引擎没运行」。仅在 sub_add 的空响应兜底分支调用。
+__sub_duplicate_text()
+{
+	local want=$1 raw="" esc="" esc2="" hit=""
+	raw=$(__engine_api GET /api/subscriptions "" 10 2>/dev/null)
+	[ -z "$raw" ] && return 0
+	esc=$(__json_escape "$want")
+	# 优先用 jq 按值比较, 绕开 Go json.Encoder 把 & < > 写成 \u00xx 的字面差异;
+	# 只用管道过滤, 不用 --arg/-n, 设备裁剪版 jq 也能跑。
+	hit=$(printf '%s' "$raw" | jq -r ".subs[]? | select(.url == \"$esc\") | .id" 2>/dev/null)
+	[ -n "$hit" ] && { printf '%s' "该订阅地址已存在"; return 0; }
+	# jq 缺位/异常时退化到字面匹配: 原样 + Go HTML 转义形态各试一次。
+	esc2=${esc//&/\\u0026}; esc2=${esc2//</\\u003c}; esc2=${esc2//>/\\u003e}
+	if printf '%s' "$raw" | grep -qF "\"url\":\"$esc\"" || \
+	   printf '%s' "$raw" | grep -qF "\"url\":\"$esc2\""; then
+		printf '%s' "该订阅地址已存在"
+	fi
+	return 0
+}
+
 # sub_add url_b64=<b64> [name_b64=<b64>] [format=auto] [interval_min=0]
 sub_add()
 {
@@ -748,17 +829,26 @@ sub_add()
 		body=$(printf '{"url":"%s","name":"%s","format":"%s","interval_min":%s}' \
 			"$(__json_escape "$u")" "$(__json_escape "$nm")" \
 			"$(__json_escape "$f")" "$iv")
+		# [jqerr-scope] 纯 shell 兜底已成功构造 body, jq 的 stderr 与本次请求无关,
+		# 必须清空——否则会被拼进引擎错误文案, 形成「引擎没跑 + jq 又失败」双重误导。
+		jqerr=""
 	fi
 	if [ -z "$body" ]; then
 		echo "添加订阅失败: 参数构造失败(jq: ${jqerr:-设备 jq 未返回内容, 已尝试无 jq 兜底})"
 		return 1
 	fi
-	local res
+	local res code="000" toolerr="" dup=""
 	res=$(__engine_api POST /api/subscriptions "$body" 30 2>/dev/null)
-	# [error-honesty] 如实说明是中转通道没拿到响应(同一 URL 直连引擎 201 成功,
-	# 与「引擎未运行或地址无效」相反), 并回传引擎原文。
+	code=$(__engine_api_code)
+	toolerr=$(__engine_api_err)
+	# [empty-res-first] 空响应体必须先单独处理: jq -e '.id' 对空输入返回 0
+	# (无输出即成功), 先跑成功判定会把「引擎没回内容」误判成「订阅已添加并生效」。
 	if [ -z "$res" ]; then
-		echo "添加订阅失败: 引擎 API(端口 $API_PORT) 未返回内容, 请确认引擎在运行且订阅地址可拉取(jq: ${jqerr:-无})"
+		# 只会发生在工具确实拿不到 4xx body(老 wget / busybox wget)。
+		# 先按引擎订阅列表反查重复地址, 尽量回业务文案; 再不行如实报 HTTP 状态与工具 stderr。
+		dup=$(__sub_duplicate_text "$u")
+		[ -n "$dup" ] && { echo "添加订阅失败: $dup"; return 1; }
+		echo "添加订阅失败: 引擎 API(端口 $API_PORT) 未返回响应体(HTTP $code)${toolerr:+(工具 stderr: $toolerr)}"
 		return 1
 	fi
 	# 设备裁剪版 jq 可能不支持 -e, 退化为结构匹配, 保证无 jq 时也能判成功。
@@ -767,7 +857,9 @@ sub_add()
 		echo "订阅已添加并生效"
 		return 0
 	fi
-	echo "添加订阅失败: $(echo "$res" | tr -d '\n' | head -c 200)"
+	# [business-error] __engine_api 已把 4xx 响应体透传回来: 引擎业务原文(如
+	# 「该订阅地址已存在(xxx)」)直接回给页面, 不再落到「引擎无响应」。
+	echo "添加订阅失败: $(__engine_err_text "$res")"
 	return 1
 }
 
@@ -833,14 +925,26 @@ sub_meta()
 	if [ -z "$body" ]; then
 		body=$(printf '{"name":"%s","interval_min":%s}' \
 			"$(__json_escape "$nm")" "$iv")
+		# 同 sub_add: 兜底成功后 jq 的 stderr 与本次请求无关, 清空。
+		jqerr=""
 	fi
 	if [ -z "$body" ]; then
 		echo "保存失败: 参数构造失败(jq: ${jqerr:-设备 jq 未返回内容, 已尝试无 jq 兜底})"
 		return 1
 	fi
-	local res
+	local res code="000" toolerr=""
 	res=$(__engine_api PUT /api/subscriptions/$id "$body" 15 2>/dev/null)
-	[ -n "$res" ] || { echo "保存失败: 引擎无响应(jq: ${jqerr:-无})"; return 1; }
+	code=$(__engine_api_code)
+	toolerr=$(__engine_api_err)
+	# 4xx 业务原文透传, 不再误报「引擎无响应(jq: ...)」。
+	if [ "$code" -ge 400 ] 2>/dev/null && [ -n "$res" ]; then
+		echo "保存失败: $(__engine_err_text "$res")"
+		return 1
+	fi
+	if [ -z "$res" ]; then
+		echo "保存失败: 引擎 API 未返回响应体(HTTP $code)${toolerr:+(工具 stderr: $toolerr)}"
+		return 1
+	fi
 	echo "已保存"
 	return 0
 }

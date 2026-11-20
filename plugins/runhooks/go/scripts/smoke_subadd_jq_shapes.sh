@@ -1,23 +1,30 @@
 #!/usr/bin/env bash
-# runhooks v1.1.6 —— 构建机冒烟: sub_add / sub_meta body 构造在「设备固件 jq 形态」下的回归
+# runhooks v1.1.7 —— 构建机冒烟: sub_add / sub_meta 在「设备固件工具形态」下的回归
 #
-# 背景(v1.1.5 复测报告 §4.2/§4.3): 设备固件自带 jq 与构建机 GNU jq 形态不一致,
+# 背景一(v1.1.5 复测报告 §4.2/§4.3): 设备固件自带 jq 与构建机 GNU jq 形态不一致,
 # jq -nc --argjson ... 在设备上恒返回空, 导致页面点「添加订阅」恒回
 # 「参数构造失败(订阅地址含非法字符)」, 而同一 URL 直连引擎 201 成功。
 # v1.1.5 修好了 __engine_api 统一通道, 却没同步修 body 构造层; 构建机是完整
 # GNU jq, 冒烟 TC-02/TC-03 全 PASS 也照样在真机挂 —— 这是本脚本要防的假绿。
+# 背景二(v1.1.6 复测报告 §四, P3): v1.1.6 真机 P1 已销账, 但重复 URL 二次点击
+# 回「引擎 API 未返回内容 + jq stderr」——设备 GNU wget 对 4xx 静默丢弃响应体,
+# 引擎业务原文「该订阅地址已存在」没透传到页面。v1.1.7 让 __engine_api 透传 4xx
+# 响应体(curl -w 状态码 / wget --content-on-error), sub_add 回引擎业务原文,
+# jqerr 只在 body 构造失败分支回显。本脚本新增 TC-03 页面文案判据与 wget 形态用例。
 #
-# 本脚本用 shim 模拟设备固件 jq, 直接调用(经桩环境 source 的)真实 service.sh
-# 里的 sub_add / sub_meta, 让请求走真实本地引擎。三种 jq 形态各跑一遍:
+# 本脚本用 shim 模拟设备固件 jq / 老 wget, 直接调用(经桩环境 source 的)真实
+# service.sh 里的 sub_add / sub_meta, 让请求走真实本地引擎。jq 四种形态:
 #   ① GNU jq(构建机原形态)       —— 主路径 --arg + tonumber
 #   ② 设备 jq(仅拒 --argjson)    —— 忠实复刻复测报告观测形态
 #   ③ 设备 jq(拒整条 -n/--arg)   —— 更严苛, 逼出无 jq 纯 shell 兜底
 #   ④ jq 完全缺位                —— 兜底 + 成功判定退化
+# wget 两种形态: ⑤ GNU wget(支持 --content-on-error) ⑥ 老 wget(拒该选项, 走反查兜底)。
 # 外加: 旧 --argjson 写法在 ①/② 下的差异对照(互锁证据)、TC-02/TC-03 真引擎链路、
 # sub_meta 同层、body 合法性(含 " \ TAB 换行 的 JSON 转义)校验、现场清理。
 #
 # 边界(如实声明): 这是【构建机冒烟】, 不是真机点按钮。TC-02/TC-03 的销账仍须
-# 按复测报告第六节入口, 在桌面可见 headful Chrome 真机点一次按钮才算。
+# 按 TEST-REPORT-2026-11-20-v1.1.6-retest.md 第五节复验入口,
+# 在桌面可见 headful Chrome 真机点一次按钮才算。
 #
 # 用法: bash smoke_subadd_jq_shapes.sh   (可设 BIN= 指定引擎二进制)
 set -o pipefail
@@ -78,6 +85,22 @@ fi
 exec /usr/bin/jq "$@"
 SHIM
 chmod 755 "$SHIMDIR/jq"
+
+# ---- 老设备 wget-ssl 形态模拟器 ----
+# 真机 wget-ssl 是 GNU wget(支持 --method/--body-data), 但为防设备上是更老版本,
+# 另造一个「拒绝 --content-on-error」的形态, 逼出 __engine_api 的重试 +
+# sub_add 的订阅列表反查兜底, 验证 4xx 文案在任何工具形态下都不会退化。
+cat > "$SHIMDIR/wget-ssl" <<'WSHIM'
+#!/usr/bin/env bash
+for a in "$@"; do
+	case "$a" in
+		--content-on-error) echo "wget: unrecognized option '--content-on-error'" >&2; exit 2 ;;
+	esac
+done
+exec /usr/bin/wget "$@"
+WSHIM
+chmod 755 "$SHIMDIR/wget-ssl"
+REAL_WGET=/usr/bin/wget
 
 # ---- 本地订阅源 + 真引擎(仅回环) ----
 printf '[mitm]\nhostname = qa.netloom.test, *.smoke.example.com\nDOMAIN-SUFFIX,smoke.example.com,PROXY\n' > "$WORK/src/sub.conf"
@@ -142,9 +165,24 @@ PY
 	then ok "$label: body 合法 JSON 且 URL/特殊字符/字段全对"
 	else ng "$label: body 非法或字段错"; fi
 }
+# TC-03 页面文案判据: 重复同 URL 必须回引擎业务原文「该订阅地址已存在」,
+# 且不得再出现「参数构造失败 / 未返回内容 / jq stderr」等误导性归因。
+check_dup_text()
+{
+	local label=$1
+	case "$ADD_OUT" in
+		*该订阅地址已存在*) ;;
+		*) ng "$label: 未回业务文案: $ADD_OUT"; return 0 ;;
+	esac
+	if printf '%s' "$ADD_OUT" | grep -qE '参数构造失败|未返回内容|工具 stderr|jq:|引擎 API'; then
+		ng "$label: 业务文案被无关归因污染: $ADD_OUT"
+		return 0
+	fi
+	ok "$label: 页面回引擎业务原文 [$ADD_OUT]"
+}
 
 echo "==================================================================="
-echo "构建机冒烟 v1.1.6 / 设备固件 jq 形态用例  engine=$ENGINE_BIN"
+echo "构建机冒烟 v1.1.7 / 设备固件 jq + wget 形态用例  engine=$ENGINE_BIN"
 echo "health=$(curl -s http://127.0.0.1:$PICK_API/api/health)"
 echo "==================================================================="
 
@@ -174,12 +212,9 @@ add_once "GNU jq 首次 add" "$U1"
 check_add "GNU jq" "$U1"
 S1=$(curl -s "http://127.0.0.1:$PICK_API/api/subscriptions" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)["subs"]))')
 [ "$S1" -ge 1 ] && ok "TC-02: 真引擎 /api/subscriptions 出现新条目(subs=$S1)" || ng "TC-02: 引擎未出现新条目(subs=$S1)"
-# TC-03: 同一 URL 再点 -> 请求确实到达引擎(回『已存在』), 不再是『参数构造失败』
+# TC-03: 同一 URL 再点 -> 页面回引擎业务原文「该订阅地址已存在」(v1.1.7 新增文案判据)
 add_once "GNU jq 二次 add(同 URL)" "$U1"
-case "$ADD_OUT" in
-	*参数构造失败*|*未返回内容*) ng "TC-03: 仍卡在 body 构造层: $ADD_OUT" ;;
-	*) ok "TC-03: 请求到达引擎, 回 [$ADD_OUT](非构造失败)" ;;
-esac
+check_dup_text "TC-03/curl 通道"
 S2=$(curl -s "http://127.0.0.1:$PICK_API/api/subscriptions" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)["subs"]))')
 [ "$S2" -eq "$S1" ] && ok "TC-03: 重复 add 未新增条目(subs 仍 $S2)" || ng "TC-03: subs 异常变化($S1->$S2)"
 
@@ -228,8 +263,28 @@ add_once "no-jq add" "$U4"
 check_add "no-jq" "$U4"
 unset -f jq
 
-# ---------- 5) 现场清理 ----------
-echo "-- [5] 现场清理(清空自建订阅)"
+# ---------- 5) 设备 wget-ssl(GNU wget, 支持 --content-on-error) -> 4xx 原文透传 ----------
+echo "-- [5] 设备 wget-ssl 形态: --content-on-error 透传 4xx 响应体"
+__WGET_SSL="$REAL_WGET"
+U5="http://127.0.0.1:$PICK_SRV/sub.conf?case=5&b=2"
+add_once "wget-ssl 首次 add" "$U5"
+check_add "wget-ssl" "$U5"
+add_once "wget-ssl 二次 add(同 URL)" "$U5"
+check_dup_text "TC-03/wget-ssl 通道"
+__WGET_SSL=""
+
+# ---------- 6) 老设备 wget-ssl(拒 --content-on-error) -> 重试 + 订阅反查兜底 ----------
+echo "-- [6] 老设备 wget-ssl 形态: 拒 --content-on-error, 订阅列表反查兜底"
+__WGET_SSL="$SHIMDIR/wget-ssl"
+U6="http://127.0.0.1:$PICK_SRV/sub.conf?case=6&b=2"
+add_once "old-wget 首次 add" "$U6"
+check_add "old-wget" "$U6"
+add_once "old-wget 二次 add(同 URL)" "$U6"
+check_dup_text "TC-03/old-wget 兜底"
+__WGET_SSL=""
+
+# ---------- 7) 现场清理(清空自建订阅) ----------
+echo "-- [7] 现场清理(清空自建订阅)"
 curl -s "http://127.0.0.1:$PICK_API/api/subscriptions" | python3 -c 'import sys,json;print("\n".join(s["id"] for s in json.load(sys.stdin)["subs"]))' | while read -r sid; do
 	[ -n "$sid" ] && curl -s -X DELETE "http://127.0.0.1:$PICK_API/api/subscriptions/$sid" >/dev/null
 done
@@ -239,6 +294,6 @@ FINAL=$(curl -s "http://127.0.0.1:$PICK_API/api/subscriptions" | python3 -c 'imp
 echo "==================================================================="
 echo "汇总: PASS=$PASS FAIL=$FAIL"
 echo "声明: 以上全部为【构建机冒烟】。TC-02/TC-03 真机点按钮销账仍待按"
-echo "       TEST-REPORT-2026-11-20-v1.1.5-retest.md 第六节入口复验。"
+echo "       TEST-REPORT-2026-11-20-v1.1.6-retest.md 第五节复验入口。"
 echo "==================================================================="
 [ "$FAIL" -eq 0 ] || exit 1
