@@ -328,4 +328,17 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 3. 必须断言 `errs:0`（head 最早处覆写 `console.error`/`onerror` 收集）、`iframe VISIBLE`、按钮文本集合改前改后一致、tab 数一致、计算样式关键值变化；缺一项都说明桩没跑通。
 4. **高度断言不能用 `document.body.scrollHeight`**：`#app` 是固定视口高度、`.box` 自己滚的契约，body.scrollHeight 恒等于视口（本轮两版都 913）。改测 `.box_block>.margin_phone` 与 `#rq-settings` 的 `offsetHeight` —— 实测卡片 `1322→1215`、配置区 `436→335`（-23%），紧凑效果才证得出来。
 
-**交付边界（遵守 skill「布局改动是源码层，不是发布」）**：不升 `metadata.json` 版本、不 commit/push、不打包 ipk、不触发 CI；收尾 `git status --short` 只允许 `plugins/runhooks/html/index.html` 一个文件被改（工作区里 Go 侧 CORS 改动属别的成员，不动、不捎带）。上线路径：版本链负责人 bump runhooks 版本（必须高于线上 1.1.8，否则 `compare_version` 不出升级按钮）→ `python3 build.py plugins build` → 提交推送触发 CI → 设备「更新软件源」后升级。`html/` 外壳页由 `build.py add_dir` 原样打进包，**不需重编 Go 引擎**（与 `web/src`→dist→Go 二进制那条链不同）。
+**交付边界（遵守 skill「布局改动是源码层，不是发布」）**：布局改动当轮不升 `metadata.json` 版本、不 commit/push、不打包 ipk、不触发 CI；收尾 `git status --short` 只允许 `plugins/runhooks/html/index.html` 一个文件被改（工作区里 Go 侧 CORS 改动属别的成员，不动、不捎带）。后续用户明确要求发布时再走完整上线链，见下一节。
+
+**纠正一处易错口径**：`html/` 外壳页由 `build.py add_dir` 原样打进包，**不需要重建 WebUI / npm**，但 `build.py` 的 `check_engine_version()` 会比对 `bins/runhooks-x86_64` 内嵌的 `-X main.Version=` 与 `metadata.version` —— **只要 bump 版本就必须重编 Go 引擎**，否则打包直接 `SystemExit` 拒绝。v1.1.9 实踩：先按「只改 html 不用重编」判断，门禁报错才补。
+
+
+## v1.1.9 实际发布记录（2026-11-20，用户「插件提交推送」）
+
+- **提交** `e438d21`，只 add 4 个文件：`AGENTS.md`、`plugins/runhooks/html/index.html`、`plugins/runhooks/metadata.json`、`plugins/runhooks/bins/runhooks-x86_64`。工作区里别人未提交的 `go/internal/rules/hooks.go` + 3 个 CORS 文件**留在原地未动、未捎带**，`git add` 逐个点名而不是 `-A`。
+- **bump**：`1.1.8 → 1.1.9`（先读真值断言旧号，再写；必须高于线上 1.1.8，否则 `compare_version` 不出升级按钮）；`name` 保持逐字节小写 `runhooks`（设备升级链主键，大小写敏感）、`upgradetype: upgrade` 保留；`releasenotes` **只在末尾追加本轮一句**（并发纪律：不整段覆盖别人的说明），且无裸双引号/反斜杠/换行/反引号/`$`。
+- **重编引擎（干净源码，避免把别人的半成品编译进去）**：`git archive HEAD plugins/runhooks/go plugins/runhooks/metadata.json | tar -x -C /tmp/rhbuild` 导出 HEAD 干净 Go 源码 → 临时目录写入 bump 后 metadata（Makefile `VERSION` 从 `../metadata.json` 单点读取）→ `export PATH=/usr/local/go/bin:$PATH` 后 `make build-go`（Makefile 直接调 `go`，不带 PATH 会 `go: not found`）→ 产物 `20508856` 字节、内嵌 `1.1.9`、`PT_INTERP=0` 静态、CORS 字符串 0 次 → 拷回 `bins/runhooks-x86_64`。
+- **本地打包**：`python3 build.py /tmp/oneplug /tmp/rhverify` 单插件验证通过；`plugin-runhooks-x86_64-v1.1.9-Build202611200828.ipk` 内 html/metadata/二进制三处一致，`validate_metadata()` A/B（正常放行 / 危险拦截）复跑通过。
+- **发布验收四步全过**：① CI run `44702926137` `conclusion=success`；② gh-pages 最新部署 `bec88ad6` message 含本次 main SHA `e438d219...`；③ API `contents/plugins.json?ref=gh-pages` + `Accept: application/vnd.github.raw`（绕 raw CDN 缓存）读到 `runhooks 1.1.9 / build 202611200829 / upgradetype upgrade / releasenotes 无危险字符`；④ 下载线上 ipk `7849679` 字节解包，10 项断言全 ✓（html 新 CSS 标记/单行省略/紧凑内距、metadata version/name/upgradetype/releasenotes、二进制内嵌 1.1.9/PT_INTERP=0/无 CORS 串）。
+- **API 小坑**：`commits/gh-pages` 返回**单个 commit 对象**（dict），拿它当 list 遍历会 `TypeError: string indices must be integers`；查部署历史要用 `commits?sha=gh-pages&per_page=N`（返回 list）。
+- **设备侧下一步**：点「更新软件源」→ 已装 1.1.8 应出现 `newversion 1.1.9` 升级按钮 → 升级走保留配置分支，配置与 CA 证书不丢。
