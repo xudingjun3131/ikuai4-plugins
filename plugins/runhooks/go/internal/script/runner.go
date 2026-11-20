@@ -14,16 +14,85 @@ import (
 
 	"github.com/dop251/goja"
 
+	"github.com/GitterBois/runhooks/internal/httpx"
 	"github.com/GitterBois/runhooks/internal/proxy"
 )
 
 // Runner loads $DATA/scripts/*.js and implements proxy.ProxyHooks.
 // Sandbox: only flow.request/response fields; no OS/network; timeout kills loops.
+//
+// [v1.1.8] v1.1.7 测试报告 §3.6 指出「脚本 100ms timeout / 异常静默跳过,
+// 改包不生效但不报错」。现在每次 timeout / 加载失败 / 钩子抛错都记入环形
+// 缓冲, 经 GET /api/diagnostics 暴露给运维台, 不再无声无息。
 type Runner struct {
 	mu      sync.RWMutex
 	dir     string
 	timeout time.Duration
 	scripts []namedScript
+
+	errMu sync.Mutex
+	errs  []ScriptError
+}
+
+// ScriptError is one surfaced script failure (script name, phase, message,
+// first/last timestamp and how many times it repeated consecutively).
+type ScriptError struct {
+	Script  string    `json:"script"`
+	Phase   string    `json:"phase"`
+	Message string    `json:"message"`
+	At      time.Time `json:"at"`
+	Count   int       `json:"count"`
+}
+
+const maxScriptErrors = 50
+
+func (r *Runner) recordError(script, phase string, err error) {
+	if err == nil {
+		return
+	}
+	msg := err.Error()
+	now := time.Now().UTC()
+	r.errMu.Lock()
+	defer r.errMu.Unlock()
+	if n := len(r.errs); n > 0 {
+		last := &r.errs[n-1]
+		if last.Script == script && last.Phase == phase && last.Message == msg {
+			last.Count++
+			last.At = now
+			return
+		}
+	}
+	r.errs = append(r.errs, ScriptError{
+		Script: script, Phase: phase, Message: msg, At: now, Count: 1,
+	})
+	if len(r.errs) > maxScriptErrors {
+		r.errs = append([]ScriptError(nil), r.errs[len(r.errs)-maxScriptErrors:]...)
+	}
+}
+
+// Errors returns the most recent surfaced script failures, newest first.
+func (r *Runner) Errors() []ScriptError {
+	r.errMu.Lock()
+	defer r.errMu.Unlock()
+	out := make([]ScriptError, len(r.errs))
+	for i := range r.errs {
+		out[len(out)-1-i] = r.errs[i]
+	}
+	return out
+}
+
+// ResetErrors clears the surfaced failures (DELETE /api/diagnostics).
+func (r *Runner) ResetErrors() {
+	r.errMu.Lock()
+	r.errs = nil
+	r.errMu.Unlock()
+}
+
+// Timeout reports the configured per-script execution budget.
+func (r *Runner) Timeout() time.Duration {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.timeout
 }
 
 type namedScript struct {
@@ -88,13 +157,19 @@ func (r *Runner) OnRequest(req *http.Request) (*http.Request, *http.Response, pr
 	if err != nil {
 		return req, nil, proxy.RequestContinue
 	}
+	original := cloneFlowReq(fr)
 	for _, s := range scripts {
 		if err := r.runPhase(s, "onRequest", fr, nil, timeout); err != nil {
-			// Timeout / script error: leave request unchanged for this script.
+			// 改写保持原文不生效, 但错误必须可见(测试报告 §3.6 静默跳过)。
+			r.recordError(s.name, "onRequest", err)
 			continue
 		}
 	}
-	applyRequest(req, fr)
+	// [v1.1.8] 只有脚本真的改动了快照才回写: 否则会无谓重建头部、把
+	// gzip 响应的 Content-Encoding 清掉, 让「无脚本生效」也破坏转发。
+	if flowReqChanged(original, fr) {
+		applyRequest(req, fr)
+	}
 	return req, nil, proxy.RequestContinue
 }
 
@@ -118,12 +193,16 @@ func (r *Runner) OnResponse(resp *http.Response) (*http.Response, proxy.Response
 	if err != nil {
 		return resp, proxy.ResponseContinue
 	}
+	original := cloneFlowResp(fs)
 	for _, s := range scripts {
 		if err := r.runPhase(s, "onResponse", fr, fs, timeout); err != nil {
+			r.recordError(s.name, "onResponse", err)
 			continue
 		}
 	}
-	applyResponse(resp, fs)
+	if flowRespChanged(original, fs) {
+		applyResponse(resp, fs)
+	}
 	return resp, proxy.ResponseContinue
 }
 
@@ -192,6 +271,58 @@ type flowResp struct {
 	Status  int
 	Headers map[string]string
 	Body    string
+}
+
+func cloneFlowReq(f *flowReq) *flowReq {
+	if f == nil {
+		return nil
+	}
+	out := *f
+	out.Headers = cloneHeaders(f.Headers)
+	return &out
+}
+
+func cloneFlowResp(f *flowResp) *flowResp {
+	if f == nil {
+		return nil
+	}
+	out := *f
+	out.Headers = cloneHeaders(f.Headers)
+	return &out
+}
+
+func cloneHeaders(h map[string]string) map[string]string {
+	out := make(map[string]string, len(h))
+	for k, v := range h {
+		out[k] = v
+	}
+	return out
+}
+
+func sameHeaders(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if b[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+func flowReqChanged(a, b *flowReq) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Method != b.Method || a.URL != b.URL || a.Body != b.Body || !sameHeaders(a.Headers, b.Headers)
+}
+
+func flowRespChanged(a, b *flowResp) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Status != b.Status || a.Body != b.Body || !sameHeaders(a.Headers, b.Headers)
 }
 
 func snapshotRequest(req *http.Request) (*flowReq, error) {
@@ -266,11 +397,10 @@ func applyRequest(req *http.Request, fr *flowReq) {
 	b := []byte(fr.Body)
 	req.Body = io.NopCloser(bytes.NewReader(b))
 	req.ContentLength = int64(len(b))
-	if len(b) > 0 {
-		req.Header.Set("Content-Length", fmt.Sprintf("%d", len(b)))
-	} else {
-		req.Header.Del("Content-Length")
-	}
+	// [v1.1.8] 脚本注入的是明文 body; 去掉残留的 Content-Encoding, 并统一
+	// 重算 Content-Length / 清掉针对旧 body 的校验头(测试报告 §3.6 一致性风险)。
+	httpx.StripContentEncoding(req.Header)
+	httpx.NormalizeBodyHeaders(req.Header, len(b))
 }
 
 func applyResponse(resp *http.Response, fs *flowResp) {
@@ -288,11 +418,9 @@ func applyResponse(resp *http.Response, fs *flowResp) {
 	b := []byte(fs.Body)
 	resp.Body = io.NopCloser(bytes.NewReader(b))
 	resp.ContentLength = int64(len(b))
-	if len(b) > 0 {
-		resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(b)))
-	} else {
-		resp.Header.Del("Content-Length")
-	}
+	// [v1.1.8] 同上: 脚本改写后 body 是明文, 头部必须自洽。
+	httpx.StripContentEncoding(resp.Header)
+	httpx.NormalizeBodyHeaders(resp.Header, len(b))
 }
 
 func reqToJS(vm *goja.Runtime, fr *flowReq) *goja.Object {

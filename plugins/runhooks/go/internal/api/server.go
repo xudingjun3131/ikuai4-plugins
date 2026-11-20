@@ -27,6 +27,7 @@ func NewMux(d Deps) *http.ServeMux {
 	mux.HandleFunc("/api/rules/", rulesItem(d.Rules, d.OnRulesChange))
 	mux.HandleFunc("/api/breakpoints", breakpointsCollection(d.Breakpoints))
 	mux.HandleFunc("/api/breakpoints/", breakpointsItem(d.Breakpoints))
+	mux.HandleFunc("/api/diagnostics", diagnosticsHandler(d.ScriptRunner))
 	mux.HandleFunc("/api/rest/send", restSendHandler(d.REST))
 	mux.HandleFunc("/api/rest/from-flow/", restFromFlowHandler(d.REST, d.Store))
 	mux.HandleFunc("/api/rest/env", restEnvHandler(d.REST))

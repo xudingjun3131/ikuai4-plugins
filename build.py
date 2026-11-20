@@ -8,7 +8,11 @@ import tarfile
 import time
 
 def get_timestamp():
-    return time.strftime('%Y%m%d%H%M', time.localtime())
+    # [build-utc] v1.1.8: CI(ubuntu-latest, TZ=UTC) 与本地构建机(CST)原先各用
+    # localtime, 同一份源码在两端产出的 build 号差 8 小时, 修复报告与线上清单
+    # 对不上(测试报告 §四 / 修复报告 §四 记为遗留项)。统一用 UTC 时间戳:
+    # 两端一致, 设备按线上清单 build 拼 URL 拉包不再受时区口径干扰。
+    return time.strftime('%Y%m%d%H%M', time.gmtime())
 
 def check_elf_interp(src_path: str):
     # [static-gate] 目标固件(iKuai uClibc)没有 glibc loader: PT_INTERP 指向

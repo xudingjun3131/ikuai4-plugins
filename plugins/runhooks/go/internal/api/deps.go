@@ -15,21 +15,22 @@ import (
 )
 
 type Deps struct {
-	Version         string
-	DataDir         string
-	ProxyAddr       string
-	Store           *store.Store
-	RootPEM         func() []byte
-	Rules           *rules.Chain
-	OnRulesChange   func()
-	Breakpoints     *breakpoint.Manager
-	REST            *rest.Service
-	Scripts         *script.Gallery
-	OnScriptChange  func()
-	Sessions        *session.Store
-	Bookmarks       *bookmark.Store
-	Report          *report.Server
-	NetCond         *netcond.Cond
-	MCP             *mcp.Server
-	Subs            *subscription.Manager
+	Version        string
+	DataDir        string
+	ProxyAddr      string
+	Store          *store.Store
+	RootPEM        func() []byte
+	Rules          *rules.Chain
+	OnRulesChange  func()
+	Breakpoints    *breakpoint.Manager
+	ScriptRunner   *script.Runner
+	REST           *rest.Service
+	Scripts        *script.Gallery
+	OnScriptChange func()
+	Sessions       *session.Store
+	Bookmarks      *bookmark.Store
+	Report         *report.Server
+	NetCond        *netcond.Cond
+	MCP            *mcp.Server
+	Subs           *subscription.Manager
 }

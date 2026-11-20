@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "巡流 NetLoom 观测台",
   "manufacturer": "iKuai",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "巡流 NetLoom 路由器一体化局域网流量观测台(抓包解密与统计全部在网关本地完成): 全网设备画像, 时间轴会话瀑布, 域名热度与状态构成, 透明+显式双模式采集, HTTPS MITM 解密, 规则订阅(兼容 QuanX/Surge/纯列表), 请求改写与脚本断点收进次级运维工具箱, 定时自动更新。自带 Go 静态引擎, 不依赖固件 libc。首次使用请先在客户端安装并信任 CA 证书。",
-  "releasenotes": "v1.1.7 修复 v1.1.6 复测遗留 P3：重复订阅 URL 二次点击时，设备 GNU wget 对 HTTP 4xx 静默丢弃响应体，页面误报引擎 API 未返回内容并把 jq 的 stderr 拼进文案，引擎业务原文该订阅地址已存在没透传。本版 __engine_api 透传 4xx 响应体（curl 用 -w 取状态码，GNU wget 用 --content-on-error 加 -S 解析状态行），sub_add 与 sub_meta 把引擎业务原文回给页面；jqerr 只在 body 构造真正失败分支回显，纯 shell 兜底成功后清空；老 wget 拿不到 4xx 响应体时用订阅列表反查重复地址回业务文案。构建机冒烟新增重复 URL 页面文案判据与两种 wget 形态互锁用例。版本按单点重编对齐 1.1.7。升级走保留配置分支，配置与 CA 证书不丢。",
+  "releasenotes": "v1.1.8 按 v1.1.7 测试报告把剩余候选需求与遗留项全部落地: 新增图形化断点改包工作台(挂起会话可视化编辑返回包 body/headers/status 后放行、一键 Map Local 内联顶替上游、两条会话字段级 diff 对照、脚本异常诊断面板)、插件外壳页断点改包按钮与 hash 深链; 引擎内对 gzip/br/deflate 响应透明解码后替换再按原编码重编码, 不再依赖上游接受 identity, 改包后自动重算 Content-Length 并清理 ETag/Content-MD5 等针对旧 body 的校验头; map_local 目录 jail 增加符号链接越界防护; 脚本 timeout 与异常不再静默跳过, 经 /api/diagnostics 上报可清除; 断点 hold 容量可观测可运行时调整, 支持 abort 主动释放与客户端断开即释放, 不再无谓占用连接; build 时间戳统一 UTC, 消除 CI 与本地两套口径差; 上述质量风险全部补进 Go 单测与构建机冒烟回归基线。版本按单点重编对齐 1.1.8。升级走保留配置分支, 配置与 CA 证书不丢。",
   "arch": [
     "x86_64"
   ],

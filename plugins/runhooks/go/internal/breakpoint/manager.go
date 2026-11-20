@@ -8,6 +8,7 @@ package breakpoint
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/GitterBois/runhooks/internal/httpx"
 	"github.com/GitterBois/runhooks/internal/proxy"
 )
 
@@ -62,6 +64,21 @@ type hold struct {
 	cancel  chan struct{}
 }
 
+// Stats is the live capacity picture for the hold pool. v1.1.7 测试报告 §3.6
+// 把「断点 hold 占连接容量(默认 32/60s)」列为质量风险: 以前没有任何可观测
+// 指标, 也没有主动释放手段。
+type Stats struct {
+	Max        int   `json:"max"`
+	TimeoutMs  int64 `json:"timeoutMs"`
+	Holds      int   `json:"holds"`
+	Total      int64 `json:"total"`
+	Resumed    int64 `json:"resumed"`
+	Expired    int64 `json:"expired"`
+	Aborted    int64 `json:"aborted"`
+	ClientGone int64 `json:"clientGone"`
+	Rejected   int64 `json:"rejected"`
+}
+
 // Manager implements proxy.ProxyHooks and the breakpoint control plane.
 type Manager struct {
 	mu      sync.Mutex
@@ -71,6 +88,8 @@ type Manager struct {
 	match   Match
 	holds   map[string]*hold
 	stop    chan struct{}
+
+	total, resumed, expired, aborted, clientGone, rejected int64
 }
 
 // NewManager creates a breakpoint manager (disabled until SetEnabled).
@@ -110,6 +129,36 @@ func (m *Manager) Config() (enabled bool, match Match) {
 	return m.enabled, m.match
 }
 
+// Stats returns the live hold-pool capacity and counters.
+func (m *Manager) Stats() Stats {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return Stats{
+		Max:        m.max,
+		TimeoutMs:  m.timeout.Milliseconds(),
+		Holds:      len(m.holds),
+		Total:      m.total,
+		Resumed:    m.resumed,
+		Expired:    m.expired,
+		Aborted:    m.aborted,
+		ClientGone: m.clientGone,
+		Rejected:   m.rejected,
+	}
+}
+
+// SetLimits tunes the hold pool at runtime (PUT /api/breakpoints), so an
+// operator can shrink the connection footprint without restarting the engine.
+func (m *Manager) SetLimits(max int, timeout time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if max >= 1 {
+		m.max = max
+	}
+	if timeout > 0 {
+		m.timeout = timeout
+	}
+}
+
 // List returns open sessions.
 func (m *Manager) List() []Session {
 	m.mu.Lock()
@@ -133,12 +182,31 @@ func (m *Manager) Resume(id string, edit ResumeEdit) error {
 	m.mu.Unlock()
 	select {
 	case h.edit <- edit:
+		m.mu.Lock()
+		m.resumed++
+		m.mu.Unlock()
 		return nil
 	case <-h.cancel:
 		return fmt.Errorf("expired")
 	case <-time.After(200 * time.Millisecond):
 		return fmt.Errorf("expired")
 	}
+}
+
+// Abort discards a held session immediately and lets the request proceed with
+// its ORIGINAL body, instead of pinning a proxy worker until the 60s timeout.
+func (m *Manager) Abort(id string) error {
+	m.mu.Lock()
+	h, ok := m.holds[id]
+	if !ok {
+		m.mu.Unlock()
+		return fmt.Errorf("not found")
+	}
+	delete(m.holds, id)
+	m.aborted++
+	close(h.cancel)
+	m.mu.Unlock()
+	return nil
 }
 
 // Stop cancels all holds and disables further pauses.
@@ -168,7 +236,7 @@ func (m *Manager) OnRequest(req *http.Request) (*http.Request, *http.Response, p
 	if !ok {
 		return req, nil, proxy.RequestContinue
 	}
-	edit, timedOut := m.wait(sess.ID, editCh, cancelCh)
+	edit, timedOut := m.wait(req.Context(), sess.ID, editCh, cancelCh)
 	if timedOut {
 		return req, nil, proxy.RequestContinue
 	}
@@ -185,7 +253,11 @@ func (m *Manager) OnResponse(resp *http.Response) (*http.Response, proxy.Respons
 	if !ok {
 		return resp, proxy.ResponseContinue
 	}
-	edit, timedOut := m.wait(sess.ID, editCh, cancelCh)
+	ctx := context.Background()
+	if resp.Request != nil {
+		ctx = resp.Request.Context()
+	}
+	edit, timedOut := m.wait(ctx, sess.ID, editCh, cancelCh)
 	if timedOut {
 		return resp, proxy.ResponseContinue
 	}
@@ -234,6 +306,7 @@ func (m *Manager) tryHold(phase Phase, req *http.Request, resp *http.Response) (
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.holds) >= m.max {
+		m.rejected++
 		return Session{}, nil, nil, false
 	}
 	body, headers, status, method, rawURL := capture(phase, req, resp)
@@ -251,23 +324,29 @@ func (m *Manager) tryHold(phase Phase, req *http.Request, resp *http.Response) (
 	editCh := make(chan ResumeEdit, 1)
 	cancelCh := make(chan struct{})
 	m.holds[id] = &hold{session: sess, edit: editCh, cancel: cancelCh}
+	m.total++
 	return sess, editCh, cancelCh, true
 }
 
-func (m *Manager) wait(id string, editCh chan ResumeEdit, cancelCh chan struct{}) (ResumeEdit, bool) {
+// wait blocks until resume, expiry, client disconnect, or Stop. A client that
+// gives up no longer pins a proxy worker for the full hold timeout.
+func (m *Manager) wait(ctx context.Context, id string, editCh chan ResumeEdit, cancelCh chan struct{}) (ResumeEdit, bool) {
 	timer := time.NewTimer(m.timeout)
 	defer timer.Stop()
 	select {
 	case edit := <-editCh:
 		return edit, false
 	case <-cancelCh:
-		m.drop(id)
+		m.dropReason(id, reasonExpired)
 		return ResumeEdit{}, true
 	case <-timer.C:
-		m.drop(id)
+		m.dropReason(id, reasonExpired)
+		return ResumeEdit{}, true
+	case <-ctx.Done():
+		m.dropReason(id, reasonClientGone)
 		return ResumeEdit{}, true
 	case <-m.stopCh():
-		m.drop(id)
+		m.dropReason(id, reasonExpired)
 		return ResumeEdit{}, true
 	}
 }
@@ -278,10 +357,23 @@ func (m *Manager) stopCh() <-chan struct{} {
 	return m.stop
 }
 
-func (m *Manager) drop(id string) {
+type dropReason string
+
+const (
+	reasonExpired    dropReason = "expired"
+	reasonClientGone dropReason = "clientGone"
+)
+
+func (m *Manager) dropReason(id string, why dropReason) {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	delete(m.holds, id)
-	m.mu.Unlock()
+	switch why {
+	case reasonClientGone:
+		m.clientGone++
+	default:
+		m.expired++
+	}
 }
 
 func capture(phase Phase, req *http.Request, resp *http.Response) (body string, headers map[string]string, status int, method, rawURL string) {
@@ -343,6 +435,10 @@ func applyReqEdit(req *http.Request, edit ResumeEdit) {
 		b := []byte(*edit.Body)
 		req.Body = io.NopCloser(bytes.NewReader(b))
 		req.ContentLength = int64(len(b))
+		// 断点面板里编辑的是明文 body: 去掉残留 Content-Encoding, 重算
+		// Content-Length 并清掉针对旧 body 的校验头。
+		httpx.StripContentEncoding(req.Header)
+		httpx.NormalizeBodyHeaders(req.Header, len(b))
 	}
 }
 
@@ -361,6 +457,8 @@ func applyRespEdit(resp *http.Response, edit ResumeEdit) {
 		b := []byte(*edit.Body)
 		resp.Body = io.NopCloser(bytes.NewReader(b))
 		resp.ContentLength = int64(len(b))
+		httpx.StripContentEncoding(resp.Header)
+		httpx.NormalizeBodyHeaders(resp.Header, len(b))
 	}
 }
 

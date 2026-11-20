@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import {
   ConsoleFooter,
@@ -12,6 +12,7 @@ import { ExplorerPanel } from "@/components/explorer-panel"
 import { InsightsPanel } from "@/components/insights"
 import { OverviewPanel } from "@/components/overview"
 import { RestPanel } from "@/components/rest-panel"
+import { RewritePanel } from "@/components/rewrite-panel"
 import { RulesPanel } from "@/components/rules-panel"
 import { ScriptsPanel } from "@/components/scripts-panel"
 import { SessionsPanel } from "@/components/sessions"
@@ -21,11 +22,43 @@ import { TrafficList } from "@/components/traffic-list"
 import { useFlows } from "@/hooks/use-flows"
 import { buildStats, shortAddr } from "@/lib/stats"
 
+// [v1.1.8] 插件外壳页「断点改包」按钮通过 #tool=rewrite 深链进本页;
+// hashchange 监听让已打开的观测台无需重载即可切到该工具。
+const TOOL_HASH: Record<string, ToolId> = {
+  rules: "rules",
+  rewrite: "rewrite",
+  subs: "subs",
+  rest: "rest",
+  explorer: "explorer",
+  scripts: "scripts",
+}
+
+function toolFromHash(): { tool: ToolId; view: ViewId } | null {
+  if (typeof window === "undefined") return null
+  const m = /tool=([a-z]+)/.exec(window.location.hash || "")
+  if (!m) return null
+  const tool = TOOL_HASH[m[1]]
+  return tool ? { tool, view: "toolbox" } : null
+}
+
 function App() {
-  const [view, setView] = useState<ViewId>("overview")
-  const [tool, setTool] = useState<ToolId>("rules")
+  const initial = toolFromHash()
+  const [view, setView] = useState<ViewId>(initial?.view ?? "overview")
+  const [tool, setTool] = useState<ToolId>(initial?.tool ?? "rules")
   const [focusDevice, setFocusDevice] = useState<string | null>(null)
   const ctx = useFlows()
+
+  useEffect(() => {
+    const onHash = () => {
+      const next = toolFromHash()
+      if (next) {
+        setTool(next.tool)
+        setView(next.view)
+      }
+    }
+    window.addEventListener("hashchange", onHash)
+    return () => window.removeEventListener("hashchange", onHash)
+  }, [])
 
   // 全部统计在浏览器侧从 /api/flows 聚合 —— 这是网关观测台独有的视角
   const stats = useMemo(() => buildStats(ctx.flows), [ctx.flows])
@@ -89,7 +122,7 @@ function App() {
         {view === "toolbox" ? (
           <>
             <div className="nl-tool-note">
-              运维工具箱为次级功能：规则、订阅、单请求改写与脚本调试。
+              运维工具箱为次级功能：规则、断点改包、订阅、单请求改写、脚本调试与会话 diff。
               观测台的主视角是「全网设备 · 时间轴 · 域名画像」——数据来自整台网关，而不是某一台设备上的某个 App。
             </div>
             <div className="nl-tool-frame">
@@ -110,6 +143,11 @@ function App() {
               {tool === "subs" ? (
                 <div className="nl-tool-grid nl-tool-grid--full">
                   <SubsPanel />
+                </div>
+              ) : null}
+              {tool === "rewrite" ? (
+                <div className="nl-tool-grid nl-tool-grid--full">
+                  <RewritePanel flows={ctx.flows} />
                 </div>
               ) : null}
               {tool === "rest" ? (

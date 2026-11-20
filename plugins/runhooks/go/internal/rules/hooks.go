@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/GitterBois/runhooks/internal/httpx"
 	"github.com/GitterBois/runhooks/internal/proxy"
 )
 
@@ -221,16 +222,17 @@ func replaceBody(req *http.Request, from, to string) *http.Request {
 		req.Body = io.NopCloser(bytes.NewReader(nil))
 		return req
 	}
-	// [sub-adapt] from 为空 = 整包替换(QuanX request-body 语义)
-	var nb []byte
-	if from == "" {
-		nb = []byte(to)
-	} else {
-		nb = bytes.ReplaceAll(b, []byte(from), []byte(to))
+	// [encoding-aware] 先按 Content-Encoding 解码再替换、再按原编码重新压缩;
+	// 不支持的编码/损坏流保持原文, 绝不把乱码写回上游。
+	nb, err := httpx.ReplaceContent(b, req.Header.Get("Content-Encoding"), from, to)
+	if err != nil {
+		req.Body = io.NopCloser(bytes.NewReader(b))
+		return req
 	}
+	// [sub-adapt] from 为空 = 整包替换(QuanX request-body 语义), 由 ReplaceContent 处理。
 	req.Body = io.NopCloser(bytes.NewReader(nb))
 	req.ContentLength = int64(len(nb))
-	req.Header.Set("Content-Length", itoa(len(nb)))
+	httpx.NormalizeBodyHeaders(req.Header, len(nb))
 	return req
 }
 
@@ -244,16 +246,18 @@ func replaceRespBody(resp *http.Response, from, to string) *http.Response {
 		resp.Body = io.NopCloser(bytes.NewReader(nil))
 		return resp
 	}
-	// [sub-adapt] from 为空 = 整包替换(QuanX response-body 语义)
-	var nb []byte
-	if from == "" {
-		nb = []byte(to)
-	} else {
-		nb = bytes.ReplaceAll(b, []byte(from), []byte(to))
+	// [encoding-aware] v1.1.7 遗留: gzip/br 响应下明文 body_replace 匹配不上,
+	// 旧版只靠 builtin-accept-encoding 强制 identity 规避。这里在引擎内透明
+	// 解码→替换→按原编码重编码, 上游不理会 identity 也照样生效。
+	nb, err := httpx.ReplaceContent(b, resp.Header.Get("Content-Encoding"), from, to)
+	if err != nil {
+		resp.Body = io.NopCloser(bytes.NewReader(b))
+		return resp
 	}
+	// [sub-adapt] from 为空 = 整包替换(QuanX response-body 语义)。
 	resp.Body = io.NopCloser(bytes.NewReader(nb))
 	resp.ContentLength = int64(len(nb))
-	resp.Header.Set("Content-Length", itoa(len(nb)))
+	httpx.NormalizeBodyHeaders(resp.Header, len(nb))
 	return resp
 }
 

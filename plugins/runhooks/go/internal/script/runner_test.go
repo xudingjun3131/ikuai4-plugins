@@ -74,11 +74,16 @@ func Test_Runner_timeout_kills_infinite_loop(t *testing.T) {
 	if elapsed < 40*time.Millisecond {
 		t.Fatalf("returned too fast (%v); timeout may not have run", elapsed)
 	}
-	// Request left usable (no hang, body readable).
+	// Request left usable (no hang). A no-op/failing script must NOT rebuild the
+	// request: v1.1.8 only writes the snapshot back when a script actually changed
+	// it, so a GET with no body keeps Body=nil (valid net/http), rather than the
+	// old always-injected empty NopCloser.
 	if out == nil {
 		t.Fatal("nil request")
 	}
-	_, _ = io.ReadAll(out.Body)
+	if out.Body != nil {
+		_, _ = io.ReadAll(out.Body)
+	}
 }
 
 func Test_Runner_onResponse_sets_header(t *testing.T) {

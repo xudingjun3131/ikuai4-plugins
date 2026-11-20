@@ -15,18 +15,18 @@ import (
 type Type string
 
 const (
-	TypeHostBlock       Type = "host_block"
-	TypeHostAllow       Type = "host_allow"
-	TypeHeader          Type = "header"
-	TypeBodyReplace     Type = "body_replace"
-	TypeMapLocal        Type = "map_local"
-	TypeSSLBypass       Type = "ssl_bypass"
-	TypeAccessControl   Type = "access_control"
-	TypeGateway         Type = "gateway"
-	TypeMirrorRemote    Type = "mirror_remote"
-	TypeSecondaryProxy  Type = "secondary_proxy"
-	TypeReverseProxy    Type = "reverse_proxy"
-	TypeHighlight       Type = "highlight"
+	TypeHostBlock      Type = "host_block"
+	TypeHostAllow      Type = "host_allow"
+	TypeHeader         Type = "header"
+	TypeBodyReplace    Type = "body_replace"
+	TypeMapLocal       Type = "map_local"
+	TypeSSLBypass      Type = "ssl_bypass"
+	TypeAccessControl  Type = "access_control"
+	TypeGateway        Type = "gateway"
+	TypeMirrorRemote   Type = "mirror_remote"
+	TypeSecondaryProxy Type = "secondary_proxy"
+	TypeReverseProxy   Type = "reverse_proxy"
+	TypeHighlight      Type = "highlight"
 )
 
 // Match selects requests.
@@ -446,29 +446,72 @@ func ipInCIDRs(ipStr string, cidrs []string) bool {
 }
 
 // ResolveMapLocal returns absolute path under jail or error if escape.
+//
+// v1.1.7 测试报告 §3.6 把「map_local path jail 越界」列为质量风险。旧实现只做
+// 词法检查(拒绝 ../ 与绝对路径), 但 jail 内的**符号链接**仍能把 os.ReadFile
+// 引到 jail 外(如 jail/escape -> /etc/passwd); 父目录是软链时同理。这里在
+// 词法检查之后解析「最深存在的祖先」的真实路径, 再用 jail 的真实路径做包含
+// 判定 —— jail 自身是软链时也不会把合法文件误判越界。
 func ResolveMapLocal(jail, rel string) (string, error) {
 	if rel == "" {
 		return "", fmt.Errorf("empty file")
+	}
+	if strings.ContainsRune(rel, 0) {
+		return "", fmt.Errorf("NUL in path")
 	}
 	if filepath.IsAbs(rel) {
 		return "", fmt.Errorf("absolute path not allowed")
 	}
 	clean := filepath.Clean(rel)
-	if strings.HasPrefix(clean, "..") || strings.Contains(clean, string(filepath.Separator)+"..") {
+	if clean == ".." ||
+		strings.HasPrefix(clean, ".."+string(filepath.Separator)) ||
+		strings.Contains(clean, string(filepath.Separator)+"..") {
 		return "", fmt.Errorf("path escape")
 	}
-	full := filepath.Join(jail, clean)
-	// ensure still under jail
 	jAbs, err := filepath.Abs(jail)
 	if err != nil {
 		return "", err
 	}
-	fAbs, err := filepath.Abs(full)
+	jReal := jAbs
+	if real, err := filepath.EvalSymlinks(jAbs); err == nil {
+		jReal = real
+	}
+	full := filepath.Join(jAbs, clean)
+	resolved, err := resolveExistingAncestor(full)
 	if err != nil {
 		return "", err
 	}
-	if !strings.HasPrefix(fAbs, jAbs+string(filepath.Separator)) && fAbs != jAbs {
+	if !pathContained(jReal, resolved) {
 		return "", fmt.Errorf("path escape")
 	}
-	return fAbs, nil
+	return resolved, nil
+}
+
+// resolveExistingAncestor resolves the deepest existing ancestor of p (which
+// itself need not exist yet) and re-appends the missing tail components.
+// EvalSymlinks(p) alone fails for a not-yet-created file, but a symlinked
+// parent directory could still redirect that file outside the jail.
+func resolveExistingAncestor(p string) (string, error) {
+	cur := p
+	var tail []string
+	for {
+		if real, err := filepath.EvalSymlinks(cur); err == nil {
+			for i := len(tail) - 1; i >= 0; i-- {
+				real = filepath.Join(real, tail[i])
+			}
+			return real, nil
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return p, nil // reached filesystem root; caller's ReadFile will report missing
+		}
+		tail = append(tail, filepath.Base(cur))
+		cur = parent
+	}
+}
+
+func pathContained(root, p string) bool {
+	root = filepath.Clean(root)
+	p = filepath.Clean(p)
+	return p == root || strings.HasPrefix(p, root+string(filepath.Separator))
 }

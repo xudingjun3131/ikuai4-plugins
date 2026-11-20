@@ -89,6 +89,8 @@
                     <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
                     <button type="button" class="btn btn_default rounded height26" @click="settingsOpen = !settingsOpen">{{ settingsOpen ? '收起设置' : '展开设置' }}</button>
                     <button v-if="status === 1" type="button" class="btn btn_default rounded height26" @click="setFullscreen(true)">全屏观测台</button>
+                    <!-- [v1.1.8] 断点改包图形化工作台: hash 深链进观测台工具箱, 不新开窗口 -->
+                    <button v-if="status === 1" type="button" class="btn btn_default rounded height26" @click="openRewrite">断点改包</button>
                     <button type="button" class="btn btn_default rounded height26" @click="loadInitData">刷新状态</button>
                 </div>
                 <!-- [one-page] 所有配置项与按钮都在本页; 可整体收起让观测台占满同一页面 -->
@@ -119,7 +121,7 @@
                     </div>
                 </details>
                 <div class="runhooks-tip">
-                    <b>观测步骤：</b>1. 在上方<b>服务与端口</b>里点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>观测设备</b>里勾选要观测的终端（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方观测台查看总览、设备星图、会话瀑布与域名洞察（点「全屏观测台」可在本页内铺满查看，不会新开窗口；「收起设置」让观测台占满本页）；单请求改写/脚本在「运维工具箱」里。<br>
+                    <b>观测步骤：</b>1. 在上方<b>服务与端口</b>里点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>观测设备</b>里勾选要观测的终端（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方观测台查看总览、设备星图、会话瀑布与域名洞察（点「全屏观测台」可在本页内铺满查看，不会新开窗口；「收起设置」让观测台占满本页）；点<b>断点改包</b>进运维工具箱的图形化工作台, 可视化挂起并编辑 body/headers、一键 Map Local、对比两条会话 diff、查看脚本异常; 单请求改写/脚本也在「运维工具箱」里。<br>
                     <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
                 </div>
 
@@ -418,6 +420,14 @@ var app = new Vue({
     },
     methods: {
         setFullscreen(on) { this.fullscreen = !!on; },
+        // [v1.1.8] 图形化断点改包工作台: 用 hash 深链把已打开的观测台 iframe
+        // 切到工具箱的 rewrite 页(React 侧监听 hashchange), 不重载、不新开窗口。
+        openRewrite() {
+            const base = (this.uiUrl || '').split('#')[0];
+            this.uiUrl = base + '#tool=rewrite';
+            this.settingsOpen = false;
+            this.setFullscreen(true);
+        },
         // [param-b64] 框架 /Action/call 的参数值禁止包含 引号/空格/$/&/;/|/\ 等
         // 字符(ikngx.lua __rest_check_illegality_char), JSON.stringify 的字符串
         // 含双引号必被拒(2005 Invalid characters)——曾导致保存设备/范围/分组/时段

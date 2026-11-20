@@ -3,7 +3,7 @@ import { Download, Eraser, Pause, Play, Shield } from "lucide-react"
 import { caPemURL, exportHarURL } from "@/lib/api"
 
 export type ViewId = "overview" | "devices" | "sessions" | "insights" | "toolbox"
-export type ToolId = "rules" | "subs" | "rest" | "explorer" | "scripts"
+export type ToolId = "rules" | "subs" | "rest" | "explorer" | "scripts" | "rewrite"
 
 const VIEWS: { id: ViewId; label: string; hint: string }[] = [
   { id: "overview", label: "总览", hint: "全网流量脉搏与关键指标" },
@@ -14,6 +14,7 @@ const VIEWS: { id: ViewId; label: string; hint: string }[] = [
 
 const TOOLS: { id: ToolId; label: string }[] = [
   { id: "rules", label: "规则" },
+  { id: "rewrite", label: "断点改包" },
   { id: "subs", label: "订阅" },
   { id: "rest", label: "编写" },
   { id: "explorer", label: "浏览" },

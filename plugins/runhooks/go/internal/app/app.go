@@ -1,13 +1,13 @@
 package app
 
 import (
-	"path/filepath"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -184,9 +184,10 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 			eng.SetPolicy(chain)
 			reloadReverse()
 		},
-		Breakpoints: bp,
-		REST:        restSvc,
-		Scripts:     gallery,
+		Breakpoints:  bp,
+		ScriptRunner: scr,
+		REST:         restSvc,
+		Scripts:      gallery,
 		OnScriptChange: func() {
 			_ = scr.Reload()
 			eng.SetScriptSlot(scr)
@@ -201,7 +202,7 @@ func New(cfg config.Config, log *slog.Logger, version string) (*App, error) {
 	return a, nil
 }
 
-func (a *App) Store() *store.Store       { return a.sink }
+func (a *App) Store() *store.Store      { return a.sink }
 func (a *App) Authority() *ca.Authority { return a.auth }
 
 func (a *App) MCPServer() *mcp.Server { return a.mcp }
