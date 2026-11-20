@@ -143,19 +143,19 @@ body{background:var(--nl-bg)!important;padding:14px 16px!important;color:var(--n
   .nl-header{align-items:flex-start;}
   .nl-status{justify-content:flex-start;}
 }
-/* ===== [split-tabs] 左右 tab: 框选的「服务与端口」+「观测步骤」收进左列 tab,
-   不再在顶部独占空间; 整个设置区只保留外层白卡一层边角, 内层不再各自带框 ===== */
-.nl-split{display:grid;grid-template-columns:152px minmax(0,1fr);margin-top:10px;
-  border-top:1px solid var(--nl-soft);}
-.nl-tabs{display:flex;flex-direction:column;gap:2px;padding:10px 8px;background:#f7f9fc;
-  border-right:1px solid var(--nl-soft);}
-.nl-tab{padding:8px 10px;font-size:12px;color:var(--nl-sub);cursor:pointer;user-select:none;
-  border-radius:6px;border-left:3px solid transparent;white-space:nowrap;transition:.15s;}
+/* ===== [horiz-tabs] 横向(左右排列) tab: 7 项一行排开, 内容面板在下方;
+   框选的「服务与端口」+「使用说明」与五段配置同为 tab 项, 不再在顶部独占空间;
+   整个设置区只保留外层白卡一层边角, 内层不再各自带框 ===== */
+.nl-split{display:block;margin-top:10px;border-top:1px solid var(--nl-soft);}
+.nl-tabs{display:flex;flex-direction:row;flex-wrap:wrap;gap:2px;padding:8px 0 0;
+  background:transparent;border-bottom:1px solid var(--nl-soft);}
+.nl-tab{padding:7px 13px;font-size:12px;color:var(--nl-sub);cursor:pointer;user-select:none;
+  border-radius:6px 6px 0 0;border-bottom:3px solid transparent;white-space:nowrap;transition:.15s;}
 .nl-tab:hover{color:var(--nl-primary);background:#eef4fd;}
-.nl-tab.on{color:var(--nl-primary);background:#fff;border-left-color:var(--nl-primary);font-weight:700;}
+.nl-tab.on{color:var(--nl-primary);background:#fff;border-bottom-color:var(--nl-primary);font-weight:700;}
 .nl-tab b{font-weight:400;color:var(--nl-mute);padding-left:2px;}
-.nl-panel{padding:12px 14px;min-width:0;background:#fff;}
-/* 内部块一律去边框/圆角/阴影: 只剩左列底色与分隔线, 消除多层套娃边角 */
+.nl-panel{padding:12px 0 0;min-width:0;background:#fff;}
+/* 内部块一律去边框/圆角/阴影: 只剩外层白卡一层边角, 消除多层套娃边角 */
 .nl-panel .rq-tabpanel{border:0!important;border-radius:0!important;background:transparent!important;
   padding:0!important;box-shadow:none!important;}
 .nl-panel .rq-service{border:0!important;background:transparent!important;border-radius:0!important;
@@ -167,13 +167,10 @@ body{background:var(--nl-bg)!important;padding:14px 16px!important;color:var(--n
 /* 使用说明面板里完整显示步骤, 不再折叠省略 */
 .nl-panel .nl-pane>.runhooks-tip,.nl-panel .nl-pane .runhooks-tip{white-space:normal!important;
   max-height:none!important;overflow:visible!important;text-overflow:clip!important;}
-/* 窄屏: 左列 tab 变横向可滚动, 内容区落到下方 */
+/* 窄屏: tab 自动换行, 面板仍在下方 */
 @media (max-width:820px){
-  .nl-split{grid-template-columns:1fr;}
-  .nl-tabs{flex-direction:row;overflow-x:auto;gap:4px;padding:8px;border-right:0;
-    border-bottom:1px solid var(--nl-soft);}
-  .nl-tab{border-left:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0;}
-  .nl-tab.on{border-left:0;border-bottom-color:var(--nl-primary);}
+  .nl-tabs{gap:2px;}
+  .nl-tab{padding:6px 9px;}
 }
 @media (max-width:820px){
   .nl-header{flex-direction:column;}
