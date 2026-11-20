@@ -410,3 +410,10 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 **API 额度坑**：匿名 GitHub API 60/h 在连续多轮验收后耗尽（`403 rate limit exceeded`）。绕法：① 清单用 `raw.githubusercontent.com/<owner>/<repo>/gh-pages/plugins.json?_=<ns>`（不消耗 API 额度，本轮先读到 1.1.12）；② 部署 SHA 用 `github.com/<owner>/<repo>/commits/gh-pages.atom`（Atom feed，实证 `Deploy plugins build 0ce8699…`）；③ Pages `github.io/plugins.json?nocache=` 有 10 分钟 CDN 缓存、加 query 也滞后，别拿它判「没发布」；④ 查 `api.github.com/rate_limit` 的 reset，等重置后重跑完整四步脚本。
 
 **设备侧**：点「更新软件源」→ 已装 1.1.11 出 1.1.12 升级按钮 → 升级（保留配置/CA）→ 引擎重启后 CORS 报错消除。
+
+## 插件详情浮层文案长度与「不 bump 版本」的有意例外（2026-11-20）
+
+- **`metadata.releasenotes` 不要逐轮无限追加**：每轮 bump 追加一句、五轮后到 1114 字符，固件插件管理页 popover 里 `<p v-html="item.releasenotes">` 全量展示，把底部更新/删除按钮顶出视口（用户截图 `upload_7fpiasfl.png`）。历史说明留在 git / AGENTS.md，**releasenotes 只保留当前版本**，description 控制在 ~100 字内。本轮 `4c8eb3d`：description `198→96`、releasenotes `1114→145`。
+- **有意不 bump version 的例外**：本轮改的只是**在线清单展示字段**（description / releasenotes），不是功能或包内文件。设备 `plugin_pgstore show` 的 `onlinePlugins` 在「更新软件源」时实时拉取，不需要 `compare_version` 出新版本 → 保持 `version=1.1.12` 即可生效；`check_engine_version()` 仍通过（二进制内嵌 1.1.12 == metadata），CI 重新打包生成新 build 号 ipk（包内容不变）。**这不违反「每次改插件必须升 version」纪律** —— 那条针对功能/包内文件改动需要设备升级；若改了 `html/` / `script/` / 二进制，仍必须 bump 并按 version-gate 重编。
+- 验收：CI `44711936783` success、gh-pages `6b5e47c7` 含 `4c8eb3d…`、API raw 线上清单 description 96 / releasenotes 145 / version 1.1.12 / upgradetype upgrade / releasenotes 无危险字符。设备点「更新软件源」后详情浮层立刻变短，按钮可见。
+- 固件侧同时加了通用兜底（浮层 `max-height` + 内部滚动 + 按钮行 sticky），见固件仓库 `AGENTS.md §24`；以后别的插件文案变长也不会挡按钮。
