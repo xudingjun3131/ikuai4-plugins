@@ -2,11 +2,11 @@
   "name": "netfence",
   "alias": "NetFence 一体化防火墙",
   "manufacturer": "iKuai",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "NetFence 一体化防火墙与上网行为管理: 域名过滤(广告/恶意/钓鱼)、应用识别、按用户组与时间段的统一策略、威胁情报封禁、nftables 规则编译、全量行为审计。整合 AdGuardHome/Pi-hole 的规则格式、nDPI/OpenAppFilter 的 L7 识别思路、OPNsense 的策略与规则分层、CrowdSec 的协同封禁与 nlbwmon/Sniffnet 的行为画像, 纯 Go 静态引擎, 无需内核模块。",
-  "releasenotes": "1.0.0 首个可用版本。单一策略表统一裁决 DNS 域名、TLS SNI 与 HTTP Host 请求, 六层流水线: 威胁情报 IP、例外白名单、域名过滤列表、应用识别、策略表、默认放行。支持 AdGuard 与 hosts 与纯域名三种规则格式、可按用户组与时段与应用分类编排策略、渲染可审阅的 nftables 规则集但不自动下发、全量行为审计留痕。默认只审计不拦截, 安装后不会断网。",
+  "releasenotes": "1.0.1 修复真机 P1 启动故障(测试报告 TEST-REPORT-2026-11-20-netfence): 框架经 /usr/ikuai/function/plugin_netfence 软链调用 service.sh, 旧版用 dirname 定位导致 BIN 指向不存在的 /usr/ikuai/bin/netfenced, 启动返回 1 且响应为空、show 版本报 unknown。照同仓库 runhooks 的 self-locate 段补 readlink 软链解析与多候选二进制探测, 失败原因回显到 stdout 便于定位。同时补齐固件 plugin_proxy 端口文件写入与停止清理, 消除引擎起来后 /plugin_proxy/netfence 仍 502 的连坐问题; 保留 BUILD_DATE 自适应绑定; wget 改用 busybox 兼容的 -T2; install.sh 补显式 return 0 与 autostart 自启。默认仍只审计不拦截, 配置与策略不丢。",
   "arch": [
     "x86_64"
   ],

@@ -62,7 +62,8 @@ plugins/netfence/
 ├── script/service.sh                         # start/stop/show/set_ports/reload/boot
 ├── script/default-policy.json                # 首装「只审计不拦截」安全默认
 ├── script/default-app-signatures.json        # 内置应用特征库(可扩展)
-├── bins/netfence-x86_64                      # CGO_ENABLED=0 静态引擎
+├── bins/netfence-x86_64                      # 源码侧静态引擎(CGO_ENABLED=0)
+│                                             # metadata.bin 映射到 ipk 内 bin/netfenced
 └── go/                                       # 纯标准库源码 + 单元测试
     ├── internal/core/    model/filterlist/appid/policy/acl/audit/threat/engine
     ├── internal/api/     localhost-only JSON API
@@ -87,3 +88,22 @@ plugins/netfence/
 - **无内核级 DPI/IPS**：L7 是域名/SNI/Host 特征匹配，不是 nDPI 那样的载荷级深度包检测；加密流量（ECH、QUIC 0-RTT）与任意端口应用的识别率有限。要补齐须固件侧配合 NFQUEUE + 内核模块，属固件仓库 `/opt/ikuai4-enterprise` 的工作，不是插件侧能独立完成的。
 - **DNS 拦截默认关闭**：需在「服务与端口」启用并配合 nftables 把 LAN 53 重定向到 18110；本轮默认只启用管理 API。
 - 未升线上版本、未提交、未 push、未打正式 ipk 发布（共享工作区版本链由其他成员推进，避免撞车）。
+
+
+## 附：v1.0.1 真机 P1 修复（2026-11-20）
+
+测试报告 `TEST-REPORT-2026-11-20-netfence-v1.0.0-real-device-verification.md` 指出：
+框架经 `/usr/ikuai/function/plugin_netfence` 软链调用 `service.sh`，而 v1.0.0 用
+`dirname "$0"` 定位安装目录，导致 `BIN` 指向不存在的路径，启动返回 1、
+`show TYPE=data` 版本报 `unknown`、按钮状态不变。
+
+v1.0.1 修复：
+1. 照同仓库 runhooks 的 `[self-locate]` 段补 `readlink` 软链解析，并对二进制位置
+   做多候选探测（不同固件传给脚本的 `$0` 形态不完全一致）；失败原因回显到 stdout。
+2. 补齐固件 `plugin_proxy` 端口文件 `/tmp/iktmp/plugin_web/netfence` 的写入/清理，
+   消除引擎起来后页面 API 仍 502 的连坐问题；保留 `BUILD_DATE` 自适应绑定地址。
+3. `wget` 改用 busybox 兼容的 `-T2`；`install.sh` 补显式 `return 0`（坑 89）与
+   autostart 开机自启；`start()` 改直接后台拉起，不依赖 `pgrep`/`start-stop-daemon`。
+4. 回归自测 `tests/p1-symlink-selftest.sh`：在临时目录搭真机同构目录树、经软链调用，
+   断言 BIN/`__bin_check`/版本/端口文件/API 可达/stop 清理 7 项；对 v1.0.0 原脚本
+   能完整复现三症状、对 v1.0.1 全绿。

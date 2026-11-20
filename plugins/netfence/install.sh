@@ -50,6 +50,14 @@ install()
     if [ ! -f $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/app-signatures.json ]; then
         cp -f $INSTALL_DIR/script/default-app-signatures.json $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/app-signatures.json 2>/dev/null
     fi
+    # [exit-code-fix] 上面最后一条是 [ ] && cp: 配置已存在时返回 1, 框架会判
+    # "插件安装失败"(文件其实都在, 重进页面又显示成功)。显式 return 0。
+    # [autostart] 开机 boot 时 install() 会重建软链(存储路径自愈), 这里按标志自启。
+    # 照 runhooks: 经框架软链调用, 不直接 source service.sh。
+    if [ -f $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart ]; then
+        /usr/ikuai/function/plugin_$PLUGIN_NAME start >/dev/null 2>&1 || true
+    fi
+    return 0
 }
 
 __uninstall()
@@ -65,14 +73,6 @@ __uninstall()
 uninstall()
 {
     __uninstall >/dev/null 2>&1
-}
-
-boot()
-{
-    # 开机自启: 标志由页面 set_auto_start 写入, 只在用户开启时拉起
-    if [ -f $EXT_PLUGIN_CONFIG_DIR/$PLUGIN_NAME/autostart ]; then
-        $INSTALL_DIR/script/service.sh start >/dev/null 2>&1
-    fi
 }
 
 procname=$(basename $BASH_SOURCE)
