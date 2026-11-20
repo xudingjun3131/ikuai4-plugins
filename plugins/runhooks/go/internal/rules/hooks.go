@@ -118,6 +118,11 @@ func (c *Chain) OnRequest(req *http.Request) (*http.Request, *http.Response, pro
 			}
 		}
 	}
+	// [cors-fix] CORS 预检本地应答: 放在所有请求阶段规则之后, host_block /
+	// map_local 等若已 RequestRespond 会在上面提前返回, 不会被这里绕过。
+	if isPreflight(req) && c.wildcardCORSEnabled(rules, host, path, method) {
+		return req, preflightResponse(req), proxy.RequestRespond
+	}
 	return req, nil, proxy.RequestContinue
 }
 
@@ -192,7 +197,14 @@ func (c *Chain) OnResponse(resp *http.Response) (*http.Response, proxy.ResponseA
 		switch r.Type {
 		case TypeHeader:
 			if r.Header != nil && strings.EqualFold(r.Header.Phase, "response") {
-				applyHeader(resp.Header, r.Header)
+				// [cors-fix] 通配 CORS 标记规则(*): 按请求动态回显 Origin/凭证/
+				// 方法与头, 不覆盖源站已有具体 ACAO; 具体值的自定义 CORS 规则
+				// 走原 applyHeader, 语义不变。
+				if isWildcardCORS(r) {
+					applyWildcardCORS(resp.Header, r.Header, req)
+				} else {
+					applyHeader(resp.Header, r.Header)
+				}
 			}
 		case TypeBodyReplace:
 			if r.BodyReplace != nil && strings.EqualFold(r.BodyReplace.Phase, "response") {
