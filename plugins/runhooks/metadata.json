@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "巡流 NetLoom 观测台",
   "manufacturer": "iKuai",
-  "version": "1.1.13",
+  "version": "1.1.14",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "巡流 NetLoom 局域网流量观测台, 抓包解密与统计全在网关本地完成: 设备画像、会话瀑布、域名洞察、HTTPS 解密、规则订阅。自带 Go 静态引擎, 首次使用需安装并信任 CA 证书。",
-  "releasenotes": "v1.1.13 全屏观测台改为铺满整个平台: 点按钮时把承载插件页的 iframe 提升到整个视口(同源 window.frameElement), 不再只铺满插件页区域; 全屏按钮常显, 引擎未启动时禁用并提示先启动引擎, 不会再整个消失; ESC 与退出全屏按钮原样恢复。升级走保留配置分支, 配置与 CA 证书不丢。",
+  "releasenotes": "v1.1.14 修复全屏后仍露出平台顶栏与左侧菜单的 4 条边缘空隙: 插件页被嵌两层 iframe(SPA -> 插件管理页 -> 插件功能页), 旧版只提升最内层; 现沿 window.parent 链把每一层 iframe 都提升到整个视口(fixed + 四边归零 + 100% 尺寸), 并去掉全屏态插件页自身留白, 观测台真正贴边铺满平台; 退出逐层恢复。升级走保留配置分支, 配置与 CA 证书不丢。",
   "arch": [
     "x86_64"
   ],

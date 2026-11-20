@@ -124,6 +124,11 @@ body{background:var(--nl-bg)!important;padding:14px 16px!important;color:var(--n
 .runhooks-frame{width:100%;height:calc(100vh - 210px);min-height:420px;border:1px solid var(--nl-line);
   border-radius:var(--nl-r);display:block;background:#fff;box-shadow:0 2px 12px rgba(31,45,61,.06);}
 .runhooks-frame.is-full{position:fixed;inset:0;width:100vw;height:100vh;min-height:0;border:0;border-radius:0;z-index:9000;}
+/* [platform-fullscreen] 全屏态去掉插件页四周留白与卡片边角, 观测台贴边铺满 */
+body.platform-fullscreen{padding:0!important;background:#fff!important;}
+body.platform-fullscreen #app.wrapper.row>.box,
+body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!important;
+  border:0!important;border-radius:0!important;box-shadow:none!important;}
 .rq-fs-exit{position:fixed;top:12px;right:16px;z-index:9100;box-shadow:0 2px 10px rgba(0,0,0,.2);}
 .rq-offline{margin-top:10px;padding:20px;text-align:center;color:var(--nl-mute);font-size:12px;line-height:1.8;
   background:#fafbfc;border:1px dashed var(--nl-line);border-radius:var(--nl-r);}
@@ -495,25 +500,37 @@ body{background:var(--nl-bg)!important;padding:14px 16px!important;color:var(--n
     </div>
 </div>
 <script type="module">
-// [platform-fullscreen] 插件页是被固件 SPA 以 iframe 嵌入的; 页内 position:fixed
-// 只相对 iframe 视口, 跨不出 iframe 边界。要"铺满整个平台"必须把承载本页的
-// iframe 本身提升到整个视口(同源, window.frameElement 可访问)。退出时原样恢复。
-let __frameStyle = null;
-function setFrameFullscreen(on) {
+// [platform-fullscreen] 插件页被嵌了两层: SPA -> 02.pgstore 页 -> 本插件页。
+// 只提升 window.frameElement(最内层) 仍会露出平台顶栏/左侧菜单 = 4 条边缘空隙。
+// 必须沿 window.parent 链把每一层 iframe 都提升到各自父文档的整个视口, 才能
+// 真正铺满平台。position:fixed + 四边归零 + width/height:100%(相对父文档视口;
+// iframe 是 replaced element, 用 auto 会退回默认 300x150), 退出时按原 style 逐层恢复。
+let __frameStyles = null;
+function frameChain() {
+    const out = [];
+    let w = window;
     try {
-        const f = window.frameElement;
-        if (!f) return;                       // 顶层直接打开: 退回页内 .is-full
-        if (on) {
-            if (__frameStyle === null) __frameStyle = f.getAttribute('style') || '';
-            [['position','fixed'],['inset','0'],['width','100vw'],['height','100vh'],
-             ['z-index','99999'],['border','0'],['background','#fff']].forEach(function(kv) {
+        while (w.frameElement) { out.push(w.frameElement); w = w.parent; }
+    } catch (e) { /* 跨域: 停在能访问的最外层 */ }
+    return out;
+}
+function setFrameFullscreen(on) {
+    const frames = frameChain();
+    if (on) {
+        if (__frameStyles === null) __frameStyles = frames.map(function(f) { return f.getAttribute('style') || ''; });
+        frames.forEach(function(f) {
+            [['position','fixed'],['top','0'],['left','0'],['right','0'],['bottom','0'],
+             ['width','100%'],['height','100%'],['margin','0'],['border','0'],
+             ['z-index','99999'],['background','#fff']].forEach(function(kv) {
                 f.style.setProperty(kv[0], kv[1], 'important');
             });
-        } else if (__frameStyle !== null) {
-            f.setAttribute('style', __frameStyle);
-            __frameStyle = null;
-        }
-    } catch (e) { /* 跨域/沙箱兜底: 页内 .is-full 仍生效 */ }
+        });
+    } else if (__frameStyles !== null) {
+        frames.forEach(function(f, i) { f.setAttribute('style', __frameStyles[i] || ''); });
+        __frameStyles = null;
+    }
+    // 插件页自身四周留白也在全屏态去掉, 观测台 iframe 真正贴边
+    try { document.body.classList.toggle('platform-fullscreen', !!on); } catch (e) {}
 }
 
 var app = new Vue({
