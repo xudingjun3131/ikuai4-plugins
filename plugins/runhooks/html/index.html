@@ -211,7 +211,7 @@ body{background:var(--nl-bg)!important;padding:14px 16px!important;color:var(--n
                     <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">下载 CA 证书</button>
                     <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
                     <button type="button" class="btn btn_default rounded height26" @click="settingsOpen = !settingsOpen">{{ settingsOpen ? '收起设置' : '展开设置' }}</button>
-                    <button v-if="status === 1" type="button" class="btn btn_default rounded height26" @click="setFullscreen(true)">全屏观测台</button>
+                    <button type="button" class="btn btn_default rounded height26" :disabled="status !== 1" :title="status !== 1 ? '请先启动引擎' : '铺满整个平台显示观测台'" @click="setFullscreen(true)">全屏观测台</button>
                     <!-- [v1.1.8] 断点改包图形化工作台: hash 深链进观测台工具箱, 不新开窗口 -->
                     <button v-if="status === 1" type="button" class="btn btn_default rounded height26" @click="openRewrite">断点改包</button>
                     <button type="button" class="btn btn_default rounded height26" @click="loadInitData">刷新状态</button>
@@ -495,6 +495,27 @@ body{background:var(--nl-bg)!important;padding:14px 16px!important;color:var(--n
     </div>
 </div>
 <script type="module">
+// [platform-fullscreen] 插件页是被固件 SPA 以 iframe 嵌入的; 页内 position:fixed
+// 只相对 iframe 视口, 跨不出 iframe 边界。要"铺满整个平台"必须把承载本页的
+// iframe 本身提升到整个视口(同源, window.frameElement 可访问)。退出时原样恢复。
+let __frameStyle = null;
+function setFrameFullscreen(on) {
+    try {
+        const f = window.frameElement;
+        if (!f) return;                       // 顶层直接打开: 退回页内 .is-full
+        if (on) {
+            if (__frameStyle === null) __frameStyle = f.getAttribute('style') || '';
+            [['position','fixed'],['inset','0'],['width','100vw'],['height','100vh'],
+             ['z-index','99999'],['border','0'],['background','#fff']].forEach(function(kv) {
+                f.style.setProperty(kv[0], kv[1], 'important');
+            });
+        } else if (__frameStyle !== null) {
+            f.setAttribute('style', __frameStyle);
+            __frameStyle = null;
+        }
+    } catch (e) { /* 跨域/沙箱兜底: 页内 .is-full 仍生效 */ }
+}
+
 var app = new Vue({
     el: '#app',
     data: {
@@ -553,7 +574,10 @@ var app = new Vue({
         window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.fullscreen) this.setFullscreen(false); });
     },
     methods: {
-        setFullscreen(on) { this.fullscreen = !!on; },
+        setFullscreen(on) {
+            this.fullscreen = !!on;
+            setFrameFullscreen(!!on);
+        },
         // [v1.1.8] 图形化断点改包工作台: 用 hash 深链把已打开的观测台 iframe
         // 切到工具箱的 rewrite 页(React 侧监听 hashchange), 不重载、不新开窗口。
         openRewrite() {
