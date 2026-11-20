@@ -417,3 +417,22 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 - **有意不 bump version 的例外**：本轮改的只是**在线清单展示字段**（description / releasenotes），不是功能或包内文件。设备 `plugin_pgstore show` 的 `onlinePlugins` 在「更新软件源」时实时拉取，不需要 `compare_version` 出新版本 → 保持 `version=1.1.12` 即可生效；`check_engine_version()` 仍通过（二进制内嵌 1.1.12 == metadata），CI 重新打包生成新 build 号 ipk（包内容不变）。**这不违反「每次改插件必须升 version」纪律** —— 那条针对功能/包内文件改动需要设备升级；若改了 `html/` / `script/` / 二进制，仍必须 bump 并按 version-gate 重编。
 - 验收：CI `44711936783` success、gh-pages `6b5e47c7` 含 `4c8eb3d…`、API raw 线上清单 description 96 / releasenotes 145 / version 1.1.12 / upgradetype upgrade / releasenotes 无危险字符。设备点「更新软件源」后详情浮层立刻变短，按钮可见。
 - 固件侧同时加了通用兜底（浮层 `max-height` + 内部滚动 + 按钮行 sticky），见固件仓库 `AGENTS.md §24`；以后别的插件文案变长也不会挡按钮。
+
+## v1.1.13 全屏观测台铺满整个平台 + 按钮常显（2026-11-20）
+
+**用户反馈**：「现在这个插件没有全屏显示的按钮了」，补充「要求的是铺满整个平台的那种」。
+
+**两个根因**：
+1. 按钮 `<button v-if="status === 1" @click="setFullscreen(true)">全屏观测台</button>` —— 引擎停止时整个消失（从 v1.0.0 起就是这条件，不是本轮回归）。A/B 实测 status=0 时 `btn=NO` 精确复现。
+2. 旧「全屏」只是插件页内 `.runhooks-frame.is-full{position:fixed;inset:0;width:100vw;height:100vh}` —— `position:fixed` 在嵌套 iframe 里只相对**该 iframe 视口**，跨不出 iframe；A/B 实测父 iframe 仍是 `0,92,1385,753`（平台顶栏占 92px 没盖住），`covers=NO`。skill 旧口径「铺满插件页已满足不弹新窗口的全屏」对这轮用户不适用，用户要的是整个平台。
+
+**修法**（`plugins/runhooks/html/index.html`）：
+- 模块级 `setFrameFullscreen(on)`：同源拿 `window.frameElement`（固件 SPA 嵌入插件页的那个 iframe），全屏时 `setProperty` 加 `position:fixed / inset:0 / width:100vw / height:100vh / z-index:99999 / border:0 / background:#fff`（全部 `important` 压过 SPA 内联），把**承载 iframe 本身**提升到整个视口；退出时用保存的 `__frameStyle` 原样 `setAttribute('style', ...)` 恢复。不用 Fullscreen API（跨 iframe 权限不稳），同源 DOM 操作即可。顶层直接打开时 `frameElement` 为 null，退回页内 `.is-full`，不报错。
+- `setFullscreen(on)` 联动调用；`openRewrite()` 也走它，断点改包工作台自动铺满平台；ESC 与「退出全屏(返回本页)」都走恢复分支。
+- 全屏按钮去掉 `v-if`，改 `:disabled="status !== 1"` + `:title` 提示「请先启动引擎」—— 常显但引擎没跑时点不动，iframe 门控仍隐藏（不会出现 Chromium 连接错误页）。
+- parity：`@click 37 / v-model 32 / v-for 8 / :class 8 / div 68:68 / window.open 0 / target 0` 全相等，仅少 1 个 `v-if`、多 1 个 `:disabled`；`node --check` 通过。
+
+**真浏览器 A/B**（写父页面模拟平台：60px 顶栏 + `<iframe id=pgframe>` 嵌插件页）：before status=1 `fsPosition=static / covers=NO_0,92,1385,753,1400,813`；before status=0 `btn=NO`（按钮消失）；after status=1 `fsPosition=fixed / fsZ=99999 / covers=OK / restored=OK`；after status=0 `btn=YES + btnDisabled=YES`；四组 `console error 0`。
+坑：`--dump-dom` 对父页面只输出父文档，子 iframe 里写 `document.title` 读不到，必须写 `window.parent.document.title`；`/tmp/fix_p` 固件 www 在构建后会被 umount，跑桩前要重新挂载，否则 `vue.js` 404 → Vue 未定义 → 探针读到未编译模板的假数据。
+
+**发布**：`1.1.12 → 1.1.13`，`releasenotes` **替换**（145→161 字，不追加，遵守「只留当前版本」纪律），引擎按 `check_engine_version()` 从含 CORS 的 HEAD 源码重编（内嵌 1.1.13 / PT_INTERP=0）。提交 `c624e31`；验收四步全过：CI `44715191885` success、gh-pages `5436a512` 含 SHA、线上清单 `1.1.13 / build 202611200958 / description 96 / releasenotes 161 / 无危险字符`、线上 ipk `7854563` 字节解包 9 项全 ✓（含 CORS 与横向 tab 未回归）。设备点「更新软件源」→ 升级 1.1.13 → 全屏按钮常显、点击铺满整个平台。
