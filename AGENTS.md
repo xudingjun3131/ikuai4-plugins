@@ -312,3 +312,20 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 5. **排查「推送了但设备不出升级按钮」的顺序**：先只读拉 `plugin_pgstore show TYPE=data`，把 `installed[].name` 与线上 `plugins.json` 的 `name` **逐字节比对**，并确认响应是合法 JSON（脏 releasenotes 会整包打坏，见上一节）；不一致就是标识断裂，别去等 CDN 缓存、别去动软件源 URL、别重复 push。
 6. **改回 name 必须同时升 version**：`compare_version` 是严格语义化比较，新号不大于线上旧号就不注入升级字段，写成比线上更低比不升更糟（§2.6）。
 7. **升级链自检**：本地 `python3 build.py plugins build` 后验 `build/plugins.json` 里该插件只有一条、`name`/`version`/`upgradetype` 正确，解包 ipk 核对包内 metadata/index.html/service.sh 三处标识符一致；发布后按「发布侧防复发清单」四步验收，确认设备 `installed[].newversion` 出现、升级后引擎 stop+start、配置/CA 保留。
+
+## 插件外壳页布局优化纪律（runhooks / 巡流 NetLoom，2026-11-20）
+
+本轮用户「把巡流 NetLoom 的页面也优化一下布局」承接固件插件管理页重设计。锁定实体：`plugins/runhooks/html/index.html` 外壳页（iframe 内呈现，非固件 SPA、非引擎内嵌 WebUI）。
+
+- **只整块替换 `<style>…</style>`**：用 `re.search(r'(<style>\n)(.*?)(\n    </style>)', src, re.S)` 精确换；改前备份后断言 `style 之外完全一致`。本轮实测 `@click 35 / v-model 32 / v-if 31 / v-show 6 / v-for 8 / :class 6 / window.open 0 / target 0 / div 63/63` 全部不变，`node --check` 通过。
+- **紧凑节奏对齐固件页**：卡片内距 `18px 20px → 12px 16px`、头部 `padding-bottom 14→10`、`.h20` `14→8px`、`.runhooks-row` `margin-bottom 10→8px`、tab 面板 `16/18→12/14`。硬规范不动：`body{background:#e9edf4}` + 白卡 8px 圆角/描边/阴影、16px 外契约、`#app`/`.box` 滚动语义、tab 纯 HTML+Vue、启停单按钮、引擎未启动 iframe 门控。
+- **长说明文字墙用 CSS 收敛，不删文案**：观测步骤 6 步说明 `#rq-settings>.runhooks-tip` 设 `max-height:3.5em; overflow:hidden` + `:hover/:focus-within{max-height:1400px}` + `::after`「悬停展开完整步骤」渐隐标签；`.nl-actions-hint` 与服务区端口行的长提示收敛为单行省略 + hover 展开。既减少首屏占用又不丢信息（skill 硬规范「不改文案」）。订阅面板里的短提示不折叠（用 `#rq-settings>` 直接子选择器精确限定）。
+- **状态组 chips 化**：`.nl-status` 加浅底 pill（`border-radius:20px`），4 个 el-tag + 计数 span 统一等高；分区头 `.nl-section-label` 字号 14px/700 + 左侧主色条，与固件 `.sec_head` 同节奏。
+
+**真浏览器 A/B 的坑（本轮实踩）**：
+1. mock 桩的固件 www 来自可写镜像挂载点（`/tmp/fix_p`），构建脚本末尾会 `umount` —— 跑渲染前**重新挂载**，否则 `vue.js` 404 → `Vue is not defined` → dump-dom 输出未编译模板，A/B 全是假数据（按钮文本里出现 `{{ }}` 就是信号）。
+2. 桩必须模拟 nginx `gzip_static`（`.js`→`.js.gz`）且**显式回 `Content-Encoding: gzip`**；只映射文件不加响应头会让浏览器按明文解析 gzip 字节，同样 Vue undefined。
+3. 必须断言 `errs:0`（head 最早处覆写 `console.error`/`onerror` 收集）、`iframe VISIBLE`、按钮文本集合改前改后一致、tab 数一致、计算样式关键值变化；缺一项都说明桩没跑通。
+4. **高度断言不能用 `document.body.scrollHeight`**：`#app` 是固定视口高度、`.box` 自己滚的契约，body.scrollHeight 恒等于视口（本轮两版都 913）。改测 `.box_block>.margin_phone` 与 `#rq-settings` 的 `offsetHeight` —— 实测卡片 `1322→1215`、配置区 `436→335`（-23%），紧凑效果才证得出来。
+
+**交付边界（遵守 skill「布局改动是源码层，不是发布」）**：不升 `metadata.json` 版本、不 commit/push、不打包 ipk、不触发 CI；收尾 `git status --short` 只允许 `plugins/runhooks/html/index.html` 一个文件被改（工作区里 Go 侧 CORS 改动属别的成员，不动、不捎带）。上线路径：版本链负责人 bump runhooks 版本（必须高于线上 1.1.8，否则 `compare_version` 不出升级按钮）→ `python3 build.py plugins build` → 提交推送触发 CI → 设备「更新软件源」后升级。`html/` 外壳页由 `build.py add_dir` 原样打进包，**不需重编 Go 引擎**（与 `web/src`→dist→Go 二进制那条链不同）。

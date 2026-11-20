@@ -9,51 +9,145 @@
     <link rel="stylesheet" href="../../static/css/plugin.css">
     <link rel="stylesheet" href="../../static/css/element.css">
     <style>
-        /* [padding-fix] 插件内容页左右内距: col-lg-offset-1 只给左边8.33%缩进、
-           右边0px, 左右不对称(用户反馈)。去掉偏移类后统一 body 左右各20px,
-           对齐 iKuai4 .setting 内距与插件管理页 mgmt_section */
-        body { padding: 0 20px; }
+/* ===== 巡流 NetLoom · 插件页布局优化 (v1.1.8-ui2, 2026-11-20) =====
+   承接固件插件管理页重设计: 12/16 紧凑节奏、分区头层次、状态 chips 化、
+   长说明收敛为可展开信息条、表单栅格等宽对齐。
+   只重做视觉层, 不动任何 DOM 结构 / Vue 绑定 / 方法 / 文案 / 后端动作。
+   遵守 plugin-page-ui.md 硬规范: 灰底 + 白卡浮起(8px 圆角/描边/阴影)、
+   16px 内距契约、tab 纯 HTML+Vue、启停单按钮、引擎未启动 iframe 门控,
+   不改 #app 与 .box 的滚动语义及已验收的上下灰条。 */
+:root{
+  --nl-bg:#e9edf4;--nl-card:#fff;--nl-line:#d8dfe9;--nl-soft:#ebeef5;
+  --nl-ink:#303133;--nl-sub:#606266;--nl-mute:#909399;
+  --nl-primary:#409eff;--nl-primary-soft:#ecf5ff;--nl-ok:#67c23a;
+  --nl-warn:#e6a23c;--nl-bad:#f56c6c;--nl-r:8px;
+}
+/* 灰底 + 白卡浮起: 沿用已验收的 16px 外契约, 只把卡内节奏压到 12/16 */
+body{background:var(--nl-bg)!important;padding:14px 16px!important;color:var(--nl-ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
+#app.wrapper.row>.box{padding:0!important;background:transparent;border:0;}
+#app .box_block>.margin_phone{
+  background:var(--nl-card);border:1px solid var(--nl-line);border-radius:var(--nl-r);
+  box-shadow:0 2px 12px rgba(31,45,61,.08);padding:12px 16px 14px;}
+#app .h20{height:0!important;margin:8px 0;}
 
-        .runhooks-frame { width: 100%; height: calc(100vh - 210px); min-height: 520px; border: 1px solid #e4e7ed; border-radius: 4px; display: block; }
-        /* [one-page] 观测台「全屏」在当前页面内铺满, 不再另起独立窗口/弹出页:
-           fixed 相对本插件页视口铺满, z-index 盖住配置区; 退出后回到同页原位。 */
-        .runhooks-frame.is-full { position: fixed; inset: 0; width: 100vw; height: 100vh; min-height: 0; border: 0; border-radius: 0; z-index: 9000; }
-        .rq-fs-exit { position: fixed; top: 12px; right: 16px; z-index: 9100; }
-        .rq-offline { margin-top: 14px; padding: 26px; text-align: center; color: #909399; font-size: 13px; line-height: 1.9; background: #fff; border: 1px solid #ebeef5; border-radius: 8px; }
-        .runhooks-card { border: 1px solid #ebeef5; border-radius: 8px; padding: 20px; margin-top: 12px; background: #fff; }  /* 对齐 iKuai4 .setting: 8px 圆角+20px 内距 */
-        .runhooks-card h4 { margin: 0 0 10px 0; font-size: 13px; color: #303133; }
-        .runhooks-card h4 span { font-weight: normal; color: #909399; font-size: 12px; padding-left: 8px; }
-        .rq-collapsible { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 5px; }
-        .rq-collapsible:hover { color: #409eff; }
-        .rq-caret { font-style: normal; font-size: 11px; color: #909399; transition: transform .15s; display: inline-block; }
-        .rq-caret.open { transform: rotate(90deg); }
-        .rq-collapsible .rq-count { font-weight: normal; color: #409eff; font-size: 12px; padding-left: 6px; }
-        .runhooks-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
-        .runhooks-row label { font-size: 12px; color: #606266; min-width: 64px; }
-        .runhooks-tip { background: #f4f4f5; border-left: 3px solid #409eff; padding: 10px 14px; font-size: 12px; color: #606266; line-height: 1.9; margin-top: 10px; }
-        /* [btn-fix] 固件 .btn_default 是灰底灰字+cursor:default(看着就是禁用的)。
-           功能按钮一律用次级样式: 白底+描边+指针, hover 变蓝, 明确可点击 */
-        .btn_default { background: #fff; border: 1px solid #dcdfe6; color: #606266; cursor: pointer; }
-        .btn_default:hover { background: #ecf5ff; border-color: #3e8cd4; color: #3e8cd4; }
-        .runhooks-devices { max-height: 180px; overflow-y: auto; border: 1px solid #ebeef5; border-radius: 4px; padding: 8px 10px; }
-        .runhooks-device-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px; }
-        .runhooks-device-item .ip { color: #909399; font-family: monospace; }
-        /* ===== tab 切换(v1.0.22): 四段配置改 tab, 同屏只显示一段 ===== */
-        .rq-tabs { display: flex; gap: 4px; border-bottom: 1px solid #ebeef5; margin-top: 12px; }
-        .rq-tab { padding: 8px 16px; font-size: 13px; color: #606266; cursor: pointer; user-select: none;
-                  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
-        .rq-tab:hover { color: #409eff; }
-        .rq-tab.on { color: #409eff; border-bottom-color: #409eff; font-weight: 600; }
-        .rq-tab b { font-weight: normal; color: #909399; padding-left: 2px; }
-        .rq-tabpanel { border: 1px solid #ebeef5; border-top: none; border-radius: 0 0 8px 8px;
-                       padding: 16px; background: #fff; }
-        /* [scope-capture] 主界面只放流量抓包相关控件; 端口/启动服务类收进折叠区 */
-        .rq-group-label { font-size:12px; color:#409eff; font-weight:600; padding-right:2px; }
-        .rq-service { margin-top:10px; border:1px solid #ebeef5; border-radius:6px; background:#fff; }
-        .rq-service-summary { cursor:pointer; padding:8px 12px; font-size:12px; color:#606266; user-select:none; }
-        .rq-service-summary:hover { color:#409eff; }
-        .rq-service-hint { color:#909399; font-weight:normal; padding-left:6px; }
-        .rq-service-body { padding:6px 12px 12px; border-top:1px solid #ebeef5; }
+/* 头部: 标题左 / 状态右, 状态组收成一条 pill, 分隔线更轻 */
+.nl-header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+  padding-bottom:10px;border-bottom:1px solid var(--nl-soft);}
+.nl-header>div:first-child b{font-size:17px;letter-spacing:.5px;color:var(--nl-ink);}
+.nl-header>div:first-child span{display:block;font-size:12px;color:var(--nl-mute);margin-top:3px;padding-left:0!important;}
+.nl-status{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;
+  background:#f7f9fc;border:1px solid var(--nl-soft);border-radius:20px;padding:4px 9px;}
+#app .el-tag{border-radius:11px;height:22px;line-height:20px;margin:0;}
+.nl-status>span[style]{font-size:12px;color:var(--nl-sub);padding:2px 9px;background:#fff;
+  border:1px solid var(--nl-soft);border-radius:11px;}
+
+/* 操作区: 标签+按钮成组, 长说明收敛为单行次要信息(悬停展开全文) */
+.nl-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;}
+.nl-actions .rq-group-label{font-size:12px;font-weight:700;color:var(--nl-primary);
+  background:var(--nl-primary-soft);border-radius:6px;padding:4px 10px;}
+.nl-actions-hint{flex-basis:100%;font-size:11px!important;color:var(--nl-mute)!important;line-height:1.6;order:9;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-height:1.7em;transition:max-height .2s;}
+.nl-actions-hint:hover{max-height:160px;white-space:normal;}
+#app .btn{height:30px!important;line-height:28px;padding:0 14px!important;margin:0!important;
+  border-radius:6px!important;font-size:12px;transition:.15s;white-space:nowrap;}
+#app .btn_default{background:#fff;border:1px solid #dcdfe6;color:var(--nl-sub);cursor:pointer;}
+#app .btn_default:hover{background:var(--nl-primary-soft);border-color:#3e8cd4;color:#3e8cd4;}
+#app .btn_blue{background:var(--nl-primary);border-color:var(--nl-primary);color:#fff;}
+#app .btn_green{background:var(--nl-ok);border-color:var(--nl-ok);color:#fff;}
+#app .btn_red{background:var(--nl-bad);border-color:var(--nl-bad);color:#fff;}
+#app .btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* 次要区「服务与端口」折叠: 卡片化, 端口行的长说明同样收敛 */
+.rq-service{margin-top:10px;border:1px solid var(--nl-soft);border-radius:var(--nl-r);background:#fafbfc;overflow:hidden;}
+.rq-service-summary{padding:9px 13px;font-size:12px;font-weight:600;color:var(--nl-sub);cursor:pointer;user-select:none;}
+.rq-service-summary:hover{color:var(--nl-primary);}
+.rq-service-hint{color:var(--nl-mute);font-weight:400;}
+.rq-service-body{padding:10px 13px 12px;border-top:1px solid var(--nl-soft);background:#fff;}
+#app .rq-service-body .runhooks-row>span[style*="color:#909399"]{flex-basis:100%;font-size:11px!important;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#app .rq-service-body .runhooks-row>span[style*="color:#909399"]:hover{white-space:normal;}
+
+/* 提示条: 通用紧凑信息卡; 观测步骤那面文字墙默认两行, 悬停展开全文 */
+.runhooks-tip{background:#f7f9fc;border:1px solid var(--nl-soft);border-left:3px solid var(--nl-primary);
+  border-radius:6px;padding:8px 12px;font-size:11px;color:var(--nl-sub);line-height:1.7;margin-top:10px;}
+.runhooks-tip>b{color:var(--nl-ink);}
+#rq-settings>.runhooks-tip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-height:1.9em;position:relative;transition:max-height .25s ease;}
+#rq-settings>.runhooks-tip:hover,#rq-settings>.runhooks-tip:focus-within{max-height:1400px;white-space:normal;}
+#rq-settings>.runhooks-tip::after{content:'悬停展开完整步骤';position:absolute;right:10px;bottom:0;
+  font-size:10px;color:var(--nl-primary);padding-left:20px;
+  background:linear-gradient(90deg,transparent,#f7f9fc 28%);}
+#rq-settings>.runhooks-tip:hover::after,#rq-settings>.runhooks-tip:focus-within::after{content:none;}
+
+/* 分区头: 与固件页 sec_head 同节奏(标题 + 左侧主色条 + 下方细分隔) */
+.rq-group-label{font-size:12px;color:var(--nl-primary);font-weight:700;}
+.nl-section-label{display:block;margin:12px 0 8px;padding-left:9px;border-left:3px solid var(--nl-primary);
+  font-size:14px;font-weight:700;color:var(--nl-ink);letter-spacing:.3px;}
+
+/* tab: 纯 HTML+Vue, 选中态明确, 面板内距与卡片对齐 */
+.rq-tabs{display:flex;gap:2px;margin-top:8px;border-bottom:1px solid var(--nl-soft);flex-wrap:wrap;}
+.rq-tab{padding:7px 13px;font-size:12px;color:var(--nl-sub);cursor:pointer;user-select:none;
+  border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;white-space:nowrap;transition:.15s;}
+.rq-tab:hover{color:var(--nl-primary);background:#f7f9fc;}
+.rq-tab.on{color:var(--nl-primary);background:#fff;border-color:var(--nl-soft);font-weight:700;position:relative;top:1px;}
+.rq-tab b{font-weight:400;color:var(--nl-mute);padding-left:2px;}
+.rq-tabpanel{border:1px solid var(--nl-soft);border-top:none;border-radius:0 0 var(--nl-r) var(--nl-r);
+  padding:12px 14px;background:#fff;}
+
+/* 表单栅格: 统一行距 / label 宽 / 控件高度与聚焦态, 消除散装内联 */
+#app .runhooks-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+#app .runhooks-row>label:not(.el-checkbox){min-width:80px!important;font-size:12px;color:var(--nl-sub);font-weight:500;}
+#app .runhooks-row input:not([type=checkbox]):not([type=radio]),
+#app .runhooks-row select{height:30px!important;border:1px solid #dcdfe6!important;
+  border-radius:6px!important;padding:0 10px!important;font-size:12px!important;color:var(--nl-ink);
+  background:#fff;outline:none;transition:.15s;box-sizing:border-box;}
+#app .runhooks-row input:focus,#app .runhooks-row select:focus{border-color:var(--nl-primary)!important;
+  box-shadow:0 0 0 2px rgba(64,158,255,.15);}
+#app .runhooks-row input::placeholder{color:#c0c4cc;}
+#app .runhooks-row>span[style*="color:#909399"]{font-size:11px!important;color:var(--nl-mute)!important;}
+
+/* 设备列表: 行分隔 + 等宽 IP, 像一张表 */
+.runhooks-devices{max-height:190px;overflow-y:auto;border:1px solid var(--nl-soft);border-radius:6px;padding:4px 10px;background:#fcfcfd;}
+.runhooks-device-item{display:flex;align-items:center;gap:10px;padding:5px 4px;font-size:12px;border-bottom:1px dashed var(--nl-soft);}
+.runhooks-device-item:last-child{border-bottom:none;}
+.runhooks-device-item .ip{color:var(--nl-mute);font-family:ui-monospace,Menlo,Consolas,monospace;}
+.runhooks-device-item>span:nth-child(2){font-weight:600;color:var(--nl-ink);min-width:120px;}
+
+/* 订阅卡片: 内联浅灰底收敛为白卡 + 描边, 明细列表左距统一 */
+.rq-tabpanel>div[style*="border:1px solid #ebeef5"]{border-radius:var(--nl-r)!important;
+  box-shadow:0 1px 4px rgba(31,45,61,.04);background:#fff!important;}
+#app .rq-tabpanel div[style*="background:#fafafa"]{background:#fff!important;}
+.rq-tabpanel ul{margin:2px 0 0 14px!important;}
+
+/* 观测台 iframe 与离线空态: 配置区更紧凑后多给观测台高度 */
+.runhooks-frame{width:100%;height:calc(100vh - 210px);min-height:420px;border:1px solid var(--nl-line);
+  border-radius:var(--nl-r);display:block;background:#fff;box-shadow:0 2px 12px rgba(31,45,61,.06);}
+.runhooks-frame.is-full{position:fixed;inset:0;width:100vw;height:100vh;min-height:0;border:0;border-radius:0;z-index:9000;}
+.rq-fs-exit{position:fixed;top:12px;right:16px;z-index:9100;box-shadow:0 2px 10px rgba(0,0,0,.2);}
+.rq-offline{margin-top:10px;padding:20px;text-align:center;color:var(--nl-mute);font-size:12px;line-height:1.8;
+  background:#fafbfc;border:1px dashed var(--nl-line);border-radius:var(--nl-r);}
+
+/* 保留原有辅助类(既有测试脚本按这些选择器断言) */
+.rq-collapsible{cursor:pointer;user-select:none;display:flex;align-items:center;gap:5px;}
+.rq-caret{font-style:normal;font-size:11px;color:var(--nl-mute);transition:transform .15s;display:inline-block;}
+.rq-caret.open{transform:rotate(90deg);}
+.runhooks-card{border:1px solid var(--nl-soft);border-radius:var(--nl-r);padding:16px;margin-top:10px;background:#fff;}
+
+/* 滚动条 */
+#app ::-webkit-scrollbar{width:8px;height:8px;}
+#app ::-webkit-scrollbar-thumb{background:#c8d0dc;border-radius:8px;}
+
+/* 窄屏: 状态组与操作组各自换行 */
+@media (max-width:1100px){
+  .nl-header{align-items:flex-start;}
+  .nl-status{justify-content:flex-start;}
+}
+@media (max-width:820px){
+  .nl-header{flex-direction:column;}
+  .nl-actions-hint{order:0;}
+  #app .runhooks-row>label:not(.el-checkbox){min-width:100%;}
+}
     </style>
 </head>
 <body>
@@ -62,12 +156,12 @@
         <div class="box_block">
             <div class="clearfix margin_phone">
                 <div class="h20"></div>
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div class="nl-header">
                     <div>
                         <b style="font-size:15px;">巡流 NetLoom</b>
                         <span style="font-size:12px; color:#909399; padding-left:10px;">局域网流量观测台 · 按设备 / 时间轴 / 域名聚合</span>
                     </div>
-                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <div class="nl-status">
                         <el-tag size="small" :type="status === 1 ? 'success' : 'info'">{{ status === 1 ? '运行中' : '已停止' }}</el-tag>
                         <el-tag size="small" :type="captureTag.type">{{ captureTag.text }}</el-tag>
                         <el-tag size="small" :type="rulesOn === 1 ? 'warning' : 'info'">{{ rulesOn === 1 ? '规则生效' : '规则未生效' }}</el-tag>
@@ -76,7 +170,7 @@
                     </div>
                 </div>
                 <div class="h20"></div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                <div class="nl-actions">
                     <!-- [scope-capture] 本组只放流量抓包相关操作; 引擎启停/开机自启(启动服务类)
                          与引擎端口(端口类)按需求收进下方「服务与端口」折叠区, 不占主界面。 -->
                     <span class="rq-group-label">抓包操作</span>
@@ -84,7 +178,7 @@
                          功能(用户实锤), 去掉顶部的; 保留"关闭抓包"(撤规则+暂停, 面板
                          暂停管不到 iptables 规则)。开启改用面板的"继续"。 -->
                     <button v-if="capture === 1" type="button" class="btn btn_red rounded height26" @click="setCapture(false)">关闭抓包</button>
-                    <span style="font-size:11px; color:#909399;">关闭抓包 = 撤网络规则 + 引擎暂停记录(显式代理的设备也不再落库)；开始/继续记录在下方界面点「继续」</span>
+                    <span class="nl-actions-hint">关闭抓包 = 撤网络规则 + 引擎暂停记录(显式代理的设备也不再落库)；开始/继续记录在下方界面点「继续」</span>
                     <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">下载 CA 证书</button>
                     <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
                     <button type="button" class="btn btn_default rounded height26" @click="settingsOpen = !settingsOpen">{{ settingsOpen ? '收起设置' : '展开设置' }}</button>
@@ -126,7 +220,7 @@
                 </div>
 
                 <!-- [scope-capture] 流量抓包相关配置全部放进本页主区 -->
-                <div class="rq-group-label" style="display:block; margin-top:12px;">抓包配置</div>
+                <div class="nl-section-label">抓包配置</div>
                 <!-- 1. 抓包设备 -->
                 <div class="rq-tabs">
                     <div class="rq-tab" :class="{on: activeTab==='devices'}" @click="activeTab='devices'">观测设备<b v-if="selectedDevices.length">({{ selectedDevices.length }})</b></div>
