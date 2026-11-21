@@ -107,3 +107,37 @@ v1.0.1 修复：
 4. 回归自测 `tests/p1-symlink-selftest.sh`：在临时目录搭真机同构目录树、经软链调用，
    断言 BIN/`__bin_check`/版本/端口文件/API 可达/stop 清理 7 项；对 v1.0.0 原脚本
    能完整复现三症状、对 v1.0.1 全绿。
+
+## 附：v1.1.0 管控落到真实流量 + 配置面补齐 + 布局优化（2026-11-21）
+
+探索性 QA 报告 `TEST-REPORT-2026-11-21-netfence-exploratory-firewall-qa.md`
+给出 P0「当前更像策略预演 + 审计原型，不是可用防火墙」及 11 条缺陷。v1.1.0 逐项销账：
+
+**P0 管控落到真实流量**
+- D1 `service.sh` 在 `dnsEnable=1` 时下发 `NETFENCE_DNS` 专用 iptables 链，把
+  LAN udp/tcp 53 重定向到 `DNS_PORT`；排除路由器自身 IP、上游 DNS、引擎自身端口
+  防回环；`stop` 整链撤销；`show` 回传 `dnsRedirect` 状态。回归
+  `tests/d1-dns-redirect-selftest.sh`（桩替 iptables，12 项断言）。
+- D2 `/api/acl` 仍只渲染（`applied:false`），下发独立为 `/api/acl/apply`，
+  必须 `confirm=true` 二次确认；`nft -f -` 只接受 `table inet` 规则集，
+  撤销按自有表名整表删除，不碰他人规则。
+- D8 DNS 应答里的 A/AAAA 解析结果过一遍威胁情报 L3 复核（`DecideResolvedIP`），
+  旧版 `handleDNS` 不带 `DstIP`，威胁 IP 层在数据面不可达。
+
+**P1 配置面缺失 + 假成功**
+- D3/D4 `/api/lists`、`/api/threat` 补齐 POST 写入 / DELETE 删除，带文件名校验
+  （防目录穿越）与原子落盘，写入后 `Reload` 立即生效；页面补上传/编辑入口。
+- D5 `service.sh` 补 `feeds.conf` 订阅下载（busybox wget）与 `refresh_feeds`。
+- D10 只读端点对未实现的 method 返回 405 + `Allow` 头，不再「200 但内容不变」。
+
+**P2/P3 数据可信度与逻辑**
+- D6 `/api/decide` 服务端强制 `DryRun`，预演写 `source=probe` 且不落行为审计；
+  `/api/audit` 支持按 `source` 过滤与 DELETE 清空。
+- D7 时段策略统一用 `ScheduleTZ`（东八区）比较，不再按设备 UTC 裸时钟差 8 小时。
+- D9 DNS 增 TCP/53（2 字节长度前缀）与并发上限；上游失败回 SERVFAIL 而非静默空应答。
+- D11 `PUT /api/policy` 带 `X-Policy-Rev` 做乐观并发检查，落后返回 409。
+
+验证：`go test ./...` 3 包全绿（31 用例，含 P0 回归）、`go vet` 0；真实引擎冒烟
+（编译产物起 `-api/-dns/-upstream`，发真实 UDP/TCP DNS 与 HTTP）15 项全过；
+外壳页布局参考巡流 NetLoom 做 CSS-only 优化，浏览器 A/B 23 项断言全过（该布局步骤
+内 DOM/绑定/文案逐字未动；相对 v1.0.1 的整体 html 差异另含上面的配置面 UI 新增）。默认策略仍 `default-audit` 只审计不拦截，安装不断网。

@@ -94,41 +94,52 @@ func (e *Engine) Reload(dir string) error {
 
 // Decide adjudicates one request. Pure w.r.t. inputs except for the audit
 // record (which is the point of the product).
+//
+// [dry-run] req.DryRun=true(策略预演/UI 调试)时不写行为审计, 避免 D6 的
+// "预演污染真实流量审计"。Source 标记来源, 便于审计按来源过滤/清理。
 func (e *Engine) Decide(req Request) Decision {
 	if req.At.IsZero() {
 		req.At = now()
+	}
+	src := req.Source
+	if src == "" {
+		src = "api"
+	}
+	if req.DryRun {
+		src = "probe"
 	}
 	e.mu.RLock()
 	filter, appid, policy, threat := e.Filter, e.AppID, e.Policy, e.Threat
 	e.mu.RUnlock()
 
+	// record 只在真实流量下写审计; 预演仍返回完整裁决供 UI 展示。
+	record := func(d Decision) Decision {
+		if !req.DryRun {
+			e.Audit.Record(d)
+		}
+		return d
+	}
 	mk := func(a Action, layer, reason, ruleID string, app string, cat Category) Decision {
 		return Decision{
 			Action: a, Layer: layer, Reason: reason, RuleID: ruleID,
 			App: app, Category: cat, ClientIP: req.ClientIP,
-			Domain: normalizeDomain(req.Domain), At: req.At,
+			Domain: normalizeDomain(req.Domain), Source: src, At: req.At,
 		}
 	}
 
 	// 1. threat intel (destination IP)
 	if req.DstIP != "" {
-		if src, ok := threat.MatchIP(req.DstIP); ok {
-			d := mk(ActionBlock, "threat", "命中威胁情报 "+src, "threat:"+src, "", CatMalware)
-			e.Audit.Record(d)
-			return d
+		if s, ok := threat.MatchIP(req.DstIP); ok {
+			return record(mk(ActionBlock, "threat", "命中威胁情报 "+s, "threat:"+s, "", CatMalware))
 		}
 	}
 
 	// 2/3. domain filter list (exceptions win inside Lookup)
-	if blocked, src, cat := filter.Lookup(req.Domain); blocked {
-		d := mk(ActionBlock, "filterlist", "命中过滤列表 "+src, "list:"+src, "", cat)
-		e.Audit.Record(d)
-		return d
-	} else if src != "" { // exception
+	if blocked, s, cat := filter.Lookup(req.Domain); blocked {
+		return record(mk(ActionBlock, "filterlist", "命中过滤列表 "+s, "list:"+s, "", cat))
+	} else if s != "" { // exception
 		app, ac := appid.Classify(req.Domain)
-		d := mk(ActionAllow, "exception", src, "exception", app, ac)
-		e.Audit.Record(d)
-		return d
+		return record(mk(ActionAllow, "exception", s, "exception", app, ac))
 	}
 
 	// 4. app identification
@@ -142,15 +153,34 @@ func (e *Engine) Decide(req Request) Decision {
 
 	// 5. unified policy table
 	if r, ok := policy.Evaluate(req, app, cat); ok {
-		d := mk(r.Action, "policy", "命中策略 "+r.ID+" ("+r.Name+")", "policy:"+r.ID, app, cat)
-		e.Audit.Record(d)
-		return d
+		return record(mk(r.Action, "policy", "命中策略 "+r.ID+" ("+r.Name+")", "policy:"+r.ID, app, cat))
 	}
 
 	// 6. default
-	d := mk(ActionAllow, "default", "无匹配规则, 默认放行", "default", app, cat)
-	e.Audit.Record(d)
-	return d
+	return record(mk(ActionAllow, "default", "无匹配规则, 默认放行", "default", app, cat))
+}
+
+// DecideResolvedIP 在拿到上游 DNS 应答的 A/AAAA 记录后做 L3 层威胁情报复核
+// (D8: 旧版 DNS 路径不带 DstIP, 威胁 IP 层永远不可达)。
+// 返回 (命中的 IP, 是否应拦截)。
+func (e *Engine) DecideResolvedIP(req Request, ips []string) (string, bool) {
+	e.mu.RLock()
+	threat := e.Threat
+	e.mu.RUnlock()
+	for _, ip := range ips {
+		if s, ok := threat.MatchIP(ip); ok {
+			d := Decision{
+				Action: ActionBlock, Layer: "threat", Reason: "DNS 应答命中威胁情报 " + s + " (" + ip + ")",
+				RuleID: "threat-resolved:" + s, ClientIP: req.ClientIP,
+				Domain: normalizeDomain(req.Domain), Source: "dns", At: req.At,
+			}
+			if !req.DryRun {
+				e.Audit.Record(d)
+			}
+			return ip, true
+		}
+	}
+	return "", false
 }
 
 func catFromHint(h string) Category {

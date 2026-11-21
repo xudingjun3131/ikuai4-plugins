@@ -16,9 +16,13 @@ type Schedule struct {
 }
 
 func (s Schedule) active(at time.Time) bool {
+	// [tz-fix] D7: 统一在 ScheduleTZ(默认东八区) 比较, 不依赖固件本地时区。
+	// 旧版用 at.Format 直接比 UTC 裸时钟, 设备 Go 运行时 UTC -> UI 填 09:00-18:00
+	// 实际生效为北京 17:00-次日 02:00。显式 In(loc) 后与用户直觉一致。
+	local := at.In(ScheduleTZ)
 	if len(s.Days) > 0 {
 		hit := false
-		wd := int(at.Weekday())
+		wd := int(local.Weekday())
 		for _, d := range s.Days {
 			if d == wd {
 				hit = true
@@ -32,7 +36,7 @@ func (s Schedule) active(at time.Time) bool {
 	if s.Start == "" || s.End == "" {
 		return true
 	}
-	hm := at.Format("15:04")
+	hm := local.Format("15:04")
 	if s.Start <= s.End {
 		return hm >= s.Start && hm <= s.End
 	}

@@ -43,8 +43,17 @@ type AuditQuery struct {
 	App      string
 	Category Category
 	Action   Action
+	Source   string // 按来源过滤(dns|tcp|api|probe), 空=不过滤
 	Since    time.Time
 	Limit    int
+}
+
+// Clear empties the ring (DELETE /api/audit, 便于清理 D6 残留的预演记录)。
+func (a *Audit) Clear() {
+	a.mu.Lock()
+	a.head, a.n = 0, 0
+	a.buf = make([]Decision, a.cap)
+	a.mu.Unlock()
 }
 
 func (a *Audit) Query(q AuditQuery) []Decision {
@@ -69,6 +78,9 @@ func (a *Audit) Query(q AuditQuery) []Decision {
 			continue
 		}
 		if q.Action != "" && d.Action != q.Action {
+			continue
+		}
+		if q.Source != "" && d.Source != q.Source {
 			continue
 		}
 		if !q.Since.IsZero() && d.At.Before(q.Since) {

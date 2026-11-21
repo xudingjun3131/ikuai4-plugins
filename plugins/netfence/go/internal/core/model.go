@@ -46,17 +46,21 @@ const (
 // Request is one observed client action to be adjudicated. A single Request
 // type is deliberately shared by DNS, TLS-SNI and HTTP-Host hooks: that is the
 // "一体化" part — one policy table decides all of them instead of three products.
+// DryRun=true 表示"策略预演"(UI 调试), 不写行为审计(D6: 预演污染审计)。
 type Request struct {
 	ClientIP  string    `json:"client_ip"`
 	ClientMAC string    `json:"client_mac"`
 	Domain    string    `json:"domain"` // DNS qname / TLS SNI / HTTP Host
 	DstIP     string    `json:"dst_ip"` // optional resolved address
 	AppHint   string    `json:"app_hint"`
+	DryRun    bool      `json:"dry_run"` // true=预演, 不落审计
+	Source    string    `json:"source"`  // dns|tcp|api|probe, 留空则由引擎按 dry_run 推断
 	At        time.Time `json:"at"`
 }
 
 // Decision is the engine verdict, carrying provenance so the UI can explain
 // "why was this blocked" (a weakness of many single-purpose tools).
+// Source 区分数据来源: dns/tcp/api(真实流量) 与 probe(策略预演), 便于审计过滤。
 type Decision struct {
 	Action   Action    `json:"action"`
 	Layer    string    `json:"layer"` // threat|exception|filterlist|policy|default
@@ -66,6 +70,7 @@ type Decision struct {
 	RuleID   string    `json:"rule_id"`
 	ClientIP string    `json:"client_ip"`
 	Domain   string    `json:"domain"`
+	Source   string    `json:"source"` // dns|tcp|api|probe
 	At       time.Time `json:"at"`
 }
 
@@ -74,3 +79,8 @@ func (d Decision) Blocked() bool { return d.Action == ActionBlock }
 
 // now is a single clock seam so tests are deterministic.
 var now = func() time.Time { return time.Now() }
+
+// ScheduleTZ 是时段策略使用的固定时区。设备固件 Go 运行时为 UTC 且常无 tzdata,
+// 不能用 time.LoadLocation(会失败回退 UTC)。默认东八区(北京时间), 与设备
+// 使用者填写 09:00-18:00 的直觉一致(D7: 差 8 小时)。可由配置覆盖。
+var ScheduleTZ = time.FixedZone("CST", 8*3600)

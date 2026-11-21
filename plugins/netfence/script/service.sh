@@ -84,6 +84,83 @@ __write_port_file()
 
 mkdir -p "$DATA_DIR/lists" "$DATA_DIR/threat" 2>/dev/null
 
+# ============================================================================
+# [data-plane] D1 P0: 把 LAN 的 53 端口 DNS 查询重定向到本引擎的 DNS_PORT。
+# 旧版只把「需配合防火墙规则」写在页面上, 却没有任何下发代码 -> 域名过滤
+# 对真实流量完全不生效。这里照 runhooks 的 RUNHOOKS_REDIRECT 先例实现:
+#  - 专用链 NETFENCE_DNS, 幂等建链/挂 PREROUTING/清空, 不动别人的规则
+#  - 排除路由器自身所有 IPv4(否则 LAN 访问管理页/路由器自身 DNS 也被截)
+#  - 排除本引擎发往上游的查询: 用 --sport 排除 DNS_PORT 且按目标上游 IP RETURN,
+#    避免「重定向到自己的 DNS_PORT -> 引擎再查上游 -> 又被重定向」的回环
+#  - 同时覆盖 udp/tcp 53; 仅当 dnsEnable=1 时下发, stop 时整链撤销
+#  - 每次 -C 检查再 -I, 避免重复插入
+# ============================================================================
+IPT_CHAIN="NETFENCE_DNS"
+
+__dns_rules_on()
+{
+    command -v iptables >/dev/null 2>&1 || { echo "iptables 不可用, DNS 重定向未下发" >&1; return 1; }
+    local __port="${DNS_PORT:-18110}"
+    iptables -t nat -N "$IPT_CHAIN" 2>/dev/null
+    iptables -t nat -C PREROUTING -j "$IPT_CHAIN" 2>/dev/null || iptables -t nat -I PREROUTING 1 -j "$IPT_CHAIN"
+    iptables -t nat -F "$IPT_CHAIN" 2>/dev/null
+
+    # 1) 排除路由器自身全部 IPv4
+    local lip
+    for lip in $(ip -o -4 addr show 2>/dev/null | awk '{print $4}' | cut -d/ -f1); do
+        iptables -t nat -A "$IPT_CHAIN" -d "$lip" -j RETURN 2>/dev/null
+    done
+    # 2) 排除上游 DNS 服务器(引擎转发查询的目标), 防回环
+    local upip
+    upip=$(printf '%s' "${UPSTREAM:-223.5.5.5:53}" | cut -d: -f1)
+    [ -n "$upip" ] && iptables -t nat -A "$IPT_CHAIN" -d "$upip" -j RETURN 2>/dev/null
+    # 3) 排除来自本引擎自身端口的报文(二次保险)
+    iptables -t nat -A "$IPT_CHAIN" -p udp --sport "$__port" -j RETURN 2>/dev/null
+    iptables -t nat -A "$IPT_CHAIN" -p tcp --sport "$__port" -j RETURN 2>/dev/null
+    # 4) 其余 LAN 客户端的 53 查询 -> 本引擎
+    iptables -t nat -A "$IPT_CHAIN" -p udp --dport 53 -j REDIRECT --to-ports "$__port" 2>/dev/null
+    iptables -t nat -A "$IPT_CHAIN" -p tcp --dport 53 -j REDIRECT --to-ports "$__port" 2>/dev/null
+    echo "DNS 重定向已下发: LAN 53 -> $__port (链 $IPT_CHAIN)"
+    return 0
+}
+
+__dns_rules_off()
+{
+    command -v iptables >/dev/null 2>&1 || return 0
+    iptables -t nat -D PREROUTING -j "$IPT_CHAIN" 2>/dev/null
+    iptables -t nat -F "$IPT_CHAIN" 2>/dev/null
+    iptables -t nat -X "$IPT_CHAIN" 2>/dev/null
+    return 0
+}
+
+# [D5] 威胁情报/过滤列表订阅刷新: feeds.conf 每行 "<文件名> <URL>",
+# busybox wget 下载到 lists/ 与 threat/ 后由引擎 SIGHUP 重载。
+# 旧版页面承诺「service.sh 负责刷新」却无任何下载逻辑, 这里补齐。
+__feeds_refresh()
+{
+    local feeds="$DATA_DIR/feeds.conf" n=0 line name url dest
+    [ -f "$feeds" ] || { echo "无 feeds.conf, 跳过订阅刷新"; return 0; }
+    while read -r line; do
+        line=$(printf '%s' "$line" | sed 's/#.*//')
+        [ -z "$line" ] && continue
+        name=$(printf '%s' "$line" | awk '{print $1}')
+        url=$(printf '%s' "$line" | awk '{print $2}')
+        [ -z "$name" ] || [ -z "$url" ] && continue
+        case "$name" in *.txt) ;; *) continue;; esac
+        case "$name" in */*|*..*) continue;; esac
+        dest="$DATA_DIR/threat/$name"
+        case "$name" in ads*|*ads*|block*|*blocklist*) dest="$DATA_DIR/lists/$name";; esac
+        if wget -q -O "$dest.tmp" -T 15 "$url" 2>/dev/null && [ -s "$dest.tmp" ]; then
+            mv "$dest.tmp" "$dest"; n=$((n+1))
+        else
+            rm -f "$dest.tmp"
+            echo "订阅下载失败: $name ($url)" >&1
+        fi
+    done < "$feeds"
+    echo "订阅刷新完成: $n 个"
+    return 0
+}
+
 # [jq-shim] 设备固件是裁剪版 jq, --argjson 恒返回空。所有 JSON 构造只用
 # printf 与纯文本拼接, 不依赖 jq 的高级选项。
 __json_escape() {
@@ -126,17 +203,29 @@ start()
     # 轮询等进程真正存活, 不押注后台立即就绪
     local i=0
     while [ $i -lt 20 ]; do
-        if __alive; then return 0; fi
+        if __alive; then break; fi
         i=$((i+1))
         sleep 0.2
     done
-    echo "引擎启动失败: 进程未存活, 详见 $LOGFILE" >&1
-    rm -f "$PP_PORT_FILE"
-    return 1
+    if ! __alive; then
+        echo "引擎启动失败: 进程未存活, 详见 $LOGFILE" >&1
+        rm -f "$PP_PORT_FILE"
+        return 1
+    fi
+    # [D1] 进程活了才下发重定向, 避免把 LAN 53 引到一个没人的端口
+    if [ "${DNS_ENABLE:-0}" = "1" ]; then
+        __dns_rules_on || echo "警告: DNS 重定向下发失败, 域名过滤暂不覆盖真实流量" >&1
+    else
+        __dns_rules_off
+    fi
+    __feeds_refresh >/dev/null 2>&1
+    return 0
 }
 
 stop()
 {
+    # [D1] 先撤重定向再停引擎, 避免窗口期 LAN 53 打到已死的端口
+    __dns_rules_off
     # [plugin-proxy] 停止即摘掉端口文件: 文件在=代理可转发, 不在=明确报插件未运行
     rm -f "$PP_PORT_FILE"
     if [ -f "$PIDFILE" ]; then
@@ -193,6 +282,14 @@ reload()
     return 0
 }
 
+# [D5] 页面/定时调用: 下载订阅源后热重载, 不重启引擎
+refresh_feeds()
+{
+    __feeds_refresh
+    reload
+    return 0
+}
+
 __show_data()
 {
     local status=0
@@ -201,6 +298,11 @@ __show_data()
     [ -f "$DATA_DIR/autostart" ] && autostart=1
     local dnsEnable=0
     [ "${DNS_ENABLE:-0}" = "1" ] && dnsEnable=1
+    # [D1] 内核重定向链是否真的挂上了(iptables -C 判定, 只读)
+    local dnsRedirect=0
+    if [ "$dnsEnable" = "1" ] && command -v iptables >/dev/null 2>&1; then
+        iptables -t nat -C PREROUTING -j "$IPT_CHAIN" 2>/dev/null && dnsRedirect=1
+    fi
     local version
     version=$("$BIN" -version 2>/dev/null | head -1)
     [ -z "$version" ] && version="unknown"
@@ -231,7 +333,7 @@ __show_data()
 
     local v
     v=$(__json_escape "$version")
-    __json_result__="{\"status\":$status,\"autostart\":$autostart,\"dnsEnable\":$dnsEnable,\"apiPort\":$API_PORT,\"dnsPort\":$DNS_PORT,\"version\":\"$v\",\"apiUp\":$api_up,\"blocked\":$blocked,\"total\":$total,\"rules\":$rules,\"lists\":$lists,\"threat\":$threat}"
+    __json_result__="{\"status\":$status,\"autostart\":$autostart,\"dnsEnable\":$dnsEnable,\"dnsRedirect\":$dnsRedirect,\"apiPort\":$API_PORT,\"dnsPort\":$DNS_PORT,\"version\":\"$v\",\"apiUp\":$api_up,\"blocked\":$blocked,\"total\":$total,\"rules\":$rules,\"lists\":$lists,\"threat\":$threat}"
     return 0
 }
 

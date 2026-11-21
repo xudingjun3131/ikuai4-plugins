@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"os/exec"
 	"sort"
 	"strings"
 )
@@ -137,4 +138,30 @@ func validIface(s string) bool {
 		}
 	}
 	return true
+}
+
+// [acl-apply] D2: 给 IP 封禁一个受控执行点。默认仍只渲染(applied:false),
+// 只有显式 apply 才真正下发到内核; 规则集自带 policy accept, 只 drop 明确列入
+// 的 IP/CIDR, 不会切断网络; 停止/撤销时按自己的表名整表删除, 不碰别人的规则。
+var runNft = func(stdin string) (string, error) {
+	cmd := exec.Command("nft", "-f", "-")
+	cmd.Stdin = strings.NewReader(stdin)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+// ApplyRuleset 把渲染好的 nft 规则集下发(nft -f -)。失败原样回传, 由 API 展示。
+func ApplyRuleset(ruleset string) (string, error) {
+	if !strings.Contains(ruleset, "table inet ") {
+		return "", fmt.Errorf("拒绝下发: 规则集不是预期的 inet 表")
+	}
+	return runNft(ruleset)
+}
+
+// FlushRuleset 撤销: 只删自己的表, 不存在视为成功(幂等)。
+func FlushRuleset(table string) (string, error) {
+	if !validTableName(table) {
+		return "", fmt.Errorf("非法表名 %q", table)
+	}
+	return runNft(fmt.Sprintf("delete table inet %s\n", table))
 }

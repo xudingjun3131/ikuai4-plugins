@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-func testAt() time.Time { return time.Date(2026, 11, 20, 10, 30, 0, 0, time.UTC) } // Friday 10:30
+// [D7] 时段策略统一按 ScheduleTZ(北京时间) 比较。testAt 必须是「北京 10:30 周五」,
+// 旧版用 UTC 裸时钟比较才把 time.Date(...,UTC) 当工作时段; 现在用固定时区构造,
+// 语义明确且与 active() 的 at.In(ScheduleTZ) 一致。
+func testAt() time.Time { return time.Date(2026, 11, 20, 10, 30, 0, 0, ScheduleTZ) } // Friday 10:30 CST(Beijing)
 
 // ---- FilterList: the three real-world formats + exceptions + subdomains ----
 
@@ -115,8 +118,8 @@ func Test_Policy_OrderAndSchedule(t *testing.T) {
 	if !ok || r.ID != "block-video-workhours" {
 		t.Fatalf("workhours block not hit: rule=%+v ok=%v", r, ok)
 	}
-	// outside workhours -> falls through to default
-	req.At = time.Date(2026, 11, 20, 20, 0, 0, 0, time.UTC)
+	// outside workhours (Beijing 20:00) -> falls through to default
+	req.At = time.Date(2026, 11, 20, 20, 0, 0, 0, ScheduleTZ)
 	if r, _ := p.Evaluate(req, "抖音", CatVideo); r.ID != "default" {
 		t.Errorf("schedule ignored, got %q", r.ID)
 	}

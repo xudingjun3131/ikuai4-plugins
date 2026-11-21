@@ -58,7 +58,9 @@ echo "$OUT" | grep -E '^(BIN|BINCHECK|SHOW)=' | sed 's/^/    /'
 echo "$OUT" | grep -q 'BINCHECK=1' && ok "① __bin_check 通过(软链下 BIN 可定位)" || bad "① __bin_check 仍失败"
 REALBIN="$ROOT/store/netfence/bin/netfenced"
 echo "$OUT" | grep -q "BIN=$REALBIN" && ok "② BIN 指向真实二进制" || bad "② BIN 路径错误"
-echo "$OUT" | grep -q '"version":"1.0.1"' && ok "③ show 读到引擎版本(非 unknown)" || bad "③ 版本仍 unknown"
+# 版本断言按 metadata.json 真值动态取, 不硬编码(每次 bump 版本都仍成立)
+EXPECT_VER=$(python3 -c "import json;print(json.load(open('$SRC/metadata.json'))['version'])" 2>/dev/null)
+echo "$OUT" | grep -q "\"version\":\"$EXPECT_VER\"" && ok "③ show 读到引擎版本 $EXPECT_VER(非 unknown)" || bad "③ 版本仍 unknown 或非 $EXPECT_VER"
 echo "$OUT" | grep -q 'plugin web ui' && bad "③ show 混入异常文本" || true
 
 # ④ ⑤ : 真起引擎(start 经软链调用), 验端口文件 + API

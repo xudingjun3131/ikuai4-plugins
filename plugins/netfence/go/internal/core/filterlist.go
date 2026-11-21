@@ -230,6 +230,53 @@ func (f *FilterList) SaveJSON(path string) error {
 	return os.WriteFile(path, b, 0o600)
 }
 
+// WriteListFile writes one named list file under dir and validates it parses.
+// name 只允许 [A-Za-z0-9._-]+ 且必须以 .txt 结尾, 防目录穿越。
+// 返回解析出的条目数。写入后由调用方 Reload() 统一生效。
+func WriteListFile(dir, name, body string) (int, error) {
+	if err := validateName(name); err != nil {
+		return 0, err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return 0, err
+	}
+	if len(body) > 4<<20 {
+		return 0, fmt.Errorf("列表过大(上限 4MB)")
+	}
+	// 先校验语法能解析, 再落盘, 避免写入坏数据把引擎搞成空规则
+	probe := NewFilterList()
+	n := probe.ParseList(name, body, inferCategory(name))
+	tmp := filepath.Join(dir, name+".tmp")
+	if err := os.WriteFile(tmp, []byte(body), 0o600); err != nil {
+		return 0, err
+	}
+	return n, os.Rename(tmp, filepath.Join(dir, name))
+}
+
+func validateName(name string) error {
+	if name == "" || len(name) > 64 || !strings.HasSuffix(name, ".txt") {
+		return fmt.Errorf("非法文件名(需 .txt 结尾): %q", name)
+	}
+	for _, r := range name {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == '-') {
+			return fmt.Errorf("文件名含非法字符: %q", name)
+		}
+	}
+	return nil
+}
+
+// RemoveListFile deletes one list file under dir.
+func RemoveListFile(dir, name string) error {
+	if err := validateName(name); err != nil {
+		return err
+	}
+	err := os.Remove(filepath.Join(dir, name))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
+}
+
 // SortedDomains returns blocked domains in deterministic order (ACL/UI use).
 func (f *FilterList) SortedDomains() []string {
 	f.mu.RLock()
