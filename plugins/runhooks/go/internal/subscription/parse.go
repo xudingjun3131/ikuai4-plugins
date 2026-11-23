@@ -21,7 +21,10 @@ func DetectFormat(raw string) Format {
 			continue
 		}
 		switch s {
-		case "[rewrite]", "[filter_local]", "[policy]", "[server_local]", "[host]":
+		case "[rewrite]", "[filter_local]", "[policy]", "[server_local]", "[host]",
+			"[filter_remote]", "[rewrite_remote]", "[task_local]", "[server_remote]":
+			// 后四个是 QuanX 独有段(Surge 无), 尤其只有 [filter_remote] 的轻量 conf
+			// 必须判 quanx, 否则会被当纯列表把 URL 行误读成 IP-CIDR。
 			return FormatQuanX
 		case "[rule]", "[proxy]", "[script]", "[map local]", "[header rewrite]", "[url rewrite]":
 			return FormatSurge
@@ -204,8 +207,42 @@ func parseQuanX(raw string) *Parsed {
 			}
 		case "rewrite":
 			p.parseRewriteLine(s, lineNo)
+		case "filter_remote", "rewrite_remote":
+			// QX 主配置引用远程规则/重写: URL, force-policy=..., enabled=...
+			// 由 manager 拉取展开(本解析器保持纯函数、不联网)。
+			parts := splitCSVLine(s)
+			if len(parts) == 0 || !strings.HasPrefix(strings.ToLower(parts[0]), "http") {
+				p.skip(s, lineNo, "remote 引用行格式不识别")
+				continue
+			}
+			ref := RemoteRef{URL: parts[0], Kind: "filter", Line: lineNo}
+			if section == "rewrite_remote" {
+				ref.Kind = "rewrite"
+			}
+			enabled := true
+			for _, kv := range parts[1:] {
+				k, v, ok := strings.Cut(kv, "=")
+				if !ok {
+					continue
+				}
+				k, v = strings.TrimSpace(k), strings.TrimSpace(v)
+				switch strings.ToLower(k) {
+				case "force-policy":
+					ref.ForcePolicy = v
+				case "enabled":
+					enabled = !strings.EqualFold(v, "false")
+				}
+			}
+			if enabled {
+				p.RemoteRefs = append(p.RemoteRefs, ref)
+			} else {
+				p.skip(s, lineNo, "remote 引用 enabled=false, 已跳过")
+			}
 		case "filter_local":
-			// <pattern> <script.js|reject>
+			// <pattern> <script.js|reject>; final/策略行是 QX 兜底策略, 不是脚本
+			if strings.HasPrefix(strings.ToLower(s), "final") {
+				continue
+			}
 			f := strings.Fields(s)
 			if len(f) >= 2 {
 				pattern, rest := f[0], strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(s), f[0]))
@@ -309,7 +346,10 @@ func (p *Parsed) parseRuleLine(s string, lineNo int) {
 	switch typ {
 	case "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "IP-CIDR", "IP-CIDR6", "GEOIP", "URL-REGEX", "USER-AGENT":
 		p.Rules = append(p.Rules, Rule{Type: typ, Value: val, Policy: policy, NoResolve: noResolve, Line: lineNo, Raw: s})
-	case "AND", "NOT", "INCLUDE", "FINAL", "DOMAIN-SET", "IP-ASN", "DEST-PORT", "IN-PORT", "PROCESS-NAME", "IN-USER", "IN-SYSTEM", "SRC-IP", "SRC-IP-CIDR":
+	case "IP-ASN":
+		// QX 规则集常见类型; NetLoom 无 ASN→IP 数据库, 解析记录但不适配(Adapt 里出 warning)
+		p.Rules = append(p.Rules, Rule{Type: typ, Value: val, Policy: policy, NoResolve: noResolve, Line: lineNo, Raw: s})
+	case "AND", "NOT", "INCLUDE", "FINAL", "DOMAIN-SET", "DEST-PORT", "IN-PORT", "PROCESS-NAME", "IN-USER", "IN-SYSTEM", "SRC-IP", "SRC-IP-CIDR":
 		p.skip(s, lineNo, fmt.Sprintf("规则类型 %s 暂不支持(已跳过)", typ))
 	default:
 		p.skip(s, lineNo, fmt.Sprintf("未知规则类型 %s", typ))
@@ -452,7 +492,7 @@ func parseList(raw string) *Parsed {
 
 func isKnownRuleType(t string) bool {
 	switch t {
-	case "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "IP-CIDR", "IP-CIDR6", "GEOIP", "URL-REGEX", "USER-AGENT":
+	case "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "IP-CIDR", "IP-CIDR6", "GEOIP", "URL-REGEX", "USER-AGENT", "IP-ASN":
 		return true
 	}
 	return false

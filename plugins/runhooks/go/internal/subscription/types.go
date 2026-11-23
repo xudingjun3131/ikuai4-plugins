@@ -7,10 +7,10 @@ package subscription
 type Format string
 
 const (
-	FormatAuto   Format = "auto"
-	FormatQuanX  Format = "quanx"
-	FormatSurge  Format = "surge"
-	FormatList   Format = "list"
+	FormatAuto  Format = "auto"
+	FormatQuanX Format = "quanx"
+	FormatSurge Format = "surge"
+	FormatList  Format = "list"
 )
 
 // Sub 是一条订阅(持久化在 subscriptions/subs.json)。
@@ -27,27 +27,37 @@ type Sub struct {
 
 	// 统计(解析后回填, 随 subs.json 持久化, 页面列表直接读)
 	RuleCount    int `json:"rule_count"`
-	HostCount    int `json:"host_count"`   // 域名类规则数
-	IPCount      int `json:"ip_count"`     // IP 类规则数
+	HostCount    int `json:"host_count"` // 域名类规则数
+	IPCount      int `json:"ip_count"`   // IP 类规则数
 	RewriteCount int `json:"rewrite_count"`
 	ScriptCount  int `json:"script_count"`
 	SkippedCount int `json:"skipped_count"` // 不支持/忽略的行数
 }
 
+// RemoteRef 是 QX 主配置 [filter_remote]/[rewrite_remote] 段里的远程引用。
+// 例: https://x/list, force-policy=REJECT, update-interval=172800, enabled=true
+type RemoteRef struct {
+	URL         string `json:"url"`
+	Kind        string `json:"kind"` // filter|rewrite
+	ForcePolicy string `json:"force_policy,omitempty"`
+	Line        int    `json:"line"`
+}
+
 // Parsed 是订阅原文的解析结果(持久化在 subscriptions/<id>.parsed.json)。
 type Parsed struct {
-	Format    string     `json:"format"`
-	MitmHosts []string   `json:"mitm_hosts"` // [mitm]/[MITM] hostname
-	Rules     []Rule     `json:"rules"`      // 域名/IP/UA 类规则
-	Rewrites  []Rewrite  `json:"rewrites"`   // [rewrite]/[Script] 改写指令
-	Scripts   []Script   `json:"scripts"`    // 引用的脚本(内容已尝试抓取)
-	Warnings  []string   `json:"warnings"`   // 人类可读的跳过/降级说明
-	Skipped   int        `json:"skipped"`    // 跳过行数
+	Format     string      `json:"format"`
+	MitmHosts  []string    `json:"mitm_hosts"`  // [mitm]/[MITM] hostname
+	Rules      []Rule      `json:"rules"`       // 域名/IP/UA 类规则
+	Rewrites   []Rewrite   `json:"rewrites"`    // [rewrite]/[Script] 改写指令
+	Scripts    []Script    `json:"scripts"`     // 引用的脚本(内容已尝试抓取)
+	RemoteRefs []RemoteRef `json:"remote_refs"` // QX 主配置引用的远程规则/重写(manager 展开)
+	Warnings   []string    `json:"warnings"`    // 人类可读的跳过/降级说明
+	Skipped    int         `json:"skipped"`     // 跳过行数
 }
 
 // Rule 一条域名/IP 类规则(统一 QuanX/Surge 语法)。
 type Rule struct {
-	Type      string `json:"type"`   // DOMAIN/DOMAIN-SUFFIX/DOMAIN-KEYWORD/IP-CIDR/GEOIP/URL-REGEX/USER-AGENT...
+	Type      string `json:"type"` // DOMAIN/DOMAIN-SUFFIX/DOMAIN-KEYWORD/IP-CIDR/GEOIP/URL-REGEX/USER-AGENT...
 	Value     string `json:"value"`
 	Policy    string `json:"policy"` // PROXY/DIRECT/REJECT/... (纯列表为 "")
 	NoResolve bool   `json:"no_resolve,omitempty"`
@@ -66,9 +76,9 @@ type Rewrite struct {
 
 // Script 一条脚本引用(内容已尝试抓取; FetchErr 非空=抓取失败)。
 type Script struct {
-	Name     string `json:"name"`     // 文件名或 URL 末段
-	Kind     string `json:"kind"`     // response-body|request-header|request-body|echo-response|filter
-	Source   string `json:"source"`   // JS 原文(抓取成功时)
+	Name     string `json:"name"`   // 文件名或 URL 末段
+	Kind     string `json:"kind"`   // response-body|request-header|request-body|echo-response|filter
+	Source   string `json:"source"` // JS 原文(抓取成功时)
 	URL      string `json:"url,omitempty"`
 	FetchErr string `json:"fetch_err,omitempty"`
 	Line     int    `json:"line"`
@@ -77,8 +87,8 @@ type Script struct {
 // Adapted 是 Parsed 适配成引擎配置的产物。
 type Adapted struct {
 	Scope    ScopePatch  // → scope.sub.json
-	Rules   []AdaptRule // → rules.sub.json
-	Scripts []AdaptScript
+	Rules    []AdaptRule // → rules.sub.json
+	Scripts  []AdaptScript
 	Warnings []string // 适配期的降级/丢弃说明(与 Parsed.Warnings 分开, 面向"为什么没生效")
 }
 

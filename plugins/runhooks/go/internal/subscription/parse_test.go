@@ -156,8 +156,9 @@ IP-ASN,13335,PROXY
 FINAL,DIRECT
 `
 	p := Parse(raw, FormatQuanX)
-	if len(p.Rules) != 8 {
-		t.Fatalf("Rules = %d, want 8 (支持的类型): %+v", len(p.Rules), p.Rules)
+	// IP-ASN 现解析记录但不适配(引擎无 ASN 数据库, Adapt 出 warning), 计入 Rules
+	if len(p.Rules) != 9 {
+		t.Fatalf("Rules = %d, want 9 (含记录但不生效的 IP-ASN): %+v", len(p.Rules), p.Rules)
 	}
 	byType := map[string]Rule{}
 	for _, r := range p.Rules {
@@ -173,8 +174,9 @@ FINAL,DIRECT
 		t.Errorf("GEOIP value = %q", byType["GEOIP"].Value)
 	}
 	// 不支持的类型进 warnings + skipped 计数
-	if p.Skipped != 3 { // DOMAIN-SET, IP-ASN, FINAL
-		t.Errorf("Skipped = %d, want 3; warnings=%v", p.Skipped, p.Warnings)
+	// IP-ASN 现解析记录但不适配(Adapt 出 warning), 不再计入 skipped
+	if p.Skipped != 2 { // DOMAIN-SET, FINAL
+		t.Errorf("Skipped = %d, want 2; warnings=%v", p.Skipped, p.Warnings)
 	}
 }
 

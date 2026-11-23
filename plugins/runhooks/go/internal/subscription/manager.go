@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	maxSubBytes = 8 << 20 // 订阅原文上限 8MB
+	maxSubBytes = 16 << 20 // 订阅原文上限 16MB(yfamilys AntiAD.list 约 9.7MB)
 	defaultUA   = "Mozilla/5.0 (compatible; runhooks-subscription/1.0)"
 )
 
@@ -29,12 +29,12 @@ const (
 //   - rules.sub.json   ( Chain.SaveSubRules )
 //   - scripts/sub-*.js ( script.Gallery 的 scripts 目录 )
 type Manager struct {
-	dataDir string // <dataDir>/subscriptions
+	dataDir  string // <dataDir>/subscriptions
 	subsPath string
-	scope   *proxy.ScopeStore
-	chain   *rules.Chain
-	gallery *script.Gallery
-	log     *slog.Logger
+	scope    *proxy.ScopeStore
+	chain    *rules.Chain
+	gallery  *script.Gallery
+	log      *slog.Logger
 
 	mu   sync.Mutex
 	subs []Sub
@@ -55,13 +55,13 @@ func NewManager(dataDir string, scope *proxy.ScopeStore, chain *rules.Chain, gal
 		log = slog.Default()
 	}
 	m := &Manager{
-		dataDir:  filepath.Join(dataDir, "subscriptions"),
-		scope:    scope,
-		chain:    chain,
-		gallery:  gallery,
-		log:      log,
-		client:   &http.Client{Timeout: 30 * time.Second},
-		stopCh:   make(chan struct{}),
+		dataDir: filepath.Join(dataDir, "subscriptions"),
+		scope:   scope,
+		chain:   chain,
+		gallery: gallery,
+		log:     log,
+		client:  &http.Client{Timeout: 30 * time.Second},
+		stopCh:  make(chan struct{}),
 	}
 	m.subsPath = filepath.Join(m.dataDir, "subs.json")
 	if err := os.MkdirAll(m.dataDir, 0o700); err != nil {
@@ -155,6 +155,9 @@ func (m *Manager) ParsedOf(id string) (*Parsed, error) {
 	if p.Warnings == nil {
 		p.Warnings = []string{}
 	}
+	if p.RemoteRefs == nil {
+		p.RemoteRefs = []RemoteRef{}
+	}
 	return &p, nil
 }
 
@@ -201,7 +204,7 @@ func (m *Manager) Effective() (ScopePatch, int, int) {
 
 // Add 新增订阅: 立刻拉取+解析+适配+生效。
 func (m *Manager) Add(rawURL, name string, format Format, intervalMin int) (Sub, error) {
-	rawURL = strings.TrimSpace(rawURL)
+	rawURL = normalizeSubURL(rawURL)
 	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
 		return Sub{}, fmt.Errorf("订阅地址必须是 http(s) URL")
 	}
@@ -332,6 +335,8 @@ func (m *Manager) Update(id string) error {
 		return err
 	}
 	p := Parse(string(raw), sub.Format)
+	// 展开 QX 主配置 [filter_remote]/[rewrite_remote] 引用的远程规则/重写
+	m.expandRemoteRefs(p, urlStr)
 	// 抓取订阅引用的脚本(相对路径按订阅 URL 所在目录解析)
 	m.fetchScripts(p, urlStr)
 	a := Adapt(p)
@@ -426,11 +431,98 @@ func (m *Manager) fetch(urlStr, ua string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
-	b, err := io.ReadAll(io.LimitReader(resp.Body, maxSubBytes))
+	if err := checkSubSize(resp.ContentLength); err != nil {
+		return nil, err
+	}
+	b, err := io.ReadAll(io.LimitReader(resp.Body, maxSubBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("读取失败: %w", err)
 	}
+	if err := checkSubSize(int64(len(b))); err != nil {
+		return nil, err
+	}
 	return b, nil
+}
+
+// checkSubSize 明确拒绝超限订阅, 不再静默截断(旧版 8MB 会把 AntiAD.list 切掉半行)。
+func checkSubSize(n int64) error {
+	if n > maxSubBytes {
+		return fmt.Errorf("订阅原文 %d 字节超过上限 %d 字节, 拒绝静默截断", n, maxSubBytes)
+	}
+	return nil
+}
+
+// normalizeSubURL 去掉订阅地址上的 @url: 引用前缀(从 QX/聚合器复制时常带)。
+func normalizeSubURL(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "@url:")
+	return strings.TrimSpace(s)
+}
+
+// expandRemoteRefs 展开 QX 主配置 [filter_remote]/[rewrite_remote] 段的远程引用。
+// 迭代队列, 最多 3 层 / 50 个 URL, 防循环引用和打爆源站; 单条失败只记 warning 不中断。
+// force-policy=REJECT 的引用把拉回的规则标 REJECT(Adapt 转成 ssl_bypass/host_block)。
+func (m *Manager) expandRemoteRefs(p *Parsed, subURL string) {
+	type job struct {
+		refs  []RemoteRef
+		base  string
+		depth int
+	}
+	queue := []job{{refs: p.RemoteRefs, base: subURL, depth: 0}}
+	seen := make(map[string]bool)
+	fetched := 0
+	for len(queue) > 0 {
+		j := queue[0]
+		queue = queue[1:]
+		if j.depth > 2 {
+			p.Warnings = append(p.Warnings, "remote 引用超过 3 层, 已停止展开(防循环)")
+			continue
+		}
+		base, _ := url.Parse(j.base)
+		for _, ref := range j.refs {
+			if fetched >= 50 {
+				p.Warnings = append(p.Warnings, "remote 引用超过 50 个, 已停止展开(防打爆源站)")
+				return
+			}
+			target := ref.URL
+			if !strings.HasPrefix(strings.ToLower(target), "http") {
+				if base == nil {
+					continue
+				}
+				r, err := url.Parse(target)
+				if err != nil {
+					continue
+				}
+				target = base.ResolveReference(r).String()
+			}
+			if seen[target] {
+				continue
+			}
+			seen[target] = true
+			fetched++
+			raw, err := m.fetch(target, "")
+			if err != nil {
+				p.Warnings = append(p.Warnings, fmt.Sprintf("remote 引用 %s 拉取失败: %v", target, err))
+				continue
+			}
+			sub := Parse(string(raw), FormatAuto)
+			if isRejectPolicy(ref.ForcePolicy) {
+				for i := range sub.Rules {
+					sub.Rules[i].Policy = "REJECT"
+				}
+			}
+			p.Rules = append(p.Rules, sub.Rules...)
+			p.Rewrites = append(p.Rewrites, sub.Rewrites...)
+			p.MitmHosts = append(p.MitmHosts, sub.MitmHosts...)
+			p.Scripts = append(p.Scripts, sub.Scripts...)
+			p.Warnings = append(p.Warnings, sub.Warnings...)
+			p.Skipped += sub.Skipped
+			p.Warnings = append(p.Warnings, fmt.Sprintf("remote 引用 %s 展开: %d 条规则 / %d 条改写", target, len(sub.Rules), len(sub.Rewrites)))
+			if len(sub.RemoteRefs) > 0 {
+				queue = append(queue, job{refs: sub.RemoteRefs, base: target, depth: j.depth + 1})
+			}
+		}
+	}
 }
 
 // fetchScripts 抓取订阅引用的脚本内容; 相对路径按订阅 URL 所在目录解析。

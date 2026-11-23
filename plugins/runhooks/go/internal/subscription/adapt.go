@@ -31,6 +31,7 @@ func Adapt(p *Parsed) *Adapted {
 		a.Scope.Domains = append(a.Scope.Domains, normalizeHostPattern(h))
 	}
 	// 域名/IP 类规则
+	asnCount := 0
 	for _, r := range p.Rules {
 		switch r.Type {
 		case "DOMAIN":
@@ -63,7 +64,12 @@ func Adapt(p *Parsed) *Adapted {
 			}
 		case "USER-AGENT":
 			a.Scope.UserAgents = append(a.Scope.UserAgents, r.Value)
+		case "IP-ASN":
+			asnCount++ // 记录但不适配: 引擎无 ASN→IP 数据库
 		}
+	}
+	if asnCount > 0 {
+		a.Warnings = append(a.Warnings, fmt.Sprintf("订阅含 %d 条 IP-ASN 规则: 引擎无 ASN→IP 数据库, 已记录但未生效", asnCount))
 	}
 	// [scope-conflict] 引擎的域名/IP/国家三个维度是 AND 关系(任一不满足即绕过)。
 	// 订阅若同时含域名规则与 IP-CIDR/GEOIP, IP/国家白名单会把域名流量全部挡掉——
