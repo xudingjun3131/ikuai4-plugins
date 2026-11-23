@@ -20,8 +20,11 @@ var builtinRules = []Rule{
 	{
 		// 禁用缓存: 抓包不再吃 304, 每次都是真响应(改内容替换时尤其重要,
 		// 否则浏览器拿本地缓存根本不发请求)
-		ID:      "builtin-no-cache",
-		Enabled: true,
+		ID: "builtin-no-cache",
+		// [compat-400] 默认关闭: 这条 Match{} 命中所有请求, 会把
+		// Cache-Control/Pragma: no-cache 发给上游并删掉条件请求头, 部分站点
+		// (mail.163.com 实锤) 对这种请求头组合直接回 400。需要去 304 时手动启用。
+		Enabled: false,
 		Type:    TypeHeader,
 		Match:   Match{},
 		Header: &HeaderMut{
@@ -33,8 +36,11 @@ var builtinRules = []Rule{
 	{
 		// 关键: hook 层拿到的是上游返回的原始字节, 响应带 gzip/br 时
 		// 「内容替换」的明文字符串匹配不上。让上游返回明文, 替换才生效。
-		ID:      "builtin-accept-encoding",
-		Enabled: true,
+		ID: "builtin-accept-encoding",
+		// [compat-400] 默认关闭且已冗余: 引擎 response 阶段已透明解码→替换→
+		// 按原编码重编码(见 rules/hooks.go), 不再需要靠强制 identity 让上游回明文。
+		// 强制 identity 会让上游按未压缩路径响应, 是部分站点 400 的另一诱因。
+		Enabled: false,
 		Type:    TypeHeader,
 		Match:   Match{},
 		Header: &HeaderMut{

@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "NetLoom",
   "manufacturer": "iKuai",
-  "version": "1.1.15",
+  "version": "1.1.16",
   "type": "external",
   "upgradetype": "upgrade",
-  "description": "巡流 NetLoom 局域网流量观测台, 抓包解密与统计全在网关本地完成: 设备画像、会话瀑布、域名洞察、HTTPS 解密、规则订阅。自带 Go 静态引擎, 首次使用需安装并信任 CA 证书。",
-  "releasenotes": "v1.1.15 去掉插件详情页四周灰色间隙: 插件页 body padding 归零、白卡边框圆角阴影去掉、背景改纯白, 内容内距保留; 固件插件管理页嵌入视图同步去掉 padding 描边圆角与上下灰边, 并隐藏标题栏与 iframe 之间的 h20 占位, 让返回插件列表标题栏与详情页紧贴。升级走保留配置分支, 配置与 CA 证书不丢。",
+  "description": "NetLoom 局域网流量观测台, 抓包解密与统计全在网关本地完成: 设备画像、会话瀑布、域名洞察、HTTPS 解密、规则订阅。自带 Go 静态引擎, 首次使用需安装并信任 CA 证书。",
+  "releasenotes": "v1.1.16 修复设备走代理访问 mail.163.com 等站点全部返回 400: 内置规则不再默认对所有请求强制 no-cache 与 identity 改写, 老装机已固化的规则在加载层一并失效; 转发前剥离 Proxy-Connection 等逐跳头与内部标记头, 协议升级请求保留所需头; 响应快照后清除 Transfer-Encoding 并用确定的 Content-Length 回写, 避免非法响应。升级走保留配置分支, 配置与 CA 证书不丢。",
   "arch": [
     "x86_64"
   ],

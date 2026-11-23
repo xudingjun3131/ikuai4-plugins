@@ -244,13 +244,43 @@ func (e *Engine) onRequest(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Requ
 	}
 
 	fwd, body, trunc, size, err := snapshotBody(req.Body, e.maxBody)
-	req.Body = fwd
+	if err == nil && size == 0 {
+		req.Body = http.NoBody // 避免 Go Transport 对空 body 误判 chunked
+	} else {
+		req.Body = fwd
+	}
 	if err == nil {
 		req.ContentLength = size
+		req.TransferEncoding = nil
+		req.Header.Del("Transfer-Encoding")
 		req.Header.Del("Content-Length")
 		if size > 0 {
 			req.Header.Set("Content-Length", strconv.FormatInt(size, 10))
 		}
+	}
+	// [compat-400] 转发前剥离逐跳头与内部标记: 显式代理客户端会带
+	// Proxy-Connection, 高亮规则会注入 X-Proxying-Highlight*, 这些都不该发给上游,
+	// 部分站点/WAF 见到直接回 400。
+	req.Header.Del("X-Proxying-Highlight")
+	req.Header.Del("X-Proxying-Highlight-Color")
+	// WebSocket / protocol upgrades MUST keep Connection: Upgrade and Upgrade,
+	// stripping them makes upstream answer 400 (Test_Engine_WS_captures_frames).
+	isUpgrade := req.Header.Get("Upgrade") != "" || headerHas(req.Header, "Connection", "Upgrade")
+	if !isUpgrade {
+		for _, k := range []string{
+			"Proxy-Connection", "Proxy-Authenticate", "Proxy-Authorization",
+			"Keep-Alive", "TE", "Trailer", "Transfer-Encoding", "Upgrade",
+		} {
+			req.Header.Del(k)
+		}
+		for _, v := range req.Header.Values("Connection") {
+			for _, tok := range strings.Split(v, ",") {
+				if tok = strings.TrimSpace(tok); tok != "" {
+					req.Header.Del(tok)
+				}
+			}
+		}
+		req.Header.Del("Connection")
 	}
 
 	fc := &flowCtx{
@@ -410,7 +440,12 @@ func (e *Engine) onResponse(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Re
 	fwd, body, trunc, size, err := snapshotBody(resp.Body, e.maxBody)
 	resp.Body = fwd
 	if err == nil {
+		// [compat-400] body 已全量读入内存, 用确定的 Content-Length 回写;
+		// 必须同时清掉上游的 Transfer-Encoding: chunked, 否则 CL 与 TE 并存
+		// 属于非法 HTTP 响应, 严格的客户端/中间层会报 400。
 		resp.ContentLength = size
+		resp.TransferEncoding = nil
+		resp.Header.Del("Transfer-Encoding")
 		resp.Header.Del("Content-Length")
 		if size > 0 {
 			resp.Header.Set("Content-Length", strconv.FormatInt(size, 10))

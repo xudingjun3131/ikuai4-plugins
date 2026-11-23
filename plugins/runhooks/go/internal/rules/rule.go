@@ -180,6 +180,16 @@ func (c *Chain) Reload() error {
 		return err
 	}
 	all := append(append([]Rule(nil), user...), sub...)
+	// [compat-400] NewChain 明确「rules.json 已存在就不覆盖」, 老装机文件里
+	// 这两条内置规则仍是 Enabled=true。只改 defaults.go 对老设备无效, 必须在
+	// 加载层按 ID 一次性强制禁用(不写回文件, 不动用户其它规则/订阅规则)。
+	// 用户若确需这类改写, 用自定义 ID 的规则即可。
+	for i := range all {
+		switch all[i].ID {
+		case "builtin-no-cache", "builtin-accept-encoding":
+			all[i].Enabled = false
+		}
+	}
 	re := make(map[string]*regexp.Regexp)
 	for i := range all {
 		r := &all[i]

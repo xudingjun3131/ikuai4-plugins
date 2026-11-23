@@ -93,19 +93,16 @@ func Test_NewChain_doesNotOverwriteExisting(t *testing.T) {
 	}
 }
 
-// 内置规则必须真的能被引擎用起来: 至少一条 header/request 全局规则
-// (Accept-Encoding=identity 是"内容替换能生效"的前提)。
-func Test_DefaultRules_hasEncodingFix(t *testing.T) {
-	found := false
+// [compat-400] 内置规则不得默认启用会改写所有请求头的全局规则。
+// 引擎已在 response 阶段透明解码→替换→重编码, 不需要强制 identity;
+// 去缓存/强制 identity 会让部分站点(mail.163.com)直接回 400。
+func Test_DefaultRules_noGlobalRequestRewrite(t *testing.T) {
 	for _, r := range rules.DefaultRules() {
 		if r.Type != rules.TypeHeader || r.Header == nil || r.Header.Phase != "request" {
 			continue
 		}
-		if r.Header.Set["Accept-Encoding"] == "identity" {
-			found = true
+		if r.Enabled && len(r.Match.Host) == 0 && len(r.Match.Path) == 0 && len(r.Match.Methods) == 0 {
+			t.Errorf("内置规则 %q 默认启用了全局请求头改写(会导致部分站点 400)", r.ID)
 		}
-	}
-	if !found {
-		t.Error("内置规则里没有 Accept-Encoding=identity(内容替换会因压缩匹配不上)")
 	}
 }
