@@ -61,12 +61,9 @@ body{background:#fff!important;padding:0!important;margin:0!important;color:var(
 #app .btn_red{background:var(--nl-bad);border-color:var(--nl-bad);color:#fff;}
 #app .btn:disabled{opacity:.5;cursor:not-allowed;}
 
-/* 次要区「服务与端口」折叠: 卡片化, 端口行的长说明同样收敛 */
+/* 次要区「服务与端口」常展开: 卡片化, 端口行的长说明同样收敛 */
 .rq-service{margin-top:10px;border:1px solid var(--nl-soft);border-radius:var(--nl-r);background:#fafbfc;overflow:hidden;}
-.rq-service-summary{padding:9px 13px;font-size:12px;font-weight:600;color:var(--nl-sub);cursor:pointer;user-select:none;}
-.rq-service-summary:hover{color:var(--nl-primary);}
-.rq-service-hint{color:var(--nl-mute);font-weight:400;}
-.rq-service-body{padding:10px 13px 12px;border-top:1px solid var(--nl-soft);background:#fff;}
+.rq-service-body{padding:10px 13px 12px;background:#fff;}
 #app .rq-service-body .runhooks-row>span[style*="color:#909399"]{flex-basis:100%;font-size:11px!important;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #app .rq-service-body .runhooks-row>span[style*="color:#909399"]:hover{white-space:normal;}
@@ -187,7 +184,6 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
 .nl-panel .rq-service{border:0!important;background:transparent!important;border-radius:0!important;
   box-shadow:none!important;overflow:visible!important;margin-top:0!important;}
 .nl-panel .rq-service-body{border:0!important;background:transparent!important;padding:0 0 4px!important;}
-.nl-panel .rq-service-summary{padding:6px 0!important;}
 .nl-panel .runhooks-tip{border:0!important;border-left:3px solid var(--nl-primary)!important;
   border-radius:0!important;box-shadow:none!important;background:#f7f9fc;}
 /* 使用说明面板里完整显示步骤, 不再折叠省略 */
@@ -233,8 +229,9 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
                     </div>
                     <div class="nl-panel">
                         <div class="rq-tabpanel nl-pane" v-show="activeTab==='service'">
-                            <details id="rq-service" class="rq-service" :open="status !== 1">
-                                <summary class="rq-service-summary">服务与端口 · 开机自启 / 监听端口<span class="rq-service-hint"> · 非流量抓包功能，引擎运行时默认收起</span></summary>
+                            <!-- [ui-slim] 服务与端口常展开: 去掉 details 折叠标题行,
+                                 打开设置弹窗就能直接看到开机自启与端口配置 -->
+                            <div id="rq-service" class="rq-service rq-service-open">
                                 <div class="rq-service-body">
                                     <div class="runhooks-row" style="margin-top:4px;">
                                         <!-- [ui-slim] 引擎随观测台的「抓包总开关」自动拉起 / 暂停记录,
@@ -256,7 +253,7 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
                                         <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。观测台界面不写死代理地址，端口以本页设置为准</span>
                                     </div>
                                 </div>
-                            </details>
+                            </div>
                         </div>
                         <div class="rq-tabpanel nl-pane" v-show="activeTab==='help'">
                             <div class="runhooks-tip">
