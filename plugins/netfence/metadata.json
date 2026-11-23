@@ -2,11 +2,11 @@
   "name": "netfence",
   "alias": "NetFence",
   "manufacturer": "iKuai",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "NetFence 一体化防火墙与上网行为管理: 域名过滤(广告/恶意/钓鱼)、应用识别、按用户组与时间段的统一策略、威胁情报封禁、nftables 规则编译、全量行为审计。整合 AdGuardHome/Pi-hole 的规则格式、nDPI/OpenAppFilter 的 L7 识别思路、OPNsense 的策略与规则分层、CrowdSec 的协同封禁与 nlbwmon/Sniffnet 的行为画像, 纯 Go 静态引擎, 无需内核模块。",
-  "releasenotes": "1.1.0 打通管控到真实流量并补齐配置面与布局: 启用 DNS 拦截时由 service.sh 自动下发 LAN 53 重定向(带回环防护, 停止即撤销); 补齐过滤列表与威胁情报写入端点和页面编辑入口, 只读端点返回 405 不再静默假成功; 策略预演 dry_run 与真实行为审计分离, 时段策略统一北京时间; DNS 支持 TCP 与上游故障 SERVFAIL, 解析到的威胁 IP 进入 L3 复核; 策略保存带版本冲突检测, ACL 下发需二次确认; 页面布局参考巡流 NetLoom 做灰底白卡与紧凑节奏优化。默认仍只审计不拦截, 不触碰设备已有配置。",
+  "releasenotes": "v1.1.1 让上一版已提交的页面改动真正下发到设备: 详情页去掉灰底与白卡四周边框圆角阴影, 背景改纯白并保留内容内距, 消除标题栏与详情页之间的灰色间隙; 页面标题与页内名称统一为 NetFence。上一版只改了包内 HTML 却未升版本号, 设备已装 1.1.0 不会触发更新, 本版补齐版本号并重编 Go 引擎。升级走保留配置分支, 策略与配置不丢。",
   "arch": [
     "x86_64"
   ],
