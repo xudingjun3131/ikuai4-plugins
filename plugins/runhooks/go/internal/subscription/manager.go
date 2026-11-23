@@ -480,8 +480,10 @@ func (m *Manager) expandRemoteRefs(p *Parsed, subURL string) {
 		}
 		base, _ := url.Parse(j.base)
 		for _, ref := range j.refs {
-			if fetched >= 50 {
-				p.Warnings = append(p.Warnings, "remote 引用超过 50 个, 已停止展开(防打爆源站)")
+			// 5 类客户端资源索引页单个页面就有 400+ 链接; 与 parseIndex 的 100 条上限对齐,
+			// 只展开前 100 个并在 warning 明示, 防止把源站打爆。
+			if fetched >= 100 {
+				p.Warnings = append(p.Warnings, "remote 引用超过 100 个(客户端资源索引页), 已停止展开; 需要更多请直接填具体资源 URL")
 				return
 			}
 			target := ref.URL

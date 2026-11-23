@@ -75,8 +75,8 @@ func TestURLRegexToPath(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{`^https?://api\.example\.com/v1/user`, `^/v1/user`},
 		{`https://exact.example.org/a/b`, `^/a/b`},
-		{`^https?://api\.example\.com`, ""},   // 纯主机, 无 path
-		{`^/api/`, `^/api/`},                   // 已是 path 级
+		{`^https?://api\.example\.com`, ""}, // 纯主机, 无 path
+		{`^/api/`, `^/api/`},                // 已是 path 级
 	}
 	for _, c := range cases {
 		if got := urlRegexToPath(c.in); got != c.want {

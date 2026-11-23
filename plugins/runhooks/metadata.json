@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "NetLoom",
   "manufacturer": "iKuai",
-  "version": "1.1.24",
+  "version": "1.1.25",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "NetLoom 局域网流量观测台, 抓包解密与统计全在网关本地完成: 设备画像、会话瀑布、域名洞察、HTTPS 解密、规则订阅。自带 Go 静态引擎, 首次使用需安装并信任 CA 证书。",
-  "releasenotes": "v1.1.24 订阅兼容 Quantumult X 主配置与规则集: 支持 @url: 引用前缀; 自动展开 filter_remote 与 rewrite_remote 远程引用并按 force-policy 标记屏蔽规则; 补全 filter_remote 等 QX 独有段名的格式探测; IP-ASN 规则解析记录并明确提示引擎无 ASN 数据库不予生效; 订阅原文上限由 8MB 提至 16MB 且超限明确拒绝不再静默截断; filter_local 的 final 行不再误判为脚本。实测 qx.conf 展开 33 个远程引用得到 14385 条规则, qx-lite.conf 得到 691 条, AntiAD.list 9.7MB 完整拉取 289692 条。升级走保留配置分支",
+  "releasenotes": "v1.1.25 订阅支持 5 类客户端资源(ShadowRocket/Loon/Quantumult X/Surge/Stash)索引页: 识别 HTML 目录页并提取 conf/list/sgmodule/plugin/stoverride/yaml/json 资源链接交给 remote 展开; 新增 Stash 覆写 YAML 解析(script-providers 转脚本引用, rules 段按规则解析, tiles 磁贴忽略并说明); Surge/Loon 的 URL Rewrite 与 Header Rewrite 段解析, 无段头的 rewrite 合集按 url/302/reject 行识别; 索引页资源上限 100 条并在 warning 明示。实测 5 个页面均判 index 且抽样的 sgmodule/plugin/stoverride/yaml/conf 都能解析出规则或改写或脚本。升级走保留配置分支",
   "arch": [
     "x86_64"
   ],

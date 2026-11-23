@@ -11,6 +11,14 @@ import (
 // [general]/[mitm] 两种格式都有, 只认各自独有的段名; 都认不出时按 QuanX 处理
 // (QuanX 是主要目标, 且 Surge conf 几乎必带 [Rule]/[Proxy])。
 func DetectFormat(raw string) Format {
+	if isHTMLIndex(raw) {
+		return FormatIndex
+	}
+	// Stash 覆写是 YAML, 先于 INI 段名探测(tiles:/script-providers: 无 [section])
+	low := strings.ToLower(raw[:minIdx(len(raw), 2048)])
+	if strings.Contains(low, "script-providers:") || (strings.Contains(low, "tiles:") && strings.Contains(low, "http")) {
+		return FormatStOverride
+	}
 	hasMitm := false
 	for _, ln := range strings.Split(raw, "\n") {
 		s := strings.ToLower(strings.TrimSpace(ln))
@@ -48,9 +56,46 @@ func Parse(raw string, format Format) *Parsed {
 		return parseQuanX(raw)
 	case FormatSurge:
 		return parseSurge(raw)
+	case FormatStOverride:
+		return parseStOverride(raw)
+	case FormatIndex:
+		return parseIndex(raw)
 	default:
 		return parseList(raw)
 	}
+}
+
+// isHTMLIndex 判断是否是客户端资源索引页(5 类页面都是 HTML 目录页, 不是订阅原文)。
+func isHTMLIndex(raw string) bool {
+	head := strings.ToLower(strings.TrimSpace(raw[:minIdx(len(raw), 512)]))
+	return strings.Contains(head, "<!doctype html") || strings.Contains(head, "<html")
+}
+
+// parseIndex 从 HTML 索引页提取同页列出的资源链接, 交给 manager 展开。
+// 只收 5 类客户端资源的格式, 排除广告 JS / 导航锚点; 上限 100 条防 parsed.json 膨胀。
+func parseIndex(raw string) *Parsed {
+	p := &Parsed{Format: string(FormatIndex)}
+	re := regexp.MustCompile(`(?i)(?:href|src|data-url|data-link)\s*=\s*["']([^"']+\.(?:conf|list|sgmodule|plugin|stoverride|ya?ml|json))(?:\?[^"']*)?["']`)
+	seen := map[string]bool{}
+	for _, m := range re.FindAllStringSubmatch(raw, -1) {
+		u := strings.TrimSpace(m[1])
+		if seen[u] || len(p.RemoteRefs) >= 100 {
+			continue
+		}
+		seen[u] = true
+		p.RemoteRefs = append(p.RemoteRefs, RemoteRef{URL: u, Kind: "index"})
+	}
+	if len(p.RemoteRefs) == 0 {
+		p.Warnings = append(p.Warnings, "索引页未找到受支持的客户端资源链接")
+	}
+	return p
+}
+
+func minIdx(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // ---- 通用小工具 ----
@@ -205,7 +250,7 @@ func parseQuanX(raw string) *Parsed {
 			} else if isRuleLine(s) {
 				p.parseRuleLine(s, lineNo)
 			}
-		case "rewrite":
+		case "rewrite", "url rewrite":
 			p.parseRewriteLine(s, lineNo)
 		case "filter_remote", "rewrite_remote":
 			// QX 主配置引用远程规则/重写: URL, force-policy=..., enabled=...
@@ -417,6 +462,9 @@ func parseSurge(raw string) *Parsed {
 					}
 				}
 			}
+		case "url rewrite", "header rewrite":
+			// Surge 模块 / Loon 插件: ^pattern$ 302 target 或 header 改写
+			p.parseRewriteLine(s, lineNo)
 		case "script":
 			// name = type=http-response,pattern=^...,script-path=xxx.js,requires-body=true
 			if _, v, ok := strings.Cut(s, "="); ok {
@@ -462,6 +510,51 @@ func parseSurge(raw string) *Parsed {
 	return p
 }
 
+// ---- Stash 覆写(.stoverride / .yaml) ----
+
+// parseStOverride 解析 Stash 覆写: script-providers 里的 JS URL 转成脚本引用,
+// rules 段里的规则行按 QX/Surge 语法解析; tiles 磁贴/面板与 NetLoom 无关, 忽略并说明。
+func parseStOverride(raw string) *Parsed {
+	p := &Parsed{Format: string(FormatStOverride)}
+	inScripts, inRules := false, false
+	for i, ln := range strings.Split(raw, "\n") {
+		lineNo := i + 1
+		s := strings.TrimSpace(strings.TrimPrefix(ln, "\ufeff"))
+		if s == "" || strings.HasPrefix(s, "#") {
+			continue
+		}
+		// 顶层键(无缩进且以冒号结尾)
+		if !strings.HasPrefix(ln, " ") && !strings.HasPrefix(ln, "\t") && strings.HasSuffix(s, ":") {
+			key := strings.ToLower(strings.TrimSuffix(s, ":"))
+			inScripts = key == "script-providers"
+			inRules = key == "rules"
+			continue
+		}
+		if inScripts {
+			if k, v, ok := strings.Cut(s, ":"); ok && strings.EqualFold(strings.TrimSpace(k), "url") {
+				u := strings.Trim(strings.TrimSpace(v), "'\"")
+				if strings.HasPrefix(u, "http") {
+					name := scriptName(u)
+					p.Scripts = append(p.Scripts, Script{Name: name, Kind: "response-body", URL: u, Line: lineNo})
+					p.Rewrites = append(p.Rewrites, Rewrite{Pattern: ".*", Kind: "script-response-body", Value: name, Line: lineNo, Raw: s})
+				}
+			}
+			continue
+		}
+		if inRules {
+			r := strings.TrimSpace(strings.TrimPrefix(s, "-"))
+			if isRuleLine(r) {
+				p.parseRuleLine(r, lineNo)
+			}
+			continue
+		}
+	}
+	if len(p.Scripts) > 0 {
+		p.Warnings = append(p.Warnings, fmt.Sprintf("Stash 覆写: %d 个 script-provider 已记录; tiles 磁贴/面板配置与 NetLoom 无关, 已忽略", len(p.Scripts)))
+	}
+	return p
+}
+
 // ---- 纯列表 ----
 
 func parseList(raw string) *Parsed {
@@ -476,6 +569,21 @@ func parseList(raw string) *Parsed {
 		if f := strings.Split(s, ","); len(f) >= 2 && isKnownRuleType(strings.ToUpper(strings.TrimSpace(f[0]))) {
 			p.parseRuleLine(s, lineNo)
 			continue
+		}
+		// QX/Loon 重写合集常无段头, 直接是 ^pattern$ url 302 target / ^pattern$ 302 target
+		if strings.HasPrefix(s, "^") || strings.HasPrefix(s, "(") {
+			f := strings.Fields(s)
+			if len(f) >= 2 {
+				act := strings.ToLower(f[1])
+				switch {
+				case act == "url", act == "302", act == "301", act == "307",
+					strings.HasPrefix(act, "reject"), strings.HasPrefix(act, "script-"),
+					strings.HasPrefix(act, "header"), act == "echo-response",
+					act == "request-body", act == "response-body":
+					p.parseRewriteLine(s, lineNo)
+					continue
+				}
+			}
 		}
 		if ip, ok := ipFromLine(s); ok {
 			p.Rules = append(p.Rules, Rule{Type: "IP-CIDR", Value: ip, Policy: "PROXY", Line: lineNo, Raw: s})

@@ -7,10 +7,12 @@ package subscription
 type Format string
 
 const (
-	FormatAuto  Format = "auto"
-	FormatQuanX Format = "quanx"
-	FormatSurge Format = "surge"
-	FormatList  Format = "list"
+	FormatAuto       Format = "auto"
+	FormatQuanX      Format = "quanx"
+	FormatSurge      Format = "surge"
+	FormatList       Format = "list"
+	FormatStOverride Format = "stoverride" // Stash .stoverride/.yaml (YAML 覆写)
+	FormatIndex      Format = "index"      // 客户端资源索引页(HTML), 只提取资源链接
 )
 
 // Sub 是一条订阅(持久化在 subscriptions/subs.json)。
