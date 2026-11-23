@@ -1129,3 +1129,35 @@
 /* [ui-consolidate] 从插件页搬进来的四个桥接按钮: 图标窄按钮 + 窄屏可换行 */
 .nl-btn--icon { width: 32px; padding: 0; gap: 0; flex: 0 0 auto; }
 .nl-ribbon-actions { flex-wrap: wrap; }
+
+/* [ui-slim] 插件层状态标签搬进 WebUI ribbon: 小字、不增行高、窄屏隐藏让位给按钮 */
+.nl-host-state {
+  flex: 0 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  color: rgba(234, 243, 238, 0.62);
+  letter-spacing: 0.2px;
+}
+@media (max-width: 1100px) { .nl-host-state { display: none; } }
+
+/* 抓包总开关: 开/关两态用颜色 + 图标区分, 不再是一个永远一样的电源按钮 */
+.nl-btn--capture-on {
+  color: #6ee7b7;
+  border-color: rgba(20, 184, 166, 0.55);
+  background: rgba(20, 184, 166, 0.18);
+}
+.nl-btn--capture-on:hover {
+  background: rgba(20, 184, 166, 0.30);
+  border-color: #14b8a6;
+}
+.nl-btn--capture-off {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.12);
+}
+.nl-btn--capture-off:hover {
+  background: rgba(248, 113, 113, 0.22);
+  border-color: #f87171;
+}

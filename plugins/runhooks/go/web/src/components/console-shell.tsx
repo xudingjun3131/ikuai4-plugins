@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import {
-  Download, Eraser, Maximize2, Minimize2, Pause, Play, Power,
+  Download, Eraser, Maximize2, Minimize2, Pause, Play, Power, PowerOff,
   RefreshCw, Settings, Shield,
 } from "lucide-react"
 
@@ -74,6 +74,10 @@ function useParentState(): ParentState {
       setState({
         status: Number(d.status) || 0,
         capture: Number(d.capture) || 0,
+        rulesOn: Number(d.rulesOn) || 0,
+        caok: Number(d.caok) || 0,
+        flows: Number(d.flows) || 0,
+        enginePaused: Number(d.enginePaused) || 0,
         fullscreen: Boolean(d.fullscreen),
         settingsOpen: Boolean(d.settingsOpen),
       })
@@ -118,17 +122,26 @@ export function ConsoleHeader({
       <span className="nl-ribbon-count">
         {flowCount.toLocaleString()} 会话 / {deviceCount} 设备
       </span>
+      <span className="nl-host-state" data-testid="host-state"
+        title="插件层状态: 引擎 / 引流规则 / CA 证书 / 抓包总开关">
+        引擎{host.status === 1 ? "运行中" : "已停止"} · 规则{host.rulesOn === 1 ? "生效" : "未生效"} ·
+        CA{host.caok === 1 ? "已生成" : "未生成"} ·{" "}
+        {host.capture === 1 ? (host.enginePaused === 1 ? "抓包已暂停" : "抓包中") : "抓包已关"}
+      </span>
 
       <div className="nl-ribbon-actions">
         <button
           type="button"
-          className="nl-btn nl-btn--icon"
-          title={host.capture === 1 ? "关闭抓包(撤引流规则 + 暂停记录)" : "开启抓包(下发引流规则)"}
-          aria-label="抓包总开关"
+          className={`nl-btn nl-btn--icon ${host.capture === 1 ? "nl-btn--capture-on" : "nl-btn--capture-off"}`}
+          title={host.capture === 1
+            ? "关闭抓包: 撤销 80/443 引流规则并暂停记录"
+            : "开启抓包: 自动拉起引擎并下发 80/443 引流规则"}
+          aria-label={host.capture === 1 ? "关闭抓包" : "开启抓包"}
           data-testid="parent-capture"
+          data-state={host.capture === 1 ? "on" : "off"}
           onClick={() => parentCall("capture", { on: host.capture !== 1 })}
         >
-          <Power size={14} />
+          {host.capture === 1 ? <Power size={14} /> : <PowerOff size={14} />}
         </button>
         <button
           type="button"

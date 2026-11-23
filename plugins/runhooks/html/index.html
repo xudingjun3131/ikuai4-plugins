@@ -125,7 +125,7 @@ body{background:#fff!important;padding:0!important;margin:0!important;color:var(
 
 /* 观测台 iframe 与离线空态: 配置区更紧凑后多给观测台高度 */
 /* [ui-consolidate] 工具栏精简 + 设置弹窗化后, 观测台拿回整页高度 */
-.runhooks-frame{width:100%;height:calc(100vh - 92px);min-height:600px;border:1px solid var(--nl-line);
+.runhooks-frame{width:100%;height:calc(100vh - 32px);min-height:640px;border:1px solid var(--nl-line);
   border-radius:var(--nl-r);display:block;background:#fff;box-shadow:0 2px 12px rgba(31,45,61,.06);}
 .runhooks-frame.is-full{position:fixed;inset:0;width:100vw;height:100vh;min-height:0;border:0;border-radius:0;z-index:9000;}
 /* [platform-fullscreen] 全屏态去掉插件页四周留白与卡片边角, 观测台贴边铺满 */
@@ -136,7 +136,6 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
 /* [fs-exit-not-over-ca] 退出全屏按钮不能压在观测台顶部 ribbon 右侧的
    「CA 证书」按钮上(v1.1.17 实锤: ribbon 高 66px, CA 按钮 y=16..48)。
    挪到右下角、footer(y>=727)之上, 避开 ribbon/deck/foot 三处功能区。 */
-.rq-fs-exit{position:fixed;right:16px;bottom:44px;top:auto;z-index:9100;box-shadow:0 2px 10px rgba(0,0,0,.2);}
 /* [ui-consolidate] 设置与使用说明: 独立大弹窗, 默认关闭, 不再挤占观测台高度 */
 .rq-modal-mask{position:fixed;inset:0;background:rgba(15,32,28,.55);z-index:9500;display:flex;
   align-items:center;justify-content:center;padding:24px;}
@@ -151,6 +150,7 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
 /* 精简后的一行工具条 */
 .nl-actions{min-height:30px;align-items:center;}
 .nl-actions .rq-tip{font-size:11px;color:var(--nl-mute);}
+.rq-offline .btn{margin:0 4px;}
 .rq-offline{margin-top:10px;padding:20px;text-align:center;color:var(--nl-mute);font-size:12px;line-height:1.8;
   background:#fafbfc;border:1px dashed var(--nl-line);border-radius:var(--nl-r);}
 
@@ -210,30 +210,6 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
     <div class="box clearfix">
         <div class="box_block">
             <div class="clearfix margin_phone">
-                <div class="h20"></div>
-                <div class="nl-header">
-                    <div>
-                        <b style="font-size:15px;">巡流 NetLoom</b>
-                        <span style="font-size:12px; color:#909399; padding-left:10px;">局域网流量观测台 · 按设备 / 时间轴 / 域名聚合</span>
-                    </div>
-                    <div class="nl-status">
-                        <el-tag size="small" :type="status === 1 ? 'success' : 'info'">{{ status === 1 ? '运行中' : '已停止' }}</el-tag>
-                        <el-tag size="small" :type="captureTag.type">{{ captureTag.text }}</el-tag>
-                        <el-tag size="small" :type="rulesOn === 1 ? 'warning' : 'info'">{{ rulesOn === 1 ? '规则生效' : '规则未生效' }}</el-tag>
-                        <el-tag size="small" :type="caok === 1 ? 'success' : 'warning'">{{ caok === 1 ? 'CA已生成' : 'CA未生成' }}</el-tag>
-                        <span style="font-size:12px; color:#909399;">已捕获 {{ flows }} 条</span>
-                    </div>
-                </div>
-                <div class="h20"></div>
-                <div class="nl-actions">
-                    <!-- [ui-consolidate] 重复入口已去掉: 下载 CA 证书 / 清空 / 断点改包
-                         在观测台 WebUI 里都有(CA 与清空走同一引擎 API); 全屏 / 抓包总开关 /
-                         刷新状态 / 设置 也移入 WebUI ribbon(经 postMessage 桥接)。
-                         本页只保留一个「设置与说明」入口, 让观测台占满整页。 -->
-                    <button type="button" class="btn btn_default rounded height26" @click="settingsOpen = true">设置与使用说明</button>
-                    <span class="rq-tip">抓包、清空、CA 证书、导出 HAR、全屏与断点改包都在下方观测台里操作</span>
-                </div>
-                <!-- [ui-consolidate] 设置类 + 说明类收进独立弹窗, 不再常驻主页面 -->
                 <div v-if="settingsOpen" class="rq-modal-mask" @click.self="settingsOpen = false">
                   <div class="rq-modal">
                     <div class="rq-modal-head">
@@ -258,11 +234,12 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
                     <div class="nl-panel">
                         <div class="rq-tabpanel nl-pane" v-show="activeTab==='service'">
                             <details id="rq-service" class="rq-service" :open="status !== 1">
-                                <summary class="rq-service-summary">服务与端口 · 引擎启停 / 开机自启 / 监听端口<span class="rq-service-hint"> · 非流量抓包功能，引擎运行时默认收起</span></summary>
+                                <summary class="rq-service-summary">服务与端口 · 开机自启 / 监听端口<span class="rq-service-hint"> · 非流量抓包功能，引擎运行时默认收起</span></summary>
                                 <div class="rq-service-body">
                                     <div class="runhooks-row" style="margin-top:4px;">
-                                        <button v-if="status !== 1" type="button" class="btn btn_green rounded height26" @click="startEngine">启动引擎</button>
-                                        <button v-else type="button" class="btn btn_red rounded height26" @click="stopEngine">停止引擎</button>
+                                        <!-- [ui-slim] 引擎随观测台的「抓包总开关」自动拉起 / 暂停记录,
+                                             不再单独提供启停按钮(set_capture 内已有 start 兜底)。 -->
+                                        <span style="font-size:12px; color:#909399;">引擎随抓包开关自动拉起，无需单独启停</span>
                                         <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#606266; cursor:pointer;">
                                             <input type="checkbox" v-model="autostart" @change="setAutostart">开机自启
                                         </label>
@@ -509,14 +486,14 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
                 <!-- [iKuaiPatch] 引擎未启动时 apiPort 无监听, iframe 会渲染出 Chromium
                      的「xxx 拒绝了我们的连接请求」错误页; 用户要求"要么隐藏, 不要出现
                      这个提示"。故整块(含上下间距)只在引擎运行时出现。 -->
-                <template v-if="status === 1">
-                <div class="h20"></div>
-                <iframe class="runhooks-frame" :class="{'is-full': fullscreen}" :src="uiUrl"></iframe>
-                <button v-if="fullscreen" type="button" class="btn btn_red rounded height26 rq-fs-exit" @click="setFullscreen(false)">退出全屏(返回本页)</button>
-                <div class="h20"></div>
-                </template>
+                <!-- [ui-slim] 正常态外层只剩 iframe: 状态/按钮全在观测台 WebUI 里。
+                     退出全屏由 WebUI ribbon 的全屏切换按钮(或 ESC)完成, 不再有浮动按钮。 -->
+                <iframe v-if="status === 1" class="runhooks-frame" :class="{'is-full': fullscreen}" :src="uiUrl"></iframe>
+                <!-- 引擎未启动时 WebUI 没加载, 必须留最小启动/设置入口, 运行后本行消失 -->
                 <div v-else class="rq-offline">
-                    引擎未启动，观测台暂不可用。在上方「服务与端口」里点「启动引擎」后，观测台会直接嵌在本页显示（无需新开窗口）。
+                    引擎未启动，观测台暂不可用。
+                    <button type="button" class="btn btn_green rounded height26" @click="setCapture(true)">开启抓包(自动启动引擎)</button>
+                    <button type="button" class="btn btn_default rounded height26" @click="settingsOpen = true">设置与使用说明</button>
                 </div>
             </div>
         </div>
@@ -634,7 +611,11 @@ var app = new Vue({
         status() { this.postState(); },
         capture() { this.postState(); },
         fullscreen() { this.postState(); },
-        settingsOpen() { this.postState(); }
+        settingsOpen() { this.postState(); },
+        rulesOn() { this.postState(); },
+        caok() { this.postState(); },
+        flows() { this.postState(); },
+        enginePaused() { this.postState(); }
     },
     methods: {
         // [ui-consolidate] 把插件层状态推给观测台 iframe(只能由 WebUI 主动请求或
@@ -647,6 +628,8 @@ var app = new Vue({
                 f.contentWindow.postMessage({
                     __netloom: 1, type: 'state',
                     status: this.status, capture: this.capture,
+                    rulesOn: this.rulesOn, caok: this.caok,
+                    flows: this.flows, enginePaused: this.enginePaused,
                     fullscreen: this.fullscreen, settingsOpen: this.settingsOpen
                 }, '*');
             } catch (e) { /* iframe 尚未就绪, 等 state-request */ }
