@@ -414,6 +414,9 @@ func (m *Manager) setError(id, msg string) {
 // ---- 拉取 ----
 
 func (m *Manager) fetch(urlStr, ua string) ([]byte, error) {
+	// 防御: subs.json 里可能残留旧格式 URL(如 "@url:`https://x`"), Update() 不经过 Add(),
+	// 直接在拉取入口再规范化一次, 避免拿整串 Markdown 标记去发 HTTP 请求。
+	urlStr = normalizeSubURL(urlStr)
 	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
 	if err != nil {
 		return nil, err
@@ -452,11 +455,26 @@ func checkSubSize(n int64) error {
 	return nil
 }
 
-// normalizeSubURL 去掉订阅地址上的 @url: 引用前缀(从 QX/聚合器复制时常带)。
+// normalizeSubURL 规范化用户从聊天/聚合器复制来的订阅地址。
+// 兼容 "@url:`https://x`"、"`@url:https://x`"、尖括号包裹等整体粘贴形态;
+// 反复剥离包装(最多 4 轮), 直到不再变化。
 func normalizeSubURL(s string) string {
-	s = strings.TrimSpace(s)
-	s = strings.TrimPrefix(s, "@url:")
-	return strings.TrimSpace(s)
+	for i := 0; i < 4; i++ {
+		prev := s
+		s = strings.TrimSpace(s)
+		s = strings.Trim(s, "`\"'<>")
+		s = strings.TrimSpace(s)
+		if len(s) >= 5 && strings.EqualFold(s[:5], "@url:") {
+			s = s[5:]
+		} else if len(s) >= 5 && strings.EqualFold(s[:5], "@url=") {
+			s = s[5:]
+		}
+		s = strings.TrimSpace(s)
+		if s == prev {
+			break
+		}
+	}
+	return s
 }
 
 // expandRemoteRefs 展开 QX 主配置 [filter_remote]/[rewrite_remote] 段的远程引用。

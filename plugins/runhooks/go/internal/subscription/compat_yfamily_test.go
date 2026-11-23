@@ -15,6 +15,12 @@ func TestNormalizeSubURL(t *testing.T) {
 		"@url:https://yfamilys.com/config/qx.conf": "https://yfamilys.com/config/qx.conf",
 		"  @url:https://yfamilys.com/rule  ":       "https://yfamilys.com/rule",
 		"https://yfamilys.com/config/qx-lite.conf": "https://yfamilys.com/config/qx-lite.conf",
+		// [markdown-@url] 用户从聊天/聚合器整体粘贴, 带反引号与 @url: 混合嵌套
+		"@url:`https://yfamilys.com/config/qx.conf`": "https://yfamilys.com/config/qx.conf",
+		"`@url:https://yfamilys.com/config/qx.conf`": "https://yfamilys.com/config/qx.conf",
+		"<https://yfamilys.com/rule>":                "https://yfamilys.com/rule",
+		"@URL:`https://x/a.list`":                    "https://x/a.list",
+		"@url=https://x/a.list":                      "https://x/a.list",
 	}
 	for in, want := range cases {
 		if got := normalizeSubURL(in); got != want {
@@ -148,5 +154,25 @@ func TestExpandRemoteRefs(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(p.Warnings, "|"), "展开") {
 		t.Fatalf("缺展开说明: %v", p.Warnings)
+	}
+}
+
+// [markdown-@url] Update() 不经过 Add(), fetch 入口必须能消化 subs.json 里的旧格式 URL。
+func TestFetchNormalizesLegacyURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/a.conf" {
+			t.Errorf("请求路径未规范化: %q", r.URL.Path)
+		}
+		fmt.Fprint(w, "DOMAIN,a.com\n")
+	}))
+	defer srv.Close()
+	m := &Manager{client: &http.Client{Timeout: 5 * time.Second}}
+	legacy := "@url:`" + srv.URL + "/a.conf`"
+	raw, err := m.fetch(legacy, "")
+	if err != nil {
+		t.Fatalf("fetch 旧格式 URL 失败: %v", err)
+	}
+	if string(raw) != "DOMAIN,a.com\n" {
+		t.Fatalf("body=%q", raw)
 	}
 }
