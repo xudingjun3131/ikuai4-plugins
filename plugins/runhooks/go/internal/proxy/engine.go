@@ -285,7 +285,7 @@ func (e *Engine) onRequest(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Requ
 
 	fc := &flowCtx{
 		started:    time.Now(),
-		clientAddr: req.RemoteAddr,
+		clientAddr: clientAddrOf(req),
 		scheme:     schemeOf(req),
 		reqMsg:     messageFromRequest(req, body, trunc, size),
 	}
@@ -620,7 +620,7 @@ func (e *Engine) captureShortCircuit(req *http.Request, resp *http.Response, ctx
 		State:      store.StateDone,
 		StartedAt:  now,
 		DoneAt:     now,
-		ClientAddr: req.RemoteAddr,
+		ClientAddr: clientAddrOf(req),
 		Scheme:     schemeOf(req),
 		Request:    messageFromRequest(req, reqBody, reqTrunc, reqSize),
 		Response:   messageFromResponse(resp, rb, rt, rs),

@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "NetLoom",
   "manufacturer": "iKuai",
-  "version": "1.1.18",
+  "version": "1.1.19",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "NetLoom 局域网流量观测台, 抓包解密与统计全在网关本地完成: 设备画像、会话瀑布、域名洞察、HTTPS 解密、规则订阅。自带 Go 静态引擎, 首次使用需安装并信任 CA 证书。",
-  "releasenotes": "v1.1.18 修复全屏态下退出全屏浮动按钮压住观测台顶部的 CA 证书按钮: 按钮从右上角 top 12px 挪到右下角 bottom 44px, 避开 66px 高的顶部工具栏与底部页脚; 真实浏览器几何 A/B 实测旧位置与 CA 按钮重叠、新位置不重叠。整链全屏提升逻辑与退出绑定原样保留。升级走保留配置分支, 配置与 CA 证书不丢。",
+  "releasenotes": "v1.1.19 支持记录 NAT 后客户端的真实 IP: 上级路由器做 SNAT 时到达引擎的 TCP 源 IP 只剩路由器地址, 现按 X-Forwarded-For、X-Real-IP、X-Client-IP、CF-Connecting-IP、RFC7239 Forwarded 优先级提取真实客户端 IP 并作为 flow 的 clientAddr 显示, 无可用头时回退 TCP 对端; 原请求头完整保留可追溯。注意这些头可伪造, 仅应在可信上游后使用, 且必须由上游转发时带上, 纯三层路由转发不带头则显示不变, 需在上级路由器去掉对该网段的 SNAT 或加一层带转发头的代理。升级走保留配置分支, 配置与 CA 证书不丢。",
   "arch": [
     "x86_64"
   ],
