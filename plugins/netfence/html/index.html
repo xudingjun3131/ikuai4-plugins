@@ -9,22 +9,24 @@
 <link rel="stylesheet" href="../../static/css/plugin.css">
 <link rel="stylesheet" href="../../static/css/element.css">
 <style>
-/* ===== NetFence 一体化防火墙 · 插件页布局优化 (参考巡流 NetLoom v1.1.8-ui, 2026-11-21) =====
+/* ===== NetFence · 插件页布局 (参考 NetLoom v1.1.15, 2026-11-21) =====
    只重做视觉层: 引入设计令牌、状态组 pill 化、分区头层次、长说明收敛为单行悬停展开、
    表单栅格等宽对齐 + 聚焦态、tab 选中态更明确、滚动条与窄屏适配。
    不动任何 DOM 结构 / Vue 绑定 / 方法 / 文案 / 后端动作(CSS-only)。
-   遵守 plugin-page-ui.md 硬规范: 灰底 + 白卡 8px 圆角/描边/阴影、tab 纯 HTML+Vue、
-   启停单按钮、引擎未启动离线门控。 */
+   [no-gap] 口径反转: 取消「灰底 + 白卡浮起」, 详情页纯白铺满 iframe, 上下左右零灰色间隙,
+   与 NetLoom v1.1.15 完全一致; tab 纯 HTML+Vue、启停单按钮、引擎未启动离线门控不变。 */
 :root{
   --nf-bg:#e9edf4;--nf-card:#fff;--nf-line:#d8dfe9;--nf-soft:#ebeef5;
   --nf-ink:#303133;--nf-sub:#606266;--nf-mute:#909399;
   --nf-primary:#409eff;--nf-primary-soft:#ecf5ff;--nf-ok:#67c23a;
   --nf-warn:#e6a23c;--nf-bad:#f56c6c;--nf-r:8px;
 }
-body{background:var(--nf-bg);padding:0 20px;color:var(--nf-ink);
+/* [no-gap] 详情页铺满 iframe: 去掉四周灰底与白卡边角, 不留上下左右灰色间隙。
+   内容内距保留(白底, 不是灰边); 与 NetLoom v1.1.15 保持一致。 */
+body{background:#fff!important;padding:0!important;margin:0!important;color:var(--nf-ink);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
-#nf-app>.nf-card{background:var(--nf-card);border:1px solid var(--nf-line);border-radius:var(--nf-r);
-  box-shadow:0 2px 12px rgba(31,45,61,.08);padding:12px 16px 14px;margin:10px 0 14px;}
+#nf-app>.nf-card{background:#fff;border:0!important;border-radius:0!important;
+  box-shadow:none!important;padding:12px 16px 14px;margin:0!important;}
 /* 头部: 标题左 / 状态 pill 右, 分隔线更轻 */
 .nf-header{display:flex;justify-content:space-between;align-items:center;gap:16px;
   flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--nf-soft);}
