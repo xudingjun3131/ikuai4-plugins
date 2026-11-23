@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "NetLoom",
   "manufacturer": "iKuai",
-  "version": "1.1.16",
+  "version": "1.1.17",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "NetLoom 局域网流量观测台, 抓包解密与统计全在网关本地完成: 设备画像、会话瀑布、域名洞察、HTTPS 解密、规则订阅。自带 Go 静态引擎, 首次使用需安装并信任 CA 证书。",
-  "releasenotes": "v1.1.16 修复设备走代理访问 mail.163.com 等站点全部返回 400: 内置规则不再默认对所有请求强制 no-cache 与 identity 改写, 老装机已固化的规则在加载层一并失效; 转发前剥离 Proxy-Connection 等逐跳头与内部标记头, 协议升级请求保留所需头; 响应快照后清除 Transfer-Encoding 并用确定的 Content-Length 回写, 避免非法响应。升级走保留配置分支, 配置与 CA 证书不丢。",
+  "releasenotes": "v1.1.17 真机定位并修复 mail.163.com 等站点走代理全部返回 400: 脚本钩子 applyRequest 在脚本只改请求头时也重建 URL, 把 Host 头从 mail.163.com 改成带默认端口的 mail.163.com:443, 上游 nginx 拒回 400; 现在只有脚本真改了 URL 才回写, 且 Host 一律剥掉 443 或 80 默认端口。旧版启用 add-header.js 后四次全 400, 修复版四次全 200。另外观测台 WebUI 初始高度调高, 视口减 130px 且下限 560px, 不再太窄。升级走保留配置分支, 配置与 CA 证书不丢。",
   "arch": [
     "x86_64"
   ],

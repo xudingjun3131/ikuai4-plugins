@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -382,11 +383,22 @@ func applyRequest(req *http.Request, fr *flowReq) {
 		req.Method = fr.Method
 	}
 	if fr.URL != "" && req.URL != nil {
-		if u, err := http.NewRequest(fr.Method, fr.URL, nil); err == nil && u.URL != nil {
-			// Preserve scheme/host for relative rewrites; full URL preferred.
-			req.URL = u.URL
-			if u.URL.Host != "" {
-				req.Host = u.URL.Host
+		// [compat-400] 脚本只改 headers/body 时绝不能重建 URL: MITM 路径的
+		// req.URL.String() 是 https://host:443/, 重建会把 req.Host 塞成带默认
+		// 端口的 mail.163.com:443, 部分站点 nginx 直接回 400(mail.163.com 实锤)。
+		// 只有脚本真的改了 URL 才回写, 且 Host 头一律剥掉 :443 / :80。
+		if fr.URL != req.URL.String() {
+			if u, err := http.NewRequest(fr.Method, fr.URL, nil); err == nil && u.URL != nil {
+				// Preserve scheme/host for relative rewrites; full URL preferred.
+				req.URL = u.URL
+				if u.URL.Host != "" {
+					h := u.URL.Host
+					if host, port, err := net.SplitHostPort(h); err == nil &&
+						((u.URL.Scheme == "https" && port == "443") || (u.URL.Scheme == "http" && port == "80")) {
+						h = host
+					}
+					req.Host = h
+				}
 			}
 		}
 	}
