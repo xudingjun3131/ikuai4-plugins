@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "NetLoom",
   "manufacturer": "iKuai",
-  "version": "1.1.20",
+  "version": "1.1.21",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "NetLoom 局域网流量观测台, 抓包解密与统计全在网关本地完成: 设备画像、会话瀑布、域名洞察、HTTPS 解密、规则订阅。自带 Go 静态引擎, 首次使用需安装并信任 CA 证书。",
-  "releasenotes": "v1.1.20 收紧显式代理监听: 不再绑定 0.0.0.0(通配地址把零鉴权代理暴露到所有接口, 含 PPPoE 拨号拿到的公网 IP), 默认只绑内网接口地址(排除默认路由出口与回环), 检测不到内网地址时回退 127.0.0.1 且绝不回退通配; 可在 ports.conf 写 PROXY_BIND=<ip> 指定绑定地址, 页面改端口会保留该行。透明端口 18062 保持通配但只接 iptables REDIRECT 按设备与接口精确引流的连接, 不是代理入口。升级后若原先用 WAN 口 IP 直连代理, 需在该地址做 DNAT 转发到内网绑定地址, 或把 PROXY_BIND 设为该内网 IP。升级走保留配置分支, 配置与 CA 证书不丢。",
+  "releasenotes": "v1.1.21 整合插件页与观测台的操作入口: 去掉外层重复的下载 CA 证书(与 WebUI 的 CA 证书同为引擎 data-dir 下 ca.pem)、清空流量(同为 DELETE /api/flows)、断点改包(WebUI 运维工具箱已有); 设置类与使用说明收进独立大弹窗且默认不再常驻主页面; 全屏、抓包总开关、刷新状态、设置四个入口移入观测台顶部工具栏, 经 postMessage 白名单桥接回插件页执行, WebUI 同步显示开关状态; 观测台 iframe 高度从视口减 130px 提升到减 92px 且下限 600px, 设置默认收起后可用高度大幅增加。全屏提升逻辑与退出按钮原样保留。升级走保留配置分支, 配置与 CA 证书不丢。",
   "arch": [
     "x86_64"
   ],

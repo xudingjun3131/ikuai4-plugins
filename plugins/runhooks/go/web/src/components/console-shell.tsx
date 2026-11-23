@@ -1,6 +1,11 @@
-import { Download, Eraser, Pause, Play, Shield } from "lucide-react"
+import { useEffect, useState } from "react"
+import {
+  Download, Eraser, Maximize2, Minimize2, Pause, Play, Power,
+  RefreshCw, Settings, Shield,
+} from "lucide-react"
 
 import { caPemURL, exportHarURL } from "@/lib/api"
+import { DEFAULT_STATE, parentCall, type ParentState } from "@/lib/parent-bridge"
 
 export type ViewId = "overview" | "devices" | "sessions" | "insights" | "toolbox"
 export type ToolId = "rules" | "subs" | "rest" | "explorer" | "scripts" | "rewrite"
@@ -58,6 +63,28 @@ type HeaderProps = {
   readonly onClear: () => void
 }
 
+/** Receives shell state and asks for an initial snapshot once the iframe loads. */
+function useParentState(): ParentState {
+  const [state, setState] = useState<ParentState>(DEFAULT_STATE)
+  useEffect(() => {
+    const onMessage = (e: MessageEvent): void => {
+      if (e.source !== window.parent) return
+      const d = e.data as Record<string, unknown> | null
+      if (!d || d.__netloom !== 1 || d.type !== "state") return
+      setState({
+        status: Number(d.status) || 0,
+        capture: Number(d.capture) || 0,
+        fullscreen: Boolean(d.fullscreen),
+        settingsOpen: Boolean(d.settingsOpen),
+      })
+    }
+    window.addEventListener("message", onMessage)
+    parentCall("state-request")
+    return () => window.removeEventListener("message", onMessage)
+  }, [])
+  return state
+}
+
 export function ConsoleHeader({
   flowCount,
   deviceCount,
@@ -67,6 +94,7 @@ export function ConsoleHeader({
   onTogglePause,
   onClear,
 }: HeaderProps) {
+  const host = useParentState()
   return (
     <header className="nl-ribbon">
       <div className="nl-brand">
@@ -92,6 +120,46 @@ export function ConsoleHeader({
       </span>
 
       <div className="nl-ribbon-actions">
+        <button
+          type="button"
+          className="nl-btn nl-btn--icon"
+          title={host.capture === 1 ? "关闭抓包(撤引流规则 + 暂停记录)" : "开启抓包(下发引流规则)"}
+          aria-label="抓包总开关"
+          data-testid="parent-capture"
+          onClick={() => parentCall("capture", { on: host.capture !== 1 })}
+        >
+          <Power size={14} />
+        </button>
+        <button
+          type="button"
+          className="nl-btn nl-btn--icon"
+          title="刷新插件状态"
+          aria-label="刷新状态"
+          data-testid="parent-refresh"
+          onClick={() => parentCall("refresh")}
+        >
+          <RefreshCw size={14} />
+        </button>
+        <button
+          type="button"
+          className="nl-btn nl-btn--icon"
+          title={host.fullscreen ? "退出全屏" : "全屏观测台"}
+          aria-label="全屏切换"
+          data-testid="parent-fullscreen"
+          onClick={() => parentCall(host.fullscreen ? "exit-fullscreen" : "fullscreen")}
+        >
+          {host.fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </button>
+        <button
+          type="button"
+          className="nl-btn nl-btn--icon"
+          title="设置与使用说明"
+          aria-label="设置与使用说明"
+          data-testid="parent-settings"
+          onClick={() => parentCall("settings")}
+        >
+          <Settings size={14} />
+        </button>
         <button
           type="button"
           className={`nl-btn${capturePaused ? " nl-btn--primary" : ""}`}

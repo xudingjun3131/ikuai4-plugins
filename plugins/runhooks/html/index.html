@@ -124,7 +124,8 @@ body{background:#fff!important;padding:0!important;margin:0!important;color:var(
 .rq-tabpanel ul{margin:2px 0 0 14px!important;}
 
 /* 观测台 iframe 与离线空态: 配置区更紧凑后多给观测台高度 */
-.runhooks-frame{width:100%;height:calc(100vh - 130px);min-height:560px;border:1px solid var(--nl-line);
+/* [ui-consolidate] 工具栏精简 + 设置弹窗化后, 观测台拿回整页高度 */
+.runhooks-frame{width:100%;height:calc(100vh - 92px);min-height:600px;border:1px solid var(--nl-line);
   border-radius:var(--nl-r);display:block;background:#fff;box-shadow:0 2px 12px rgba(31,45,61,.06);}
 .runhooks-frame.is-full{position:fixed;inset:0;width:100vw;height:100vh;min-height:0;border:0;border-radius:0;z-index:9000;}
 /* [platform-fullscreen] 全屏态去掉插件页四周留白与卡片边角, 观测台贴边铺满 */
@@ -136,6 +137,20 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
    「CA 证书」按钮上(v1.1.17 实锤: ribbon 高 66px, CA 按钮 y=16..48)。
    挪到右下角、footer(y>=727)之上, 避开 ribbon/deck/foot 三处功能区。 */
 .rq-fs-exit{position:fixed;right:16px;bottom:44px;top:auto;z-index:9100;box-shadow:0 2px 10px rgba(0,0,0,.2);}
+/* [ui-consolidate] 设置与使用说明: 独立大弹窗, 默认关闭, 不再挤占观测台高度 */
+.rq-modal-mask{position:fixed;inset:0;background:rgba(15,32,28,.55);z-index:9500;display:flex;
+  align-items:center;justify-content:center;padding:24px;}
+.rq-modal{width:min(1180px,96vw);max-height:88vh;background:#fff;border-radius:10px;
+  box-shadow:0 18px 60px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden;}
+.rq-modal-head{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:14px 18px;
+  border-bottom:1px solid var(--nl-soft);background:#f8fafb;}
+.rq-modal-head b{font-size:15px;color:var(--nl-ink);}
+.rq-modal-head .sp{flex:1;}
+.rq-modal-body{overflow-y:auto;padding:14px 18px 18px;}
+#rq-settings{margin:0!important;}
+/* 精简后的一行工具条 */
+.nl-actions{min-height:30px;align-items:center;}
+.nl-actions .rq-tip{font-size:11px;color:var(--nl-mute);}
 .rq-offline{margin-top:10px;padding:20px;text-align:center;color:var(--nl-mute);font-size:12px;line-height:1.8;
   background:#fafbfc;border:1px dashed var(--nl-line);border-radius:var(--nl-r);}
 
@@ -211,24 +226,23 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
                 </div>
                 <div class="h20"></div>
                 <div class="nl-actions">
-                    <!-- [scope-capture] 本组只放流量抓包相关操作; 引擎启停/开机自启(启动服务类)
-                         与引擎端口(端口类)按需求收进下方「服务与端口」折叠区, 不占主界面。 -->
-                    <span class="rq-group-label">抓包操作</span>
-                    <!-- [btn-dup-fix] 顶部"开启抓包"与下方 runhooks 面板的"继续"是同一
-                         功能(用户实锤), 去掉顶部的; 保留"关闭抓包"(撤规则+暂停, 面板
-                         暂停管不到 iptables 规则)。开启改用面板的"继续"。 -->
-                    <button v-if="capture === 1" type="button" class="btn btn_red rounded height26" @click="setCapture(false)">关闭抓包</button>
-                    <span class="nl-actions-hint">关闭抓包 = 撤网络规则 + 引擎暂停记录(显式代理的设备也不再落库)；开始/继续记录在下方界面点「继续」</span>
-                    <button type="button" class="btn btn_blue rounded height26" @click="downloadCa">下载 CA 证书</button>
-                    <button type="button" class="btn btn_default rounded height26" @click="clearFlows">清空流量</button>
-                    <button type="button" class="btn btn_default rounded height26" @click="settingsOpen = !settingsOpen">{{ settingsOpen ? '收起设置' : '展开设置' }}</button>
-                    <button type="button" class="btn btn_default rounded height26" :disabled="status !== 1" :title="status !== 1 ? '请先启动引擎' : '铺满整个平台显示观测台'" @click="setFullscreen(true)">全屏观测台</button>
-                    <!-- [v1.1.8] 断点改包图形化工作台: hash 深链进观测台工具箱, 不新开窗口 -->
-                    <button v-if="status === 1" type="button" class="btn btn_default rounded height26" @click="openRewrite">断点改包</button>
-                    <button type="button" class="btn btn_default rounded height26" @click="loadInitData">刷新状态</button>
+                    <!-- [ui-consolidate] 重复入口已去掉: 下载 CA 证书 / 清空 / 断点改包
+                         在观测台 WebUI 里都有(CA 与清空走同一引擎 API); 全屏 / 抓包总开关 /
+                         刷新状态 / 设置 也移入 WebUI ribbon(经 postMessage 桥接)。
+                         本页只保留一个「设置与说明」入口, 让观测台占满整页。 -->
+                    <button type="button" class="btn btn_default rounded height26" @click="settingsOpen = true">设置与使用说明</button>
+                    <span class="rq-tip">抓包、清空、CA 证书、导出 HAR、全屏与断点改包都在下方观测台里操作</span>
                 </div>
-                <!-- [one-page] 所有配置项与按钮都在本页; 可整体收起让观测台占满同一页面 -->
-                <div id="rq-settings" v-show="settingsOpen">
+                <!-- [ui-consolidate] 设置类 + 说明类收进独立弹窗, 不再常驻主页面 -->
+                <div v-if="settingsOpen" class="rq-modal-mask" @click.self="settingsOpen = false">
+                  <div class="rq-modal">
+                    <div class="rq-modal-head">
+                      <b>设置与使用说明</b>
+                      <span class="sp"></span>
+                      <button type="button" class="btn btn_default rounded height26" @click="settingsOpen = false">关闭</button>
+                    </div>
+                    <div class="rq-modal-body">
+                <div id="rq-settings">
                 <!-- [scope-capture] 端口/启动服务类: 按需求「可以不放进去」主界面,
                      收进默认折叠(引擎未运行时自动展开以便启动)的次要区; 控件与后端动作不变。 -->
                 <div class="nl-split">
@@ -487,7 +501,10 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
                 </div>
                     </div><!-- /nl-panel -->
                 </div><!-- /nl-split -->
-                </div><!-- /settingsOpen -->
+                </div><!-- /#rq-settings -->
+                    </div><!-- /.rq-modal-body -->
+                  </div><!-- /.rq-modal -->
+                </div><!-- /.rq-modal-mask -->
 
                 <!-- [iKuaiPatch] 引擎未启动时 apiPort 无监听, iframe 会渲染出 Chromium
                      的「xxx 拒绝了我们的连接请求」错误页; 用户要求"要么隐藏, 不要出现
@@ -554,7 +571,7 @@ var app = new Vue({
         // 保证「启动引擎」一步可点, 运行态落在「观测设备」; 之后用户手动切换不再被覆盖。
         tabInitDone: false,
         // [one-page] 配置区是否展开 / 观测台是否在本页内全屏(不是新窗口)
-        settingsOpen: true, fullscreen: false,
+        settingsOpen: false, fullscreen: false,
         // 设备
         lanDevices: [], selectedDevices: [], groups: [],
         manualIp: '', manualMac: '', manualName: '', groupName: '',
@@ -595,8 +612,45 @@ var app = new Vue({
         this.loadDevices();
         // [one-page] ESC 退出「本页内全屏」, 与浏览器全屏习惯一致
         window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.fullscreen) this.setFullscreen(false); });
+        // [ui-consolidate] 观测台 WebUI 里的操作入口经 postMessage 回到插件页执行。
+        // 只接受本页 iframe 发来的消息(e.source 校验), 动作白名单固定, 不接任意方法名。
+        window.addEventListener('message', (e) => {
+            const f = document.querySelector('.runhooks-frame');
+            if (!f || e.source !== f.contentWindow) return;
+            const m = e.data || {};
+            if (m.__netloom !== 1) return;
+            switch (m.action) {
+                case 'fullscreen': this.setFullscreen(true); break;
+                case 'exit-fullscreen': this.setFullscreen(false); break;
+                case 'capture': this.setCapture(!!m.on); break;
+                case 'refresh': this.loadInitData(); break;
+                case 'settings': this.settingsOpen = true; break;
+                case 'state-request': this.postState(); break;
+            }
+        });
+    },
+    watch: {
+        // 插件层状态变了就推给 WebUI, 让 ribbon 按钮显示正确的开关态
+        status() { this.postState(); },
+        capture() { this.postState(); },
+        fullscreen() { this.postState(); },
+        settingsOpen() { this.postState(); }
     },
     methods: {
+        // [ui-consolidate] 把插件层状态推给观测台 iframe(只能由 WebUI 主动请求或
+        // 状态变化时推送; targetOrigin 用 * 是因为旧固件下 iframe 是 http://IP:端口,
+        // 与外层 HTTPS 页不同源, 但接收方只认 window.parent 且只取白名单字段)。
+        postState() {
+            const f = document.querySelector('.runhooks-frame');
+            if (!f || !f.contentWindow) return;
+            try {
+                f.contentWindow.postMessage({
+                    __netloom: 1, type: 'state',
+                    status: this.status, capture: this.capture,
+                    fullscreen: this.fullscreen, settingsOpen: this.settingsOpen
+                }, '*');
+            } catch (e) { /* iframe 尚未就绪, 等 state-request */ }
+        },
         setFullscreen(on) {
             this.fullscreen = !!on;
             setFrameFullscreen(!!on);
