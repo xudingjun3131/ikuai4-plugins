@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "NetLoom",
   "manufacturer": "iKuai",
-  "version": "1.1.17",
+  "version": "1.1.18",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "NetLoom 局域网流量观测台, 抓包解密与统计全在网关本地完成: 设备画像、会话瀑布、域名洞察、HTTPS 解密、规则订阅。自带 Go 静态引擎, 首次使用需安装并信任 CA 证书。",
-  "releasenotes": "v1.1.17 真机定位并修复 mail.163.com 等站点走代理全部返回 400: 脚本钩子 applyRequest 在脚本只改请求头时也重建 URL, 把 Host 头从 mail.163.com 改成带默认端口的 mail.163.com:443, 上游 nginx 拒回 400; 现在只有脚本真改了 URL 才回写, 且 Host 一律剥掉 443 或 80 默认端口。旧版启用 add-header.js 后四次全 400, 修复版四次全 200。另外观测台 WebUI 初始高度调高, 视口减 130px 且下限 560px, 不再太窄。升级走保留配置分支, 配置与 CA 证书不丢。",
+  "releasenotes": "v1.1.18 修复全屏态下退出全屏浮动按钮压住观测台顶部的 CA 证书按钮: 按钮从右上角 top 12px 挪到右下角 bottom 44px, 避开 66px 高的顶部工具栏与底部页脚; 真实浏览器几何 A/B 实测旧位置与 CA 按钮重叠、新位置不重叠。整链全屏提升逻辑与退出绑定原样保留。升级走保留配置分支, 配置与 CA 证书不丢。",
   "arch": [
     "x86_64"
   ],

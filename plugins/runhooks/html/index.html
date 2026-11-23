@@ -132,7 +132,10 @@ body.platform-fullscreen{padding:0!important;background:#fff!important;}
 body.platform-fullscreen #app.wrapper.row>.box,
 body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!important;
   border:0!important;border-radius:0!important;box-shadow:none!important;}
-.rq-fs-exit{position:fixed;top:12px;right:16px;z-index:9100;box-shadow:0 2px 10px rgba(0,0,0,.2);}
+/* [fs-exit-not-over-ca] 退出全屏按钮不能压在观测台顶部 ribbon 右侧的
+   「CA 证书」按钮上(v1.1.17 实锤: ribbon 高 66px, CA 按钮 y=16..48)。
+   挪到右下角、footer(y>=727)之上, 避开 ribbon/deck/foot 三处功能区。 */
+.rq-fs-exit{position:fixed;right:16px;bottom:44px;top:auto;z-index:9100;box-shadow:0 2px 10px rgba(0,0,0,.2);}
 .rq-offline{margin-top:10px;padding:20px;text-align:center;color:var(--nl-mute);font-size:12px;line-height:1.8;
   background:#fafbfc;border:1px dashed var(--nl-line);border-radius:var(--nl-r);}
 
