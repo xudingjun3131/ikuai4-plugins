@@ -60,6 +60,25 @@ __web_bind_addr()
 	case "$__bd" in ''|*[!0-9]*) echo 0.0.0.0; return ;; esac
 	if [ "$__bd" -ge "$__PROXY_MIN_BUILD" ]; then echo 127.0.0.1; else echo 0.0.0.0; fi
 }
+# [proxy-bind-security] 显式代理是零鉴权入口, 绝不能监听 0.0.0.0: 通配地址把
+# 它绑到本机所有 IPv4 接口, 包括 PPPoE 拨号拿到的公网 IP —— 公网可直接当开放
+# 跳板用。默认只绑内网接口地址(排除默认路由出口 WAN/ppp 与回环), 取不到就
+# 回退 127.0.0.1, 安全失败, 绝不回退 0.0.0.0。
+# 需要在 WAN 侧内网段也直连、或有多个内网口时, 在 ports.conf 写
+# PROXY_BIND=<ip> 覆盖(set_proxy_ports 会保留该行); 否则一律自动检测。
+__proxy_bind_addr()
+{
+	[ -n "$PROXY_BIND" ] && { echo "$PROXY_BIND"; return; }
+	local wanif ip
+	wanif=$(ip -o -4 route show default 2>/dev/null | awk '{print $5}' | head -1)
+	for ip in $(ip -o -4 addr show 2>/dev/null | awk -v w="$wanif" '$2 != w && $2 != "lo" {print $4}' | cut -d/ -f1); do
+		case "$ip" in
+			127.*|169.254.*|0.*|255.*) continue ;;
+		esac
+		echo "$ip"; return
+	done
+	echo 127.0.0.1
+}
 # OpenResty 代理按插件名查此文件找本地端口(启动/改端口时写, 停止时删)
 PP_PORT_FILE=/tmp/iktmp/plugin_web/runhooks
 # [port-conf] 端口做成页面可配(用户常以为代理端口是 8080——写死曾让他们以为
@@ -434,9 +453,13 @@ __spawn_engine()
 	__migrate_data_dir
 	# [fd-limit] 抬高 nofile 兜底(引擎侧另有 IdleTimeout 回收空闲连接)
 	for __n in 65536 32768 8192 4096; do ulimit -n $__n 2>/dev/null && break; done
-	local __web_bind
+	local __web_bind __proxy_bind
 	__web_bind=$(__web_bind_addr)
-	$BIN -proxy-addr 0.0.0.0:$PROXY_PORT -transparent-addr 0.0.0.0:$TRANSPARENT_PORT \
+	__proxy_bind=$(__proxy_bind_addr)
+	# 显式代理零鉴权 -> 只绑内网地址; 透明端口 18062 不是代理入口, 只接
+	# iptables REDIRECT 按设备/接口/端口精确引流过来的连接(公网直连会因取不到
+	# SO_ORIGINAL_DST 被引擎丢弃), 保持 0.0.0.0 以免 REDIRECT 目的地址不匹配。
+	$BIN -proxy-addr $__proxy_bind:$PROXY_PORT -transparent-addr 0.0.0.0:$TRANSPARENT_PORT \
 		-api-addr $__web_bind:$API_PORT \
 		-data-dir $DATA_DIR -transparent -scope-file $SCOPE_FILE \
 		>>$LOGDIR/runhooks.log 2>&1 </dev/null &
@@ -600,10 +623,14 @@ set_proxy_ports()
 	if [ "$p" = "$a" ] || [ "$p" = "$t" ] || [ "$a" = "$t" ]; then
 		echo "三个端口不能相同"; return 1
 	fi
+	# [proxy-bind-security] 保留管理员显式指定的绑定地址, 别被端口重写冲掉
+	local __keep_bind=""
+	[ -f $PORTS_CONF ] && __keep_bind=$(grep '^PROXY_BIND=' $PORTS_CONF 2>/dev/null | head -1)
 	cat > $PORTS_CONF <<-EOT
 PROXY_PORT=$p
 API_PORT=$a
 TRANSPARENT_PORT=$t
+$__keep_bind
 EOT
 	# [ports-reread] 端口变量是**脚本加载时** source 进内存的(见文件头 PORTS_CONF 那行),
 	# 光写文件不重读的话下面 start 用的还是旧端口 —— 引擎确实重启了但还听在老端口上,
