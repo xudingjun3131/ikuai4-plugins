@@ -7,7 +7,7 @@
         "type": "external",
         "description": "AdGuard Home是一个用于拦截广告和跟踪的 DNS 服务器，使您网络冲浪更快速，更安全，更便捷！<br>官网地址：<a>https://adguard.com/</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240244",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -22,7 +22,7 @@
         "type": "external",
         "description": "KMS 激活是微软的一种 批量激活 技术，允许通过公司或组织的内部服务器进行操作系统和软件的激活，而不是依赖微软的官方激活服务器。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240244",
         "compatibility": [
             "x86_64"
         ]
@@ -35,7 +35,7 @@
         "type": "external",
         "description": "ShellClash <br>Github地址：<a>https://github.com/juewuy/ShellCrash</a>",
         "releasenotes": "安全加固: ttyd 高级模式终端原来直接绑 0.0.0.0:2222 —— 那是没有鉴权的 root shell 菜单, 局域网内无痕窗口开 IP:2222 就是一台 shell(比 webui 泄密更严重)。本版起(需固件 Build202611181800+)ttyd 只绑 127.0.0.1, 页面「高级模式「改走路由器同源 /plugin_proxy/clash/(OpenResty 校验 iKuai 登录会话 sess_key 后转发; ttyd 客户端路径从 location.pathname 构造, 天然兼容剥前缀代理, 无需 -b base-path), 直连 IP:2222 已拒; 旧固件按 BUILD_DATE 自适应回退直连。",
-        "build": "202611231023",
+        "build": "202611240244",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -51,7 +51,7 @@
         "type": "external",
         "description": "frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP、UDP、HTTP、HTTPS 等多种协议。可以将内网服务以安全、便捷的方式通过具有公网 IP 节点的中转暴露到公网。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240244",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -66,7 +66,7 @@
         "type": "external",
         "description": "Socat (Socket CAT) 是一个功能强大的网络工具，它可以在不同类型的套接字（sockets）之间进行数据转发和代理。本插件可以实现将IPV6的端口转发到IPV4的端口。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "x86_64"
         ]
@@ -79,7 +79,7 @@
         "type": "external",
         "description": "本插件允许将本地日志上传至指定的syslog服务器，或兼容syslog协议的腾讯云、阿里云等云服务的日志收集器。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "all"
         ]
@@ -92,7 +92,7 @@
         "type": "external",
         "description": "NPS (Nginx Proxy Switcher)是一种流行的工具，通常用于通过反向代理管理和切换不同的网络代理设置。它允许用户在同一台机器上管理不同的代理服务器，轻松切换和配置。</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -107,7 +107,7 @@
         "type": "external",
         "description": "本插件可以实现屏蔽视频类网站或APP的视频流量而不影响点赞、评论、收藏等操作。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -122,7 +122,7 @@
         "type": "external",
         "description": "Lucky(万吉)是软硬路由公网神器,功能包括：ipv6/ipv4端口转发、反向代理、DDNS、WOL、ipv4 stun内网穿透、cron、ACME证书自动续签,阿里云盘、ftp、webdav、filebrowser等众多功能  <br>详情访问：<a>https://lucky666.cn/</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -137,7 +137,7 @@
         "type": "external",
         "description": "网易UU网游加速器是由网易公司推出的游戏加速工具，于2013年3月正式上线。网易UU网游加速器提供游戏加速服务，支持3000余款手游加速，涵盖吃鸡类、MOBA类等多种游戏，可一键加速。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -152,7 +152,7 @@
         "type": "external",
         "description": "NetLoom 局域网流量观测台, 抓包解密与统计全在网关本地完成: 设备画像、会话瀑布、域名洞察、HTTPS 解密、规则订阅。自带 Go 静态引擎, 首次使用需安装并信任 CA 证书。",
         "releasenotes": "v1.1.26 修复订阅地址整体粘贴 Markdown 标记导致的拉取失败: 用户把 @url: 与反引号一起填进订阅时, subs.json 里残留的旧格式 URL 在自动更新时不经过 Add 而直接 fetch, 报 unexpected EOF。normalizeSubURL 改为反复剥离 @url: 或 @url= 前缀、反引号、引号与尖括号包裹(兼容大小写), 并在 fetch 入口再做一次规范化兜底, 同时兼容 URL 与 @URL= 变体。新增 6 组规范化用例与 fetch 旧格式 URL 回归单测。升级走保留配置分支",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "x86_64"
         ],
@@ -166,7 +166,7 @@
         "type": "external",
         "description": "扩展API插件可以提供扩展API接口，用于外部系统调用来实现自动化功能。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "all"
         ]
@@ -179,7 +179,7 @@
         "type": "external",
         "description": "Tailscale 是一个基于 WireGuard 协议的 零配置 虚拟专用网络（VPN）解决方案，旨在为用户提供安全、简单和高效的网络连接。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "x86_64"
         ]
@@ -192,7 +192,7 @@
         "type": "external",
         "description": "GecoOS 集客 AC 是 GecoOS 操作系统中的一部分，主要用于提供集成管理的 无线局域网控制器(AC, Access Controller)。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "x86_64"
         ]
@@ -205,7 +205,7 @@
         "type": "external",
         "description": "‌DDNSTO是一种远程控制工具，支持多种设备和应用，无需公网IP，提供多种远程控制功能。。<br>地址：<a>https://www.kooldns.cn/</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -220,7 +220,7 @@
         "type": "external",
         "description": "NetFence 一体化防火墙与上网行为管理: 域名过滤(广告/恶意/钓鱼)、应用识别、按用户组与时间段的统一策略、威胁情报封禁、nftables 规则编译、全量行为审计。整合 AdGuardHome/Pi-hole 的规则格式、nDPI/OpenAppFilter 的 L7 识别思路、OPNsense 的策略与规则分层、CrowdSec 的协同封禁与 nlbwmon/Sniffnet 的行为画像, 纯 Go 静态引擎, 无需内核模块。",
         "releasenotes": "v1.1.1 让上一版已提交的页面改动真正下发到设备: 详情页去掉灰底与白卡四周边框圆角阴影, 背景改纯白并保留内容内距, 消除标题栏与详情页之间的灰色间隙; 页面标题与页内名称统一为 NetFence。上一版只改了包内 HTML 却未升版本号, 设备已装 1.1.0 不会触发更新, 本版补齐版本号并重编 Go 引擎。升级走保留配置分支, 策略与配置不丢。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "x86_64"
         ],
@@ -234,7 +234,7 @@
         "type": "external",
         "description": "VNT是一个简便高效的异地组网、内网穿透工具。<br>详情访问：<a>https://rustvnt.com/</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -249,7 +249,7 @@
         "type": "external",
         "description": "VRemote服务配合相应的移动端App，可实现对路由器远程管理及网络共享等功能。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "all"
         ]
@@ -262,7 +262,7 @@
         "type": "external",
         "description": "Socks5 插件支持连接远程多个socks5服务器，同时支持本地设备进行分流",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -277,7 +277,7 @@
         "type": "external",
         "description": "小黄鸟(Reqable)式流量捕获与 HTTPS 解密插件：透明捕获全局域网 HTTP/HTTPS 流量，MITM 解密后可查看/分析请求响应，支持规则改写、JS 脚本、断点、REST Composer、HAR 导入导出。首次使用请先在客户端安装 CA 证书。",
         "releasenotes": "安全加固+界面优化: ① [安全] WebUI 原来直接绑 0.0.0.0, 局域网无痕窗口开 IP:18081 即可看全部抓包内容/改设置——零鉴权重大隐患。本版起(需固件 Build202611181800+)WebUI 只绑 127.0.0.1, 页面 iframe 改走路由器同源 /plugin_proxy/reqable/(OpenResty 校验 iKuai 登录会话 sess_key 后转发, 自动带 cookie; 无会话的直连/代理都被跳登录页), 同时修复 HTTPS 管理页 mixed-content 拦 iframe 的问题; 旧固件自动回退直连形态不影响使用。引擎双挂载路径(裸 /api/* 供插件本地调用 + 前缀路径), Vite base 与 fetch/EventSource 包装同步改造。② [界面] 去掉顶部「开启抓包「按钮(与下方 Reqable 面板的「继续「同一功能, 用户实锤), 保留「关闭抓包「(撤规则+暂停, 面板暂停管不到 iptables 规则); 使用步骤文案同步更新。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "x86_64"
         ]
@@ -290,7 +290,7 @@
         "type": "external",
         "description": "VNT是一个简便高效的异地组网、内网穿透工具。<br>详情访问：<a>https://rustvnt.com/</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -305,7 +305,7 @@
         "type": "external",
         "description": "FRPC 客户端用于连接 FRP 服务器（FRPS），将本地服务（如 Web 服务、SSH、RDP 等）暴露给外部网络。FRPC 会主动连接 FRPS，并通过隧道将内网的流量转发到 FRPS",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -320,7 +320,7 @@
         "type": "external",
         "description": "OpenP2P是一个开源、免费、轻量级的P2P共享网络。你的设备将组成一个私有P2P网络，里面的设备可以直接访问其它成员，或者通过其它成员转发数据间接访问。 如果私有网络无法完成通信，将会到公有P2P网络寻找共享节点协助通信。 相比BT网络用来共享文件，OpenP2P网络用来共享带宽。<br>地址：<a>https://www.openp2p.cn/</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "x86_64"
         ]
@@ -333,7 +333,7 @@
         "type": "external",
         "description": "ZeroTier 是一款开源的虚拟局域网（VPN）解决方案，旨在通过软件定义的网络技术让设备跨越不同的网络环境（如局域网、广域网、互联网等）进行无缝连接。<br>详情访问：<a>https://www.zerotier.com/</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "x86_64"
         ]
@@ -346,7 +346,7 @@
         "type": "external",
         "description": "NPC (Nginx Proxy Switcher)是一种流行的工具，通常用于通过反向代理管理和切换不同的网络代理设置。它允许用户在同一台机器上管理不同的代理服务器，轻松切换和配置。</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -361,7 +361,7 @@
         "type": "external",
         "description": "易有云（Yiyouyun）是一个提供 企业级云服务 的平台，主要面向 企业、政府机构以及开发者，提供包括 云计算、云存储、云数据库、云安全 等一系列云服务解决方案。",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "x86_64"
         ]
@@ -374,7 +374,7 @@
         "type": "external",
         "description": "扫描 PPPoE 服务器",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "x86_64"
         ]
@@ -387,7 +387,7 @@
         "type": "external",
         "description": "smartdns - 一个本地DNS服务器，获取最快的网站IP，获得最佳上网体验，支持DoH，DoT。<br>详情查看:<a>https://github.com/pymumu/smartdns</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "arm64",
             "mipsle",
@@ -402,7 +402,7 @@
         "type": "external",
         "description": "msd_lite - 轻量级多流守护进程。 这是一个轻量级的Multi Stream守护进程（msd）程序，用于通过HTTP在网络上组织IP电视流媒体。<br>详情查看：<a>https://github.com/rozhuk-im/msd_lite</a>",
         "releasenotes": "★ 安装/配置文件全部改存指定存储路径, 配置分区(sda3)零插件数据: 环境变量不再硬编码 source /etc/mnt/plugins/configs/config.sh, 改由框架 helper(plugin_env.sh)解析——有存储卷时读卷上 plugins_fw/config.sh, 无存储时用 p5(/etc/log)默认值; 需搭配 Build20261117xxxx 固件。",
-        "build": "202611231023",
+        "build": "202611240245",
         "compatibility": [
             "x86_64"
         ]
