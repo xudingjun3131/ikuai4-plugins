@@ -1,6 +1,7 @@
 package subscription
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,6 +22,12 @@ import (
 const (
 	maxSubBytes = 16 << 20 // 订阅原文上限 16MB(yfamilys AntiAD.list 约 9.7MB)
 	defaultUA   = "Mozilla/5.0 (compatible; runhooks-subscription/1.0)"
+	// [P2-2] 全局在途 fetch 并发上限: 展开远程引用/脚本时的有界并发,
+	// 防止多订阅并发添加或大索引页把源站打爆(TLS 限流)。
+	maxConcurrentFetches = 6
+	// [P2-2] 单次 Update(主订阅 + 展开 + 脚本)整体超时, 防并发下限流时 >240s 无返回。
+	// 单条 client 超时仍为 30s; 整体超时兜住"很多慢引用排队"的累积拖尾。
+	updateTimeout = 120 * time.Second
 )
 
 // Manager 订阅管理器: CRUD + 拉取 + 解析适配 + 定时更新。
@@ -41,6 +48,10 @@ type Manager struct {
 
 	client *http.Client
 
+	// [P2-2] 全局 fetch 并发闸门(有界并发展开远程引用/脚本, 防源站限流)
+	fetchSem  chan struct{}
+	fetchOnce sync.Once // 惰性初始化, 兼容直接 &Manager{} 构造的测试/调用
+
 	// 变更回调(app 注入: 重挂引擎 slot + 热重载 scope)
 	OnRulesChanged func()
 	OnScopeChanged func()
@@ -55,13 +66,14 @@ func NewManager(dataDir string, scope *proxy.ScopeStore, chain *rules.Chain, gal
 		log = slog.Default()
 	}
 	m := &Manager{
-		dataDir: filepath.Join(dataDir, "subscriptions"),
-		scope:   scope,
-		chain:   chain,
-		gallery: gallery,
-		log:     log,
-		client:  &http.Client{Timeout: 30 * time.Second},
-		stopCh:  make(chan struct{}),
+		dataDir:  filepath.Join(dataDir, "subscriptions"),
+		scope:    scope,
+		chain:    chain,
+		gallery:  gallery,
+		log:      log,
+		client:   &http.Client{Timeout: 30 * time.Second},
+		fetchSem: make(chan struct{}, maxConcurrentFetches),
+		stopCh:   make(chan struct{}),
 	}
 	m.subsPath = filepath.Join(m.dataDir, "subs.json")
 	if err := os.MkdirAll(m.dataDir, 0o700); err != nil {
@@ -234,14 +246,36 @@ func (m *Manager) Add(rawURL, name string, format Format, intervalMin int) (Sub,
 	}
 	m.subs = append(m.subs, sub)
 	if err := m.saveLocked(); err != nil {
+		// 落盘失败: 同步回滚刚 append 的记录, 避免内存/磁盘不一致
+		m.subs = m.subs[:len(m.subs)-1]
 		m.mu.Unlock()
 		return Sub{}, err
 	}
 	m.mu.Unlock()
 	if err := m.Update(sub.ID); err != nil {
-		return sub, err
+		// [P2-1] 首拉失败必须回滚: 不留 rules=0/last_error 的坏订阅,
+		// 也不堵住同 URL 的重试(否则下一次 Add 命中"该订阅地址已存在"400)。
+		m.rollbackAdd(sub.ID)
+		return Sub{}, err
 	}
 	return sub, nil
+}
+
+// rollbackAdd 删除一条刚由 Add 创建、但首拉失败的订阅(记录 + 残留文件 + 重新应用)。
+// 只按 ID 精确删除, 不影响并发期间其它 Add 创建的订阅。
+func (m *Manager) rollbackAdd(id string) {
+	m.mu.Lock()
+	for i := range m.subs {
+		if m.subs[i].ID == id {
+			m.subs = append(m.subs[:i], m.subs[i+1:]...)
+			break
+		}
+	}
+	_ = m.saveLocked()
+	m.mu.Unlock()
+	_ = os.Remove(filepath.Join(m.dataDir, id+".raw"))
+	_ = os.Remove(filepath.Join(m.dataDir, id+".parsed.json"))
+	m.applyAll()
 }
 
 // Remove 删除订阅并重新应用剩余订阅。
@@ -329,16 +363,25 @@ func (m *Manager) Update(id string) error {
 	urlStr := sub.URL
 	m.mu.Unlock()
 
-	raw, err := m.fetch(urlStr, "")
+	// [P2-2] 单次更新整体超时, 覆盖主订阅拉取 + 远程引用展开 + 脚本抓取。
+	ctx, cancel := context.WithTimeout(context.Background(), updateTimeout)
+	defer cancel()
+
+	raw, err := m.fetchCtx(ctx, urlStr, "")
 	if err != nil {
 		m.setError(id, err.Error())
 		return err
 	}
 	p := Parse(string(raw), sub.Format)
-	// 展开 QX 主配置 [filter_remote]/[rewrite_remote] 引用的远程规则/重写
-	m.expandRemoteRefs(p, urlStr)
-	// 抓取订阅引用的脚本(相对路径按订阅 URL 所在目录解析)
-	m.fetchScripts(p, urlStr)
+	// 展开 QX 主配置 [filter_remote]/[rewrite_remote] 引用的远程规则/重写(有界并发)
+	m.expandRemoteRefsCtx(ctx, p, urlStr)
+	// 抓取订阅引用的脚本(相对路径按订阅 URL 所在目录解析, 有界并发)
+	m.fetchScriptsCtx(ctx, p, urlStr)
+	if err := ctx.Err(); err != nil {
+		e := fmt.Errorf("订阅更新超时(%s): %w", updateTimeout, err)
+		m.setError(id, e.Error())
+		return e
+	}
 	a := Adapt(p)
 	sc, scWarns := adaptScripts(p, id)
 	p.Warnings = append(p.Warnings, scWarns...)
@@ -413,11 +456,33 @@ func (m *Manager) setError(id, msg string) {
 
 // ---- 拉取 ----
 
+// acquireFetch/releaseFetch: 全局有界并发闸门。惰性初始化, 使 &Manager{} 直接构造
+// 的轻量测试也自动获得限流; 所有拉取(主订阅/远程引用/脚本/自动更新)共享同一上限,
+// 防止多订阅并添加或大索引页把源站打爆(TLS 限流)。
+func (m *Manager) acquireFetch() {
+	m.fetchOnce.Do(func() {
+		if m.fetchSem == nil {
+			m.fetchSem = make(chan struct{}, maxConcurrentFetches)
+		}
+	})
+	m.fetchSem <- struct{}{}
+}
+func (m *Manager) releaseFetch() { <-m.fetchSem }
+
+// fetch 拉取单个 URL(无整体超时上下文, 供脚本抓取 / 旧调用点 / 测试使用)。
 func (m *Manager) fetch(urlStr, ua string) ([]byte, error) {
+	return m.fetchCtx(context.Background(), urlStr, ua)
+}
+
+// fetchCtx 拉取单个 URL; 进入即占用一个全局并发额度, 返回时释放。
+// ctx 用于单次 Update 的整体超时: 超时会中断在途请求, 不再让按钮长时间无响应。
+func (m *Manager) fetchCtx(ctx context.Context, urlStr, ua string) ([]byte, error) {
+	m.acquireFetch()
+	defer m.releaseFetch()
 	// 防御: subs.json 里可能残留旧格式 URL(如 "@url:`https://x`"), Update() 不经过 Add(),
 	// 直接在拉取入口再规范化一次, 避免拿整串 Markdown 标记去发 HTTP 请求。
 	urlStr = normalizeSubURL(urlStr)
-	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -477,56 +542,101 @@ func normalizeSubURL(s string) string {
 	return s
 }
 
-// expandRemoteRefs 展开 QX 主配置 [filter_remote]/[rewrite_remote] 段的远程引用。
-// 迭代队列, 最多 3 层 / 50 个 URL, 防循环引用和打爆源站; 单条失败只记 warning 不中断。
-// force-policy=REJECT 的引用把拉回的规则标 REJECT(Adapt 转成 ssl_bypass/host_block)。
+// expandRemoteRefs 兼容包装(无整体超时 ctx, 供测试/旧调用点)。
 func (m *Manager) expandRemoteRefs(p *Parsed, subURL string) {
-	type job struct {
-		refs  []RemoteRef
-		base  string
-		depth int
-	}
-	queue := []job{{refs: p.RemoteRefs, base: subURL, depth: 0}}
+	m.expandRemoteRefsCtx(context.Background(), p, subURL)
+}
+
+type refJob struct {
+	refs  []RemoteRef
+	base  string
+	depth int
+}
+type refTask struct {
+	ref    RemoteRef
+	target string
+	depth  int
+}
+type refResult struct {
+	task refTask
+	raw  []byte
+	err  error
+}
+
+// expandRemoteRefsCtx 展开 QX 主配置 [filter_remote]/[rewrite_remote] 段的远程引用。
+// [P2-2] 同一层引用并发展开(每个 fetchCtx 自带全局闸门, 峰值受 maxConcurrentFetches 限制),
+// 结果按任务原始顺序合并回 p, 保证规则顺序确定且无数据竞争。
+// 迭代队列按层 BFS, 最多 3 层 / 100 个 URL, 防循环引用和打爆源站; 单条失败只记 warning 不中断。
+// force-policy=REJECT 的引用把拉回的规则标 REJECT(Adapt 转成 ssl_bypass/host_block)。
+func (m *Manager) expandRemoteRefsCtx(ctx context.Context, p *Parsed, subURL string) {
+	queue := []refJob{{refs: p.RemoteRefs, base: subURL, depth: 0}}
 	seen := make(map[string]bool)
 	fetched := 0
 	for len(queue) > 0 {
-		j := queue[0]
-		queue = queue[1:]
-		if j.depth > 2 {
-			p.Warnings = append(p.Warnings, "remote 引用超过 3 层, 已停止展开(防循环)")
-			continue
+		// 1) 本层: 纯计算, 把 queue 展开成去重后的任务列表(顺序稳定, 无 IO)
+		var tasks []refTask
+		stopped := false
+		var next []refJob
+		for _, j := range queue {
+			if j.depth > 2 {
+				p.Warnings = append(p.Warnings, "remote 引用超过 3 层, 已停止展开(防循环)")
+				continue
+			}
+			base, _ := url.Parse(j.base)
+			for _, ref := range j.refs {
+				// 5 类客户端资源索引页单个页面就有 400+ 链接; 与 parseIndex 的 100 条上限对齐。
+				if fetched >= 100 {
+					p.Warnings = append(p.Warnings, "remote 引用超过 100 个(客户端资源索引页), 已停止展开; 需要更多请直接填具体资源 URL")
+					stopped = true
+					break
+				}
+				target := ref.URL
+				if !strings.HasPrefix(strings.ToLower(target), "http") {
+					if base == nil {
+						continue
+					}
+					r, err := url.Parse(target)
+					if err != nil {
+						continue
+					}
+					target = base.ResolveReference(r).String()
+				}
+				if seen[target] {
+					continue
+				}
+				seen[target] = true
+				fetched++
+				tasks = append(tasks, refTask{ref: ref, target: target, depth: j.depth})
+			}
+			if stopped {
+				break
+			}
 		}
-		base, _ := url.Parse(j.base)
-		for _, ref := range j.refs {
-			// 5 类客户端资源索引页单个页面就有 400+ 链接; 与 parseIndex 的 100 条上限对齐,
-			// 只展开前 100 个并在 warning 明示, 防止把源站打爆。
-			if fetched >= 100 {
-				p.Warnings = append(p.Warnings, "remote 引用超过 100 个(客户端资源索引页), 已停止展开; 需要更多请直接填具体资源 URL")
-				return
-			}
-			target := ref.URL
-			if !strings.HasPrefix(strings.ToLower(target), "http") {
-				if base == nil {
-					continue
-				}
-				r, err := url.Parse(target)
-				if err != nil {
-					continue
-				}
-				target = base.ResolveReference(r).String()
-			}
-			if seen[target] {
+		if len(tasks) == 0 {
+			break
+		}
+
+		// 2) 并发抓取本层(结果写各自槽位, 无竞争)
+		results := make([]refResult, len(tasks))
+		var wg sync.WaitGroup
+		for i := range tasks {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				raw, err := m.fetchCtx(ctx, tasks[i].target, "")
+				results[i] = refResult{task: tasks[i], raw: raw, err: err}
+			}(i)
+		}
+		wg.Wait()
+
+		// 3) 单 goroutine 按任务顺序合并, 顺序与串行版一致
+		for _, r := range results {
+			if r.err != nil {
+				p.Warnings = append(p.Warnings, fmt.Sprintf("remote 引用 %s 拉取失败: %v", r.task.target, r.err))
 				continue
 			}
-			seen[target] = true
-			fetched++
-			raw, err := m.fetch(target, "")
-			if err != nil {
-				p.Warnings = append(p.Warnings, fmt.Sprintf("remote 引用 %s 拉取失败: %v", target, err))
-				continue
-			}
-			sub := Parse(string(raw), FormatAuto)
-			if isRejectPolicy(ref.ForcePolicy) {
+			sub := Parse(string(r.raw), FormatAuto)
+			if isRejectPolicy(r.task.ref.ForcePolicy) {
 				for i := range sub.Rules {
 					sub.Rules[i].Policy = "REJECT"
 				}
@@ -537,20 +647,35 @@ func (m *Manager) expandRemoteRefs(p *Parsed, subURL string) {
 			p.Scripts = append(p.Scripts, sub.Scripts...)
 			p.Warnings = append(p.Warnings, sub.Warnings...)
 			p.Skipped += sub.Skipped
-			p.Warnings = append(p.Warnings, fmt.Sprintf("remote 引用 %s 展开: %d 条规则 / %d 条改写", target, len(sub.Rules), len(sub.Rewrites)))
+			p.Warnings = append(p.Warnings, fmt.Sprintf("remote 引用 %s 展开: %d 条规则 / %d 条改写", r.task.target, len(sub.Rules), len(sub.Rewrites)))
 			if len(sub.RemoteRefs) > 0 {
-				queue = append(queue, job{refs: sub.RemoteRefs, base: target, depth: j.depth + 1})
+				next = append(next, refJob{refs: sub.RemoteRefs, base: r.task.target, depth: r.task.depth + 1})
 			}
 		}
+		if stopped {
+			break
+		}
+		queue = next
 	}
 }
 
-// fetchScripts 抓取订阅引用的脚本内容; 相对路径按订阅 URL 所在目录解析。
+// fetchScripts 兼容包装(无 ctx)。
 func (m *Manager) fetchScripts(p *Parsed, subURL string) {
+	m.fetchScriptsCtx(context.Background(), p, subURL)
+}
+
+// fetchScriptsCtx 抓取订阅引用的脚本内容; 相对路径按订阅 URL 所在目录解析。
+// [P2-2] 并发展开(受全局闸门限流), 结果按索引写回。
+func (m *Manager) fetchScriptsCtx(ctx context.Context, p *Parsed, subURL string) {
 	base, err := url.Parse(subURL)
 	if err != nil {
 		return
 	}
+	type scTask struct {
+		idx    int
+		target string
+	}
+	var tasks []scTask
 	for i := range p.Scripts {
 		sc := &p.Scripts[i]
 		if sc.Source != "" {
@@ -566,12 +691,33 @@ func (m *Manager) fetchScripts(p *Parsed, subURL string) {
 			}
 			target = base.ResolveReference(ref).String()
 		}
-		b, err := m.fetch(target, "")
-		if err != nil {
-			sc.FetchErr = err.Error()
+		tasks = append(tasks, scTask{idx: i, target: target})
+	}
+	if len(tasks) == 0 {
+		return
+	}
+	type scResult struct {
+		b   []byte
+		err error
+	}
+	results := make([]scResult, len(tasks))
+	var wg sync.WaitGroup
+	for k := range tasks {
+		wg.Add(1)
+		go func(k int) {
+			defer wg.Done()
+			b, err := m.fetchCtx(ctx, tasks[k].target, "")
+			results[k] = scResult{b: b, err: err}
+		}(k)
+	}
+	wg.Wait()
+	for k, r := range results {
+		sc := &p.Scripts[tasks[k].idx]
+		if r.err != nil {
+			sc.FetchErr = r.err.Error()
 			continue
 		}
-		sc.Source = string(b)
+		sc.Source = string(r.b)
 	}
 }
 

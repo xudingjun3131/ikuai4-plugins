@@ -482,11 +482,26 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 - v1.1.25：5 类页面都是 **HTML 索引页**（不是订阅原文）。`isHTMLIndex`/`parseIndex` 识别并提取 `conf/list/sgmodule/plugin/stoverride/yaml/json` 资源链接（排除广告 JS 和导航锚点，上限 100），复用 `expandRemoteRefs` 展开；新增 `FormatStOverride` + `parseStOverride`（YAML：`script-providers` 的 JS URL → 脚本引用 + `script-response-body` 改写，`rules:` 段按规则解析，`tiles` 磁贴忽略并告警）；`parseSurge`/`parseQuanX` 补 `[URL Rewrite]`/`[Header Rewrite]` 段（Surge `.sgmodule` / Loon `.plugin`）；`parseList` 识别**无段头**的 QX/Loon rewrite 合集（`^pattern$ url 302 target` 或 `^pattern$ 302 target`）。实测 5 个页面均判 `index`（refs 14/100/100/41/100），抽样的 `sgmodule`/`plugin`/`stoverride`/`yaml`/`conf` 都解析出规则/改写/脚本/MITM。
 - 关键纪律：订阅解析器保持**纯函数不联网**，所有远程拉取/展开放 `manager`；新增格式先在 `DetectFormat` 加判据再在 `Parse` 分派；改 `parseRuleLine`/`parseList` 的行识别会影响现有 `parse_test.go` 的 Rules/Skipped 断言，必须同步更新并跑全量 `go test ./...`。上线链：`metadata.json` bump → `make version && make build-go` → `cp bin/runhooks ../bins/` → `python3 build.py /tmp/pkg /tmp/out`（包内自检 metadata/内嵌版本/静态）→ commit + push → CI 更新 gh-pages 清单。
 
-**插件管理页在线图标全 404（2026-11-24，无需改代码）**：截图显示「可安装插件」26 张卡片 logo 全破图，而「已安装插件」4 张正常。
-- 根因：`02.pgstore/index.html` 的 `getOnlineLogoUrl(repo.id, item)` 拼的是**设备本地** `/plugins/img/<repo_id>/<item.name>.png`；这些图标由软件源更新时从源站 `img.tar.gz` 解压到该目录。已安装插件走 `/plugins/<name>/logo.png`（ipk 包内），不依赖该目录，所以正常。设备 `/plugins/img/<repo_id>/` 为空（上次更新源时未拉到图标包，或发版后未再更新）→ 在线图标全 404。
-- `repo.id` 是 **UUID**（`plugin_pgstore show TYPE=onlinePlugins` 返回的 `repo.id`，如 `5f74366d-…`），不是数字 1；排查时用真实 id，别拿 `/plugins/img/1/…` 误判。
-- 修复：调 `/Action/call` `{"func_name":"plugin_pgstore","action":"updateSoftwareSouce","param":{}}`（即页面「更新软件源」按钮）重新拉清单 + 图标包。实测修复后 **29/29 图标 200 image/png**。
-- 防复发：每次插件源发版（尤其改动 `build.py` 产物）后点一次「更新软件源」；`build.py` 必须产出 `img.tar.gz`（内含 `./<name>.png`，对应每个插件的 `logo.png`），CI 需把它一起部署到 gh-pages；源站 URL 是 `https://xudingjun3131.github.io/ikuai4-plugins`（gh-pages 站点），与 `raw.githubusercontent.com/.../gh-pages/` 是同一仓库但不同访问路径。
-- 注意：截图地址是 `192.168.8.1`，本次可访问并修复的是 `192.168.9.1`；若为两台不同设备，另一台需各自点一次「更新软件源」。
+**插件管理页在线图标全 404 → 图标本地缓存语义（2026-11-24，后续结论以此为准）**
+> **[已作废的初判]** 曾写成「无需改代码，点一次更新软件源即可」——错。真根因是固件脚本代码 bug，必须改固件并重出四包。
+
+- 现象：可安装插件 26 张 logo 全破图，已安装 4 张正常（后者走包内 `/plugins/<name>/logo.png`）。
+- 排查路径：`getOnlineLogoUrl(repo.id, item)` → 设备本地 `/plugins/img/<repo_id>/<item.name>.png`；
+  `repo.id` 是 **UUID**（`plugin_pgstore show TYPE=onlinePlugins`），不是数字 1；
+  `build.py` 产出的 `img.tar.gz`（`./<name>.png`）随 CI 部署到 gh-pages `https://xudingjun3131.github.io/ikuai4-plugins`。
+- **真根因**：`usr/ikuai/script/plugin_pgstore.sh` 的 `updateSoftwareSouce()` 在 `wget img.tar.gz`
+  失败后仍无条件 `rm -rf $EXT_PLUGIN_FW_DIR/img/$id` 再解压空包 → 本地图标被清空。
+- **用户明确要求的语义**：首次拉到就存本地；之后更新失败**保留旧图标**；只有 logo 内容真变了才覆盖。
+  不是「加载失败回退到源站 ico」——那个方案已撤销（页面恢复 1601 现役版、`build.py` 去掉 ico 产物）。
+- 修复在**固件仓** `/opt/ikuai4-enterprise`（本仓只放插件）：下载 + `tar -tzf` 校验 + 解压到临时 stage
+  全成功才逐文件 `cmp -s` 比对覆盖，失败只记 warning 完全不动本地目录；`wget` 超时 10s/1 次 → 15s/2 次。
+  交付 `Build202611241037` 四包，真机 9.1 五步升级 1601→1037 验证图标仍 200，详见固件仓 AGENTS.md §38。
+- 坑：补丁仓库的 `plugin_pgstore.sh` 是 724 行旧版、固件 rootfs 是 773 行现役版，必须从现役取基底再同步回补丁源。
+- 注意：截图地址 `192.168.8.1` 从构建机不可达；那台需各自升级到 1037 固件才生效。
+
+**订阅管理器 P2 健壮性（本仓 runhooks）**：`Manager.Add()` 首拉失败会残留 `rules=0` 坏记录且同 URL 无法重试 →
+改为失败回滚（移除记录+重新落盘）。展开大索引页时并发拉源站被 TLS 限流、慢引用排队 >240s →
+加 `fetchSem`（`maxConcurrentFetches=6`）有界并发闸门与 `Update` 整体 `updateTimeout=120s`（单条 client 仍 30s），
+`sync.Once` 惰性初始化兼容测试直接构造。回归 `p2_regression_test.go`，全量 `go test ./...` 全绿。
 
 
