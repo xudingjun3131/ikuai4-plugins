@@ -482,3 +482,11 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 - v1.1.25：5 类页面都是 **HTML 索引页**（不是订阅原文）。`isHTMLIndex`/`parseIndex` 识别并提取 `conf/list/sgmodule/plugin/stoverride/yaml/json` 资源链接（排除广告 JS 和导航锚点，上限 100），复用 `expandRemoteRefs` 展开；新增 `FormatStOverride` + `parseStOverride`（YAML：`script-providers` 的 JS URL → 脚本引用 + `script-response-body` 改写，`rules:` 段按规则解析，`tiles` 磁贴忽略并告警）；`parseSurge`/`parseQuanX` 补 `[URL Rewrite]`/`[Header Rewrite]` 段（Surge `.sgmodule` / Loon `.plugin`）；`parseList` 识别**无段头**的 QX/Loon rewrite 合集（`^pattern$ url 302 target` 或 `^pattern$ 302 target`）。实测 5 个页面均判 `index`（refs 14/100/100/41/100），抽样的 `sgmodule`/`plugin`/`stoverride`/`yaml`/`conf` 都解析出规则/改写/脚本/MITM。
 - 关键纪律：订阅解析器保持**纯函数不联网**，所有远程拉取/展开放 `manager`；新增格式先在 `DetectFormat` 加判据再在 `Parse` 分派；改 `parseRuleLine`/`parseList` 的行识别会影响现有 `parse_test.go` 的 Rules/Skipped 断言，必须同步更新并跑全量 `go test ./...`。上线链：`metadata.json` bump → `make version && make build-go` → `cp bin/runhooks ../bins/` → `python3 build.py /tmp/pkg /tmp/out`（包内自检 metadata/内嵌版本/静态）→ commit + push → CI 更新 gh-pages 清单。
 
+**插件管理页在线图标全 404（2026-11-24，无需改代码）**：截图显示「可安装插件」26 张卡片 logo 全破图，而「已安装插件」4 张正常。
+- 根因：`02.pgstore/index.html` 的 `getOnlineLogoUrl(repo.id, item)` 拼的是**设备本地** `/plugins/img/<repo_id>/<item.name>.png`；这些图标由软件源更新时从源站 `img.tar.gz` 解压到该目录。已安装插件走 `/plugins/<name>/logo.png`（ipk 包内），不依赖该目录，所以正常。设备 `/plugins/img/<repo_id>/` 为空（上次更新源时未拉到图标包，或发版后未再更新）→ 在线图标全 404。
+- `repo.id` 是 **UUID**（`plugin_pgstore show TYPE=onlinePlugins` 返回的 `repo.id`，如 `5f74366d-…`），不是数字 1；排查时用真实 id，别拿 `/plugins/img/1/…` 误判。
+- 修复：调 `/Action/call` `{"func_name":"plugin_pgstore","action":"updateSoftwareSouce","param":{}}`（即页面「更新软件源」按钮）重新拉清单 + 图标包。实测修复后 **29/29 图标 200 image/png**。
+- 防复发：每次插件源发版（尤其改动 `build.py` 产物）后点一次「更新软件源」；`build.py` 必须产出 `img.tar.gz`（内含 `./<name>.png`，对应每个插件的 `logo.png`），CI 需把它一起部署到 gh-pages；源站 URL 是 `https://xudingjun3131.github.io/ikuai4-plugins`（gh-pages 站点），与 `raw.githubusercontent.com/.../gh-pages/` 是同一仓库但不同访问路径。
+- 注意：截图地址是 `192.168.8.1`，本次可访问并修复的是 `192.168.9.1`；若为两台不同设备，另一台需各自点一次「更新软件源」。
+
+
