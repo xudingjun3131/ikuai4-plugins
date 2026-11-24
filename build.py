@@ -307,6 +307,10 @@ def main():
     plugins = []
 
     logo_tar_gz = tarfile.open(os.path.join(output_dir, "img.tar.gz"), "w:gz")
+    # [logo-fallback] 同时发布独立图标 ico/<name>.png; 设备 /plugins/img 未同步
+    # img.tar.gz 时, 02.pgstore 的 onOnlineLogoError 会回退到源站 ico/ 目录。
+    ico_dir = os.path.join(output_dir, "ico")
+    os.makedirs(ico_dir, exist_ok=True)
 
     for item in os.listdir(plugin_source_dir):
         plugin_path = os.path.join(plugin_source_dir, item)
@@ -314,6 +318,8 @@ def main():
             print(f"Building plugin from '{plugin_path}'...")
             plugin = build_plugin(plugin_path, plugin_dir)
             add_file(logo_tar_gz, os.path.join(plugin_path, "logo.png"), f"./{plugin['name']}.png")
+            shutil.copyfile(os.path.join(plugin_path, "logo.png"),
+                            os.path.join(ico_dir, plugin["name"] + ".png"))
             plugins.append(plugin)
             print(f"Built plugin from '{plugin_path}' successfully.")
     
