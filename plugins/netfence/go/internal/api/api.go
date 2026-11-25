@@ -37,7 +37,20 @@ func New(eng *core.Engine, version, cfgDir string) *Server {
 	return s
 }
 
-func (s *Server) Handler() http.Handler { return s.mux }
+// Handler 统一给请求体加大小上限, 防止超大 JSON 打满内存。
+// lists/threat 允许 4MB 列表体(留 64KB 给 JSON 包装), 其余管理端点 1MB。
+func (s *Server) Handler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		limit := int64(1 << 20)
+		if strings.HasPrefix(r.URL.Path, "/api/lists") || strings.HasPrefix(r.URL.Path, "/api/threat") {
+			limit = (4 << 20) + (64 << 10)
+		}
+		if r.Body != nil && r.Body != http.NoBody {
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
+		}
+		s.mux.ServeHTTP(w, r)
+	})
+}
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("/api/health", s.health)
@@ -208,6 +221,13 @@ func (s *Server) lists(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		// 空/全注释列表会把过滤规则清空: 落盘前先解析一次, 无有效条目直接拒绝。
+		// threat 端点用 IP/CIDR 格式, 不走这里的 ParseList 语义。
+		probe := core.NewFilterList()
+		if n := probe.ParseList(body.Name, body.Body, core.CatAds); n == 0 {
+			http.Error(w, "列表无有效条目(空文件或全是注释), 已拒绝写入", http.StatusBadRequest)
 			return
 		}
 		n, err := core.WriteListFile(dir, body.Name, body.Body)

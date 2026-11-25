@@ -55,6 +55,8 @@ func main() {
 		Addr:              *apiAddr,
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 
@@ -138,6 +140,12 @@ func serveDNSTCP(addr, upstream string, eng *core.Engine) error {
 	for {
 		c, err := ln.Accept()
 		if err != nil {
+			// 临时错误(EMFILE 等)不应让 TCP/53 永久退出; 短暂退避后重试。
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				log.Printf("netfence: dns tcp accept temporary: %v", err)
+				time.Sleep(50 * time.Millisecond)
+				continue
+			}
 			return err
 		}
 		select {

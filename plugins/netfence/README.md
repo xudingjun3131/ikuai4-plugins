@@ -141,3 +141,20 @@ v1.0.1 修复：
 （编译产物起 `-api/-dns/-upstream`，发真实 UDP/TCP DNS 与 HTTP）15 项全过；
 外壳页布局参考巡流 NetLoom 做 CSS-only 优化，浏览器 A/B 23 项断言全过（该布局步骤
 内 DOM/绑定/文案逐字未动；相对 v1.0.1 的整体 html 差异另含上面的配置面 UI 新增）。默认策略仍 `default-audit` 只审计不拦截，安装不断网。
+
+
+## 附：v1.1.2 引擎优化与发布（2026-11-25）
+
+本版为引擎侧优化与安全加固，不改裁决语义：
+
+- `FilterList.Lookup` 由 `strings.Split` + 逐层 `strings.Join` 改为按字节索引逐级切后缀，
+  DNS 热路径零分配（基准 `BenchmarkLookup_Suffix`: 0 B/op、0 allocs/op）。
+- `FilterList.ParseList` 由逐行加解锁改为整段一次持锁；wildcard 用集合去重，
+  大列表加载不再退化为平方级。
+- 管理 API 统一加请求体上限（lists/threat 4MB，其余 1MB）；空或全注释列表在落盘前拒绝，
+  不再清空过滤规则；`http.Server` 补齐读写超时；DNS over TCP 的 `Accept` 临时错误退避重试。
+- 新增 `optimize_regression_test.go`（core/api 各一份）覆盖后缀/例外/wildcard 语义、
+  零分配、去重、并发安全、超大 body、空列表与 threat CIDR 写入。
+
+自测：`go test ./...`、`go vet ./...`、`go test -race ./...` 全通过。
+发布件 `plugin-netfence-x86_64-v1.1.2-Build<ts>.ipk` 落在 server 工作区 `/opt/ikuai4/`。

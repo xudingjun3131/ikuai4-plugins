@@ -22,18 +22,20 @@ import (
 // Matching is exact + suffix (subdomains) + one-level wildcard, which covers
 // the overwhelming majority of real-world DNS blocklist entries.
 type FilterList struct {
-	mu        sync.RWMutex
-	block     map[string]string // domain -> source list name
-	allow     map[string]string // exception (@@) -> source list name
-	wildcard  []string          // entries starting with "*." or containing "*"
-	cats      map[string]Category
-	sourceCnt map[string]int
+	mu          sync.RWMutex
+	block       map[string]string   // domain -> source list name
+	allow       map[string]string   // exception (@@) -> source list name
+	wildcard    []string            // entries starting with "*." or containing "*"
+	wildcardSet map[string]struct{} // 加载期去重, 避免 O(n^2)
+	cats        map[string]Category
+	sourceCnt   map[string]int
 }
 
 func NewFilterList() *FilterList {
 	return &FilterList{
 		block: map[string]string{}, allow: map[string]string{},
-		cats: map[string]Category{}, sourceCnt: map[string]int{},
+		wildcardSet: map[string]struct{}{},
+		cats:        map[string]Category{}, sourceCnt: map[string]int{},
 	}
 }
 
@@ -49,6 +51,10 @@ func (f *FilterList) ParseList(name, body string, cat Category) int {
 	sc := bufio.NewScanner(strings.NewReader(body))
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	added := 0
+	// 加载期是新建对象的单线程路径; 整段持一次写锁即可,
+	// 不必每行 Lock/Unlock(大列表下是纯开销)。
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
 		if line == "" || strings.HasPrefix(line, "#") ||
@@ -80,9 +86,9 @@ func (f *FilterList) ParseList(name, body string, cat Category) int {
 		if line == "" || line == "localhost" {
 			continue
 		}
-		f.mu.Lock()
 		if strings.Contains(line, "*") {
-			if !containsStr(f.wildcard, line) {
+			if _, ok := f.wildcardSet[line]; !ok {
+				f.wildcardSet[line] = struct{}{}
 				f.wildcard = append(f.wildcard, line)
 				added++
 			}
@@ -97,7 +103,6 @@ func (f *FilterList) ParseList(name, body string, cat Category) int {
 			f.cats[line] = cat
 		}
 		f.sourceCnt[name]++
-		f.mu.Unlock()
 	}
 	return added
 }
@@ -109,33 +114,27 @@ func isIPLike(s string) bool {
 	return len(s) > 0 && s[0] >= '0' && s[0] <= '9' && strings.Count(s, ".") == 3
 }
 
-func containsStr(a []string, s string) bool {
-	for _, v := range a {
-		if v == s {
-			return true
-		}
-	}
-	return false
-}
-
 // Lookup returns (blocked, source, category) for a domain. Exceptions win.
 func (f *FilterList) Lookup(domain string) (bool, string, Category) {
 	d := normalizeDomain(domain)
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	if src, ok := f.allow[d]; ok {
-		return false, "exception:" + src, CatUnknown
-	}
-	// walk parent suffixes: a.b.example.com -> example.com
-	parts := strings.Split(d, ".")
-	for i := 0; i < len(parts); i++ {
-		cand := strings.Join(parts[i:], ".")
+	// 逐级去掉最左标签: a.b.example.com -> b.example.com -> example.com -> com
+	// 按字节索引切后缀, 不做 Split/Join, DNS 热路径零分配; cand 局部迭代,
+	// d 保持完整域名供后面的 wildcard 匹配使用。
+	cand := d
+	for {
 		if src, ok := f.allow[cand]; ok {
 			return false, "exception:" + src, CatUnknown
 		}
 		if src, ok := f.block[cand]; ok {
 			return true, src, f.cats[cand]
 		}
+		i := strings.IndexByte(cand, '.')
+		if i < 0 {
+			break
+		}
+		cand = cand[i+1:]
 	}
 	for _, w := range f.wildcard {
 		if wildcardMatch(w, d) {

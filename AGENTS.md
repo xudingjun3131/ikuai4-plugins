@@ -505,3 +505,12 @@ commit `13c1c26` 删除整个 `plugins/mitmproxy/`（187 文件）。理由：�
 `sync.Once` 惰性初始化兼容测试直接构造。回归 `p2_regression_test.go`，全量 `go test ./...` 全绿。
 
 
+
+**NetFence v1.1.2 引擎优化（2026-11-25）**：`Lookup` 去掉 Split/Join 改按字节索引切后缀
+(零分配, 基准 0 allocs/op)；`ParseList` 逐行锁改整段一次锁 + wildcard 集合去重；
+API 统一 body 上限与空列表落盘前拒绝；HTTP 补读写超时；TCP/53 Accept 临时错误退避重试。
+踩坑: 优化 Lookup 时让 `d` 自身迭代会破坏后面 wildcard 循环所需的完整域名, 必须用局部 `cand`；
+`WriteListFile` 被 lists(域名) 与 threat(IP/CIDR) 共用, 空条目校验只能放 lists 端点,
+放通用函数会误伤 threat 写入(实测 `203.0.113.0/24` 被 ParseList 当 URL 规则跳过导致 n=0)。
+发布链: 改 metadata.version → `cd go && make build-go` → 复制 `go/bin/netfenced` 到
+`bins/netfence-x86_64` → `build.py` version-gate 校验内嵌版本 → 打 ipk → 传 server 工作区。

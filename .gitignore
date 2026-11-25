@@ -6,3 +6,5 @@ docs/
 .smoke-data/
 __pycache__/
 *.pyc
+
+output-*/
