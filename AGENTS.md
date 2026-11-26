@@ -514,3 +514,13 @@ API 统一 body 上限与空列表落盘前拒绝；HTTP 补读写超时；TCP/5
 放通用函数会误伤 threat 写入(实测 `203.0.113.0/24` 被 ParseList 当 URL 规则跳过导致 n=0)。
 发布链: 改 metadata.version → `cd go && make build-go` → 复制 `go/bin/netfenced` 到
 `bins/netfence-x86_64` → `build.py` version-gate 校验内嵌版本 → 打 ipk → 传 server 工作区。
+
+**NetFence v1.1.3 页面视觉层（2026-11-26）**：用户要求「悬浮展开去掉 + 布局太丑」。
+悬浮展开 = `.nf-actions-hint` 与 `.nf-panel>.nf-tip:not([style])` 的单行省略 + `:hover`
+展开 + `::after{content:悬停展开}` 角标；新 CSS 全部删除，说明直接完整呈现。
+布局改 CSS Grid：KPI `repeat(5,minmax(0,1fr))`、tab `repeat(8,minmax(0,1fr))` 分段控件、
+分区标题行（::before 竖条 + ::after 细线）、卡片化表格（border-collapse:separate + 圆角）、
+统一 8px 间距与 1180/820 响应式。**纪律：CSS-only，不动 DOM/Vue/文案/后端**；
+用 `git show HEAD:...` 对比各绑定数量逐字一致来自证。自测用 `chromium --headless
+--screenshot` 真渲染 + 裁剪放大 tesseract OCR 验证说明全文没被截断（vision_analyze 超时不可靠）。
+注意 `::after` 仍用于分区标题细线，别误判成悬停角标残留。

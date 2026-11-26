@@ -158,3 +158,16 @@ v1.0.1 修复：
 
 自测：`go test ./...`、`go vet ./...`、`go test -race ./...` 全通过。
 发布件 `plugin-netfence-x86_64-v1.1.2-Build<ts>.ipk` 落在 server 工作区 `/opt/ikuai4/`。
+
+
+## 附：v1.1.3 页面视觉层重做（2026-11-26）
+
+- 去掉说明条的单行省略与悬停展开交互：提示与说明直接完整呈现，无角标、无展开动作。
+- 布局重做：分区标题行、五等宽 KPI 网格、八等宽分段 tab、卡片化表格与说明块、
+  统一间距刻度、三档响应式（1180/820），取消浮起阴影与位移。
+- **CSS-only**：DOM 结构、Vue 绑定、文案、后端动作逐字未动
+  （`@click` 28、`v-model` 12、`v-show` 8、`v-if` 8、`v-for` 2、插值 32 全部一致）。
+- 自测：Chromium headless 真渲染截图（1280×1000，72KB），HTMLParser 解析通过、
+  CSS 括号平衡、hover 展开规则 0；裁剪放大 OCR 复核说明全文完整显示，
+  KPI 数值、管控台、8 个 tab、表头全部渲染。
+- 发布件 `plugin-netfence-x86_64-v1.1.3-Build<ts>.ipk` 落在 server 工作区 `/opt/ikuai4/`。

@@ -2,11 +2,11 @@
   "name": "netfence",
   "alias": "NetFence",
   "manufacturer": "iKuai",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "NetFence 一体化防火墙与上网行为管理: 域名过滤(广告/恶意/钓鱼)、应用识别、按用户组与时间段的统一策略、威胁情报封禁、nftables 规则编译、全量行为审计。整合 AdGuardHome/Pi-hole 的规则格式、nDPI/OpenAppFilter 的 L7 识别思路、OPNsense 的策略与规则分层、CrowdSec 的协同封禁与 nlbwmon/Sniffnet 的行为画像, 纯 Go 静态引擎, 无需内核模块。",
-  "releasenotes": "v1.1.2 引擎优化与安全加固: 域名过滤 Lookup 改为按字节索引逐级切后缀, 移除 Split/Join 后 DNS 热路径零分配; ParseList 由逐行加锁改为整段一次持锁, wildcard 用集合去重避免大列表加载退化为平方级; 管理 API 统一加请求体大小上限, 列表端点 4MB 其余 1MB; 空或全注释列表在落盘前拒绝, 不再清空规则; HTTP 服务补齐读写超时; DNS over TCP 的 Accept 临时错误改为退避重试不再永久停服。新增回归测试与基准, go test go vet 竞态检测全通过。升级走保留配置分支, 策略与配置不丢。",
+  "releasenotes": "v1.1.3 页面视觉层重做: 去掉说明条的单行省略与悬停展开交互, 提示与说明直接完整呈现, 不再有角标或展开动作; 布局改为分区标题行、五等宽 KPI 网格、八等宽分段 tab、卡片化表格与说明块、统一间距刻度和三档响应式, 取消浮起阴影与位移效果。仅改 CSS, DOM 结构 Vue 绑定 文案与后端动作全部不动。Chromium 真渲染截图与 OCR 复核说明全文完整显示。升级走保留配置分支, 策略与配置不丢。",
   "arch": [
     "x86_64"
   ],
