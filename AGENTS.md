@@ -543,3 +543,26 @@ API 统一 body 上限与空列表落盘前拒绝；HTTP 补读写超时；TCP/5
 用 `#tool=rest` hash 深链直达「编写」页, Chromium `--headless --virtual-time-budget=8000
 --window-size=1280,900 --screenshot` 真渲染; PIL 主体灰度均值 62.1(旧) → 248.0(新),
 裁剪放大 tesseract OCR 从几乎读不出到可读出 GET/URL/发送/集合/Params-Headers-Body-Auth-Env/RESPONSE。
+
+**NetLoom v1.1.28 代理「部分网站打不开」根因（2026-11-26）**：用户报开启代理后
+github.com / v2ex.com / google.com 打不开, x.com 能打开。
+真机实证链: curl 走 192.168.9.1:18060 加 -k 四域名全 200/301 → 隧道没问题;
+不带 -k 报 self signed certificate in certificate chain; Playwright(Chromium +
+proxy) 在 CA 未信任时四域名**全部** net::ERR_CERT_AUTHORITY_INVALID, 信任 CA 后
+github/google 200 → 差异不是代理代码按域名区分, 而是 **HSTS 站点证书错误不允许点
+「继续前往」, 非 HSTS 站点可手动绕过**(x.com)。
+再查 openssl s_client 取 MITM leaf: 当前 UTC 11-26 06:56, 证书
+notBefore=11-24 20:44 GMT / notAfter=11-25 20:49 GMT → **已过期约 10 小时**。
+根因在 `internal/ca/ca.go`: `leafValidFor=24h`, `mintLeaf` 每次签发 NotAfter=now+24h,
+但 `Certificate()` 命中内存 `leaves` 缓存直接返回、**从不检查 NotAfter**。
+引擎连续运行 >24h 后所有 MITM 证书过期 → ERR_CERT_DATE_INVALID;
+HSTS 站点硬失败, 非 HSTS 可绕过 → 正好复现用户现象。
+修法: 缓存命中先 `leafNeedsRefresh(cert, now)`(已过期 / 剩余<1h / Leaf 为 nil /
+NotBefore 在未来 都重签), 写锁内 double-check 防并发重复重签; 未过期仍复用同指针。
+新增 3 个回归测试(过期重签、临近过期提前重签、fresh 缓存不破坏), FAIL→PASS 坐实。
+**通用教训**: MITM 代理的短期 leaf 证书 + 永久内存缓存 = 定时炸弹; 现场报「部分站点
+打不开、部分能开」先查证书 NotAfter 与 HSTS, 别先怀疑按域名的规则/ACL。
+诊断命令: `openssl s_client -proxy <router>:18060 -connect host:443 -servername host |
+openssl x509 -noout -dates`; 浏览器路径用 Playwright proxy + ignoreHTTPSErrors 两组对照。
+另: `Test_Engine_WS_captures_frames` 是预存时序 flaky(全量 ./... 偶发, 单独跑稳定
+PASS; HEAD 版全量 3 次也 FAIL 1 次), 与 ca 改动无关, 别误判为回归。

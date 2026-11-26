@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -20,6 +21,10 @@ const (
 	caKeyFile  = "ca.key"
 	keyMode    = 0o600
 	dirMode    = 0o700
+
+	// leafRefreshSkew: 剩余有效期不足 1h 就提前重签, 避免握手瞬间刚好跨过
+	// NotAfter。leaf 本身只有 24h, 引擎长期运行时必须按需刷新。
+	leafRefreshSkew = time.Hour
 )
 
 // Authority is a generate-or-load root CA with an in-memory leaf cache.
@@ -71,6 +76,11 @@ func (a *Authority) RootCertPath() string {
 }
 
 // Certificate returns a tls.Certificate for host (DNS or IP), cached in memory.
+//
+// [leaf-expiry] leaf 证书只有 leafValidFor(24h), 但引擎常连续运行数天。旧实现缓存
+// 命中即返回, 从不检查 NotAfter → 超过 24h 后所有 MITM 证书过期: 浏览器报
+// ERR_CERT_DATE_INVALID, HSTS 站点(github/google 等)不允许「继续前往」直接打不开,
+// 非 HSTS 站点可手动绕过故看似正常。必须按需重签。
 func (a *Authority) Certificate(host string) (*tls.Certificate, error) {
 	if a == nil {
 		return nil, errors.New("ca: nil authority")
@@ -81,7 +91,7 @@ func (a *Authority) Certificate(host string) (*tls.Certificate, error) {
 	}
 
 	a.mu.RLock()
-	if cert, ok := a.leaves[host]; ok {
+	if cert, ok := a.leaves[host]; ok && !leafNeedsRefresh(cert, time.Now()) {
 		a.mu.RUnlock()
 		return cert, nil
 	}
@@ -89,7 +99,8 @@ func (a *Authority) Certificate(host string) (*tls.Certificate, error) {
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if cert, ok := a.leaves[host]; ok {
+	// double-check: 可能另一个 goroutine 刚重签过。
+	if cert, ok := a.leaves[host]; ok && !leafNeedsRefresh(cert, time.Now()) {
 		return cert, nil
 	}
 
@@ -99,6 +110,17 @@ func (a *Authority) Certificate(host string) (*tls.Certificate, error) {
 	}
 	a.leaves[host] = cert
 	return cert, nil
+}
+
+// leafNeedsRefresh 报告缓存证书是否需要重签(已过期 / 剩余不足刷新阈值 / 无 Leaf)。
+func leafNeedsRefresh(cert *tls.Certificate, now time.Time) bool {
+	if cert == nil || cert.Leaf == nil {
+		return true
+	}
+	if now.Before(cert.Leaf.NotBefore) {
+		return true
+	}
+	return now.Add(leafRefreshSkew).After(cert.Leaf.NotAfter)
 }
 
 func normalizeHost(host string) string {
