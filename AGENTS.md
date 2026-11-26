@@ -524,3 +524,22 @@ API 统一 body 上限与空列表落盘前拒绝；HTTP 补读写超时；TCP/5
 用 `git show HEAD:...` 对比各绑定数量逐字一致来自证。自测用 `chromium --headless
 --screenshot` 真渲染 + 裁剪放大 tesseract OCR 验证说明全文没被截断（vision_analyze 超时不可靠）。
 注意 `::after` 仍用于分区标题细线，别误判成悬停角标残留。
+
+**NetLoom v1.1.27 「编写」页背景过黑修复（2026-11-26）**：用户报「运维工具箱下面的编写背景太黑看不清」。
+「编写」= React 观测台 SPA 的 `tool=rest` 子页（源码 `go/web/src/components/rest-panel.tsx`），
+不是插件页 `html/index.html`。根因: 该页硬编码深色底 `bg-[#0b0f17]`/`bg-[#0d1118]`/
+`bg-[#121826]`/`bg-[#0a0e16]`, 而全站 `:root` 是 `color-scheme:light`、`--foreground:#16241f`
+深色字 —— 黑底深字对比度约 1.2:1, 文字几乎不可见; 且 `text-emerald-100`/`text-orange-300` 等
+浅色强调字只在深底成立。修法: 背景统一 `bg-white`/`bg-[#f7faf8]`, 文字回 `text-foreground`,
+强调色换深色系(emerald-700/orange-600/rose-600/amber-700/sky-700), 与工具箱其它页一致。
+纯 className 改动, 逻辑/API/data-testid 不变。
+**构建链(容易漏)**: 改 `web/src/**` 后必须 `cd go/web && npm run build` →
+`rm -rf internal/webui/dist && cp -a web/dist/. internal/webui/dist/`（Go `//go:embed all:dist`
+读的是复制后的目录, 不是 web/dist）→ 改 `metadata.json` version → `cd go && make build-go`
+→ `cp bin/runhooks ../bins/runhooks-x86_64` → `build.py` version-gate 打包。
+只改 TSX 不重编引擎, 设备加载的仍是旧内嵌前端(D-01 同类坑)。
+**自测**: `dist/index.html` 资源路径带 `/plugin_proxy/runhooks/` 前缀, 本地静态 server 必须
+在 handler 里剥掉该前缀, 否则 JS 404、React 不挂载(截图全白、DOM 只有空 #root)。
+用 `#tool=rest` hash 深链直达「编写」页, Chromium `--headless --virtual-time-budget=8000
+--window-size=1280,900 --screenshot` 真渲染; PIL 主体灰度均值 62.1(旧) → 248.0(新),
+裁剪放大 tesseract OCR 从几乎读不出到可读出 GET/URL/发送/集合/Params-Headers-Body-Auth-Env/RESPONSE。

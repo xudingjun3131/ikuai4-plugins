@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "NetLoom",
   "manufacturer": "iKuai",
-  "version": "1.1.26",
+  "version": "1.1.27",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "NetLoom 局域网流量观测台, 抓包解密与统计全在网关本地完成: 设备画像、会话瀑布、域名洞察、HTTPS 解密、规则订阅。自带 Go 静态引擎, 首次使用需安装并信任 CA 证书。",
-  "releasenotes": "v1.1.26 修复订阅地址整体粘贴 Markdown 标记导致的拉取失败: 用户把 @url: 与反引号一起填进订阅时, subs.json 里残留的旧格式 URL 在自动更新时不经过 Add 而直接 fetch, 报 unexpected EOF。normalizeSubURL 改为反复剥离 @url: 或 @url= 前缀、反引号、引号与尖括号包裹(兼容大小写), 并在 fetch 入口再做一次规范化兜底, 同时兼容 URL 与 @URL= 变体。新增 6 组规范化用例与 fetch 旧格式 URL 回归单测。升级走保留配置分支",
+  "releasenotes": "v1.1.27 修复运维工具箱「编写」页背景过黑看不清: 该页硬编码深黑色底, 但全站是浅色主题(前景为深色字), 黑底深字对比度不足。现统一改为白底与浅灰底加深色字, 强调色改用深色系, 与工具箱其它页风格一致。纯样式改动, 业务逻辑 API 与 data-testid 全部不变; 前端重新构建并内嵌进引擎。Chromium 真渲染复核主体灰度由 62 升到 248, 裁剪 OCR 可读出编写页全部控件文字。升级走保留配置分支, 策略与订阅不丢。",
   "arch": [
     "x86_64"
   ],

@@ -357,15 +357,15 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col bg-[#0b0f17] text-foreground"
+      className="flex h-full min-h-0 flex-col bg-white text-foreground"
       data-testid="rest-panel"
     >
       {/* top bar like Postman */}
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/80 bg-card/40 px-3 py-2">
         <select
           className={cn(
-            "h-9 rounded-md border border-border bg-[#121826] px-2 font-mono text-xs font-bold",
-            methodClass(method).includes("emerald") && "text-emerald-300",
+            "h-9 rounded-md border border-border bg-white px-2 font-mono text-xs font-bold",
+            methodClass(method).includes("emerald") && "text-emerald-700",
           )}
           value={method}
           onChange={(e) => setMethod(e.target.value)}
@@ -378,7 +378,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
           ))}
         </select>
         <input
-          className="h-9 min-w-0 flex-1 rounded-md border border-border bg-[#121826] px-3 font-mono text-xs text-foreground outline-none ring-primary/40 focus:ring-2"
+          className="h-9 min-w-0 flex-1 rounded-md border border-border bg-white px-3 font-mono text-xs text-foreground outline-none ring-primary/40 focus:ring-2"
           value={url}
           onChange={(e) => onUrlChange(e.target.value)}
           placeholder="https://api.example.com/v1/{{path}}  可用 {{env}} 变量"
@@ -449,7 +449,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
                     </button>
                     <button
                       type="button"
-                      className="text-muted-foreground hover:text-rose-300"
+                      className="text-muted-foreground hover:text-rose-600"
                       onClick={() => void deleteCollection(c.id)}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -511,7 +511,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
                 className={cn(
                   "relative px-3 py-2 text-[11px] font-medium",
                   tab === id
-                    ? "text-orange-300 after:absolute after:right-2 after:bottom-0 after:left-2 after:h-0.5 after:rounded-full after:bg-orange-400"
+                    ? "text-orange-600 after:absolute after:right-2 after:bottom-0 after:left-2 after:h-0.5 after:rounded-full after:bg-orange-400"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -534,7 +534,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
             ) : null}
             {tab === "body" ? (
               <textarea
-                className="h-full min-h-[10rem] w-full resize-y bg-[#0d1118] px-3 py-2 font-mono text-[11px] text-emerald-100/90 outline-none"
+                className="h-full min-h-[10rem] w-full resize-y border border-border/60 bg-[#f7faf8] px-3 py-2 font-mono text-[11px] text-foreground outline-none"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 spellCheck={false}
@@ -563,7 +563,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
                 </div>
                 {authType === "bearer" ? (
                   <input
-                    className="h-8 w-full rounded border border-border bg-[#121826] px-2 font-mono text-[11px]"
+                    className="h-8 w-full rounded border border-border bg-white px-2 font-mono text-[11px]"
                     placeholder="令牌"
                     value={bearer}
                     onChange={(e) => setBearer(e.target.value)}
@@ -572,13 +572,13 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
                 {authType === "basic" ? (
                   <div className="flex gap-2">
                     <input
-                      className="h-8 flex-1 rounded border border-border bg-[#121826] px-2 font-mono text-[11px]"
+                      className="h-8 flex-1 rounded border border-border bg-white px-2 font-mono text-[11px]"
                       placeholder="用户名"
                       value={basicUser}
                       onChange={(e) => setBasicUser(e.target.value)}
                     />
                     <input
-                      className="h-8 flex-1 rounded border border-border bg-[#121826] px-2 font-mono text-[11px]"
+                      className="h-8 flex-1 rounded border border-border bg-white px-2 font-mono text-[11px]"
                       placeholder="密码"
                       type="password"
                       value={basicPass}
@@ -591,10 +591,10 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
             {tab === "env" ? (
               <div className="flex h-full flex-col gap-2 p-3">
                 <p className="text-[11px] text-muted-foreground">
-                  JSON map. Use <code className="text-orange-300">{"{{key}}"}</code> in URL, headers, or body.
+                  JSON map. Use <code className="text-orange-600">{"{{key}}"}</code> in URL, headers, or body.
                 </p>
                 <textarea
-                  className="min-h-[8rem] flex-1 rounded border border-border bg-[#0d1118] px-2 py-1 font-mono text-[11px] text-emerald-100/90"
+                  className="min-h-[8rem] flex-1 rounded border border-border bg-[#f7faf8] px-2 py-1 font-mono text-[11px] text-foreground"
                   value={envText}
                   onChange={(e) => setEnvText(e.target.value)}
                   data-testid="rest-env"
@@ -607,7 +607,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
           </div>
 
           {/* response */}
-          <div className="flex min-h-0 flex-1 flex-col bg-[#0a0e16]">
+          <div className="flex min-h-0 flex-1 flex-col bg-[#f7faf8]">
             <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 px-3 py-1.5">
               <span className="panel-title">Response</span>
               {result ? (
@@ -622,7 +622,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
                     {formatBytes(result.body?.length ?? 0)}
                   </Badge>
                   {result.truncated ? (
-                    <Badge variant="outline" className="h-5 border-amber-500/40 text-[10px] text-amber-200">
+                    <Badge variant="outline" className="h-5 border-amber-500/40 text-[10px] text-amber-700">
                       truncated
                     </Badge>
                   ) : null}
@@ -652,7 +652,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
               </div>
             </div>
             {error ? (
-              <pre className="p-3 text-xs text-rose-300" data-testid="rest-error">
+              <pre className="p-3 text-xs text-rose-600" data-testid="rest-error">
                 {error}
               </pre>
             ) : null}
@@ -662,7 +662,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
               ) : null}
               {result && respTab === "body" ? (
                 <pre
-                  className="whitespace-pre-wrap break-all p-3 font-mono text-[11px] leading-relaxed text-emerald-100/90"
+                  className="whitespace-pre-wrap break-all p-3 font-mono text-[11px] leading-relaxed text-foreground"
                   data-testid="rest-result"
                 >
                   {result.error ?? bodyPreview}
@@ -672,7 +672,7 @@ export function RestPanel({ flowId }: { flowId: string | null }) {
                 <dl className="divide-y divide-border/40 font-mono text-[11px]">
                   {Object.entries(result.headers ?? {}).map(([k, vals]) => (
                     <div key={k} className="grid grid-cols-[minmax(8rem,14rem)_1fr] gap-2 px-3 py-1.5">
-                      <dt className="text-sky-300/90">{k}</dt>
+                      <dt className="text-sky-700">{k}</dt>
                       <dd className="break-all text-foreground/90">{vals.join(", ")}</dd>
                     </div>
                   ))}
@@ -723,20 +723,20 @@ function KVEditor({
             className="accent-orange-400"
           />
           <input
-            className="h-7 rounded border border-border/60 bg-[#121826] px-2 font-mono text-[11px]"
+            className="h-7 rounded border border-border/60 bg-white px-2 font-mono text-[11px]"
             placeholder={keyPlaceholder}
             value={r.key}
             onChange={(e) => update(i, { key: e.target.value })}
           />
           <input
-            className="h-7 rounded border border-border/60 bg-[#121826] px-2 font-mono text-[11px]"
+            className="h-7 rounded border border-border/60 bg-white px-2 font-mono text-[11px]"
             placeholder="值"
             value={r.value}
             onChange={(e) => update(i, { value: e.target.value })}
           />
           <button
             type="button"
-            className="flex h-7 items-center justify-center text-muted-foreground hover:text-rose-300"
+            className="flex h-7 items-center justify-center text-muted-foreground hover:text-rose-600"
             onClick={() => remove(i)}
           >
             <Trash2 className="h-3 w-3" />
