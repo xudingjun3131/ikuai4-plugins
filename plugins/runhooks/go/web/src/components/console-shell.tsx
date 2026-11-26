@@ -156,16 +156,6 @@ export function ConsoleHeader({
         <button
           type="button"
           className="nl-btn nl-btn--icon"
-          title={host.fullscreen ? "退出全屏" : "全屏观测台"}
-          aria-label="全屏切换"
-          data-testid="parent-fullscreen"
-          onClick={() => parentCall(host.fullscreen ? "exit-fullscreen" : "fullscreen")}
-        >
-          {host.fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-        </button>
-        <button
-          type="button"
-          className="nl-btn nl-btn--icon"
           title="设置与使用说明"
           aria-label="设置与使用说明"
           data-testid="parent-settings"
@@ -201,6 +191,16 @@ export function ConsoleHeader({
           <Shield size={14} />
           CA 证书
         </a>
+        <button
+          type="button"
+          className="nl-btn nl-btn--icon"
+          title={host.fullscreen ? "退出全屏" : "全屏观测台"}
+          aria-label="全屏切换"
+          data-testid="parent-fullscreen"
+          onClick={() => parentCall(host.fullscreen ? "exit-fullscreen" : "fullscreen")}
+        >
+          {host.fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </button>
       </div>
     </header>
   )

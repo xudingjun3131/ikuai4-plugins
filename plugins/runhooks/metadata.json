@@ -2,11 +2,11 @@
   "name": "runhooks",
   "alias": "NetLoom",
   "manufacturer": "iKuai",
-  "version": "1.1.28",
+  "version": "1.1.29",
   "type": "external",
   "upgradetype": "upgrade",
   "description": "NetLoom 局域网流量观测台, 抓包解密与统计全在网关本地完成: 设备画像、会话瀑布、域名洞察、HTTPS 解密、规则订阅。自带 Go 静态引擎, 首次使用需安装并信任 CA 证书。",
-  "releasenotes": "v1.1.28 修复开启代理后部分网站打不开(github.com / v2ex.com / google.com 等, x.com 可开): 根因是 MITM leaf 证书有效期仅 24 小时, 但 Authority.Certificate 命中内存缓存时直接返回、从不检查 NotAfter; 引擎连续运行超过 24 小时后所有解密证书过期, 浏览器报证书错误, HSTS 站点不允许点继续前往故打不开, 非 HSTS 站点可手动绕过故看似正常。现缓存命中先校验剩余有效期, 已过期或不足 1 小时即按需重签, 并发用双检锁保护; 新增 3 个回归测试(过期重签 / 临近过期提前重签 / 未过期缓存不破坏)。真机实证旧证书 notAfter 停留在 2026-11-25 20:49 GMT 而当时已 11-26 06:56 UTC。升级走保留配置分支, 规则与订阅不丢。",
+  "releasenotes": "v1.1.29 界面调整: 观测台顶部 ribbon 的全屏切换按钮(全屏观测台 / 退出全屏)从刷新按钮之后移到最右侧, 排在 CA 证书按钮后面, 与常用操作区分开。纯按钮顺序调整, 按钮功能 aria-label 与 data-testid 及点击行为全部不变; 前端重新构建并内嵌进引擎。Chromium 真渲染复核 8 个 ribbon 按钮坐标: 全屏按钮 x=1386 大于 CA 证书按钮 x=1288 且为最后一个。升级走保留配置分支, 规则与订阅不丢。",
   "arch": [
     "x86_64"
   ],

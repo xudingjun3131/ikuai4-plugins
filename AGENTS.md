@@ -566,3 +566,16 @@ NotBefore 在未来 都重签), 写锁内 double-check 防并发重复重签; �
 openssl x509 -noout -dates`; 浏览器路径用 Playwright proxy + ignoreHTTPSErrors 两组对照。
 另: `Test_Engine_WS_captures_frames` 是预存时序 flaky(全量 ./... 偶发, 单独跑稳定
 PASS; HEAD 版全量 3 次也 FAIL 1 次), 与 ca 改动无关, 别误判为回归。
+
+**NetLoom v1.1.29 ribbon 按钮顺序（2026-11-26）**：admin 要求「全屏/退出全屏按钮放到最右边,
+也就是 CA 的后面」。按钮在 React 观测台 `go/web/src/components/console-shell.tsx` 的
+`nl-ribbon-actions` 里（不是插件页 `html/index.html`；后者 line 487 注释已说明浮动退出
+按钮早已删除, 全屏切换统一由 WebUI ribbon 或 ESC 完成）。
+旧顺序 parent-capture / parent-refresh / **parent-fullscreen** / parent-settings /
+toggle-pause / clear-flows / export-har / download-ca；
+新顺序把 parent-fullscreen 整块移到 download-ca 之后（DOM 顺序即 flex 视觉顺序）。
+**纪律**: 调整 ribbon 顺序只改 TSX 按钮块位置, 不动 data-testid / aria-label / onClick；
+自测用 Chromium 真渲染读 `.nl-ribbon-actions [data-testid]` 的 `getBoundingClientRect().x`
+比对, 比只 grep 源码更硬（本次 x: CA=1288, 全屏=1386, 且为最后一个）。
+历史注释 `[fs-exit-not-over-ca]`(html/index.html:133) 说的是旧浮动按钮压住 CA 按钮,
+与 ribbon 内相邻排列无关, 不要误以为要改插件页。
