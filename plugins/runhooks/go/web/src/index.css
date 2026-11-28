@@ -358,8 +358,13 @@
   padding: 8px 22px;
   background: #f6f9f4;
   border-bottom: 1px solid #d9e3da;
+  /* [v1.1.31] 12 个横向 tab 不换行, 窄屏横向滚动 */
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: thin;
 }
 .nl-deck-sub-label {
+  flex: 0 0 auto;
   font-size: 11px;
   color: #66796f;
   margin-right: 6px;
@@ -372,6 +377,8 @@
   background: #ffffff;
   color: #66796f;
   cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 .nl-deck-tool:hover {
   border-color: #0f766e;
@@ -1237,3 +1244,7 @@
   .nl-set-nav-item small{display:none;}
   .nl-set-field--wide{grid-column:span 1;}
 }
+
+/* [v1.1.31] 设置分组改为工具箱横向 tab 下的单栏内容, 不再有左分区导航 */
+.nl-set--single{display:block;}
+.nl-set--single .nl-set-content{width:100%;}

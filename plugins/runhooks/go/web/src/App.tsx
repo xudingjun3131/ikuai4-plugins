@@ -32,7 +32,12 @@ const TOOL_HASH: Record<string, ToolId> = {
   rest: "rest",
   explorer: "explorer",
   scripts: "scripts",
-  settings: "settings",
+  service: "service",
+  help: "help",
+  devices: "devices",
+  network: "network",
+  decrypt: "decrypt",
+  record: "record",
 }
 
 function toolFromHash(): { tool: ToolId; view: ViewId } | null {
@@ -124,7 +129,7 @@ function App() {
         {view === "toolbox" ? (
           <>
             <div className="nl-tool-note">
-              运维工具箱为次级功能：规则、断点改包、订阅、单请求改写、脚本调试、会话 diff 与全部设置项。
+              运维工具箱为次级功能：规则、断点改包、订阅、单请求改写、脚本调试、会话 diff，以及服务端口、观测设备、范围与时段等设置项都在下方横向 tab。
               观测台的主视角是「全网设备 · 时间轴 · 域名画像」——数据来自整台网关，而不是某一台设备上的某个 App。
             </div>
             <div className="nl-tool-frame">
@@ -162,9 +167,10 @@ function App() {
                   <ScriptsPanel />
                 </div>
               ) : null}
-              {tool === "settings" ? (
+              {(tool === "service" || tool === "help" || tool === "devices" ||
+                tool === "network" || tool === "decrypt" || tool === "record") ? (
                 <div className="nl-tool-grid nl-tool-grid--full">
-                  <SettingsPanel />
+                  <SettingsPanel section={tool} />
                 </div>
               ) : null}
               {tool === "explorer" ? (

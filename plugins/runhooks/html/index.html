@@ -203,7 +203,7 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
                 <div v-else class="rq-offline">
                     引擎未启动，观测台暂不可用。
                     <button type="button" class="btn btn_green rounded height26" @click="setCapture(true)">开启抓包(自动启动引擎)</button>
-                    <button type="button" class="btn btn_default rounded height26" @click="openSettings()">设置</button>
+                    <button type="button" class="btn btn_default rounded height26" @click="openSettings()">打开工具箱设置</button>
                 </div>
             </div>
         </div>
@@ -291,9 +291,7 @@ var app = new Vue({
         // [plugin-proxy] 新固件(proxyReady=1): iframe 走同源 /plugin_proxy/runhooks/
         // (OpenResty 校验 sess_key 后转发, 自动带登录 cookie, HTTPS 页也不再拦 mixed-content);
         // 旧固件回退直连 http://IP:端口(升级固件后自动收紧)
-        this.uiUrl = this.proxyReady
-            ? '/plugin_proxy/runhooks/'
-            : 'http://' + window.location.hostname + ':' + this.apiPort + '/';
+        this.uiUrl = this.baseUiUrl();
         this.caUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/api/ca.pem';
         this.loadInitData();
         this.loadDevices();
@@ -376,11 +374,24 @@ var app = new Vue({
             };
             try { f.contentWindow.postMessage({__netloom: 1, type: 'settings', settings: settings}, '*'); } catch (e) {}
         },
+        // [v1.1.31] uiUrl 的基础地址(不含 hash)单点计算, mounted/loadInitData/openSettings 共用。
+        // [plugin-proxy] proxyReady=1 走同源 /plugin_proxy/runhooks/, 否则直连 http://IP:端口。
+        baseUiUrl() {
+            return this.proxyReady
+                ? '/plugin_proxy/runhooks/'
+                : 'http://' + window.location.hostname + ':' + this.apiPort + '/';
+        },
+        // [v1.1.31 ④] 当前 uiUrl 里的工具深链(#tool=xxx)。离线点设置时 openSettings 会设它;
+        // setCapture(true) 成功回调、各 save 方法都会触发 loadInitData 重设 uiUrl,
+        // 必须把这个后缀带回去, 否则 iframe src 被换成基础 URL -> 刚进的设置分区被抹掉。
+        toolHash() {
+            const hash = (this.uiUrl || '').split('#')[1] || '';
+            return /^tool=[a-z]+/.test(hash) ? '#' + hash : '';
+        },
         // [v1.1.30] 引擎未启动时 iframe 不渲染(会显示连接拒绝错误页), 所以先拉起引擎,
         // 再用 hash 深链把已加载的观测台切到工具箱设置页(React 侧监听 hashchange)。
         openSettings() {
-            const base = (this.uiUrl || '').split('#')[0];
-            this.uiUrl = base + '#tool=settings';
+            this.uiUrl = this.baseUiUrl() + '#tool=service';
             this.settingsOpen = false;
             if (this.status !== 1) this.setCapture(true);
             this.setFullscreen(true);
@@ -430,8 +441,7 @@ var app = new Vue({
         // [v1.1.8] 图形化断点改包工作台: 用 hash 深链把已打开的观测台 iframe
         // 切到工具箱的 rewrite 页(React 侧监听 hashchange), 不重载、不新开窗口。
         openRewrite() {
-            const base = (this.uiUrl || '').split('#')[0];
-            this.uiUrl = base + '#tool=rewrite';
+            this.uiUrl = this.baseUiUrl() + '#tool=rewrite';
             this.settingsOpen = false;
             this.setFullscreen(true);
         },
@@ -469,9 +479,9 @@ var app = new Vue({
                     if (d.transparentPort) this.transparentPort = d.transparentPort;
                     if (d.proxyReady !== undefined) this.proxyReady = d.proxyReady;
                     // [plugin-proxy] 同上: proxyReady=1 走同源代理路径(带鉴权), 否则直连
-                    this.uiUrl = this.proxyReady
-                        ? '/plugin_proxy/runhooks/'
-                        : 'http://' + window.location.hostname + ':' + this.apiPort + '/';
+                    // [v1.1.31 ④] 保留 openSettings/openRewrite 设的 #tool= 深链:
+                    // 引擎离线拉起时 setCapture 成功回调会走到这里, 不能把 uiUrl 抹回基础 URL。
+                    this.uiUrl = this.baseUiUrl() + this.toolHash();
                     this.caUrl = 'http://' + window.location.hostname + ':' + this.apiPort + '/api/ca.pem';
                     // 配置回填
                     this.selectedDevices = d.devices || [];

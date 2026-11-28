@@ -603,3 +603,23 @@ toggle-pause / clear-flows / export-har / download-ca；
   两个分区保存都要发全量 scope 字段, 只发半边会把另一半清空; ④ 自测桥接必须构造父页面 + iframe
   双层(standalone 顶层时 parentCall 会 no-op), 从父页面向 iframe 发 type=settings 快照才符合
   e.source===window.parent 校验。
+
+**NetLoom v1.1.31 设置改横向 tab + 去重（2026-11-28）**：admin 要求删掉 ribbon 顶部设置按钮、
+不要独立「设置」聚合页、把设置各组变成横向 tab 挂在运维工具箱下面, 并指出「订阅重复」。
+- `console-shell.tsx`: 删 parent-settings 按钮; ToolId/TOOLS 从 7 项(含 settings 聚合)改为
+  12 个横向 tab(原 6 + service/help/devices/network/decrypt/record); `.nl-deck-sub` 加
+  overflow-x:auto + flex-wrap:nowrap 让 12 个 tab 横向滚动不换行。
+- 去重依据: 工具箱「订阅」= SubsPanel 走 `/api/subscriptions`(引擎 REST),
+  设置「规则订阅」= Vue 走固件 `sub_add` 等转同一个 subscription.Manager, 同一份数据;
+  保留工具箱原有 subs tab, 删 SettingsPanel 里的订阅分区(含 subForm/SubEntry/明细 UI)。
+- `settings-panel.tsx` 改为接受 `section` prop(由 App 按 tool 传入), 删左分区导航 aside,
+  改单栏 `.nl-set--single`; App 的 TOOL_HASH 与渲染同步加 6 个分区。
+- **④ 修复(测试侧 v1.1.30 判 FAIL 的项)**: 离线点设置 → setCapture(true) → loadInitData
+  成功回调会重写 uiUrl, 旧实现把 `#tool=` 深链抹掉。并行改动已抽出 `baseUiUrl()` /
+  `toolHash()`, loadInitData 用 `baseUiUrl() + toolHash()`; 本次把 openSettings 深链从
+  `#tool=settings` 改成 `#tool=service`(聚合页已删), 并修掉并行改动遗留的裸 `base` 变量
+  (会 ReferenceError)。`shell_deeplink_harness.cjs` 断言同步改为 service 后三场景全 PASS。
+**踩坑**: ① 多 agent 并行改同一 html/index.html 时, 先 grep 核对方新增/删除的标识符再 patch,
+  别按记忆里的旧文本硬替; ② 断言脚本里的旧 hash 目标会随设计变更过期, 要同步更新否则 PASS
+  变 FAIL 被误判为缺陷; ③ 去重前先确认两个 UI 操作的是不是同一份后端数据(本例都是
+  subscription.Manager), 别凭名字相同就删。

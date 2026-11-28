@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react"
-import {
-  BookOpen, Check, Download, Eye, Filter, Info, Monitor, Network,
-  Pause, Play, Plus, RefreshCw, Rss, Save, Server, Settings, Shield, Trash2, X,
-} from "lucide-react"
+import { Check, Download, Plus, RefreshCw, Save, Trash2, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   applySettings, requestSettings, settingsAction,
-  type SettingsSnapshot, type SubEntry,
+  type SettingsSnapshot,
 } from "@/lib/parent-bridge"
 import { cn } from "@/lib/utils"
 
@@ -16,16 +13,15 @@ import { cn } from "@/lib/utils"
    不是把原 DOM 搬过来: 按工具箱内部布局重排为「左分区导航 + 右卡片表单」,
    每个分区独立保存; 固件 API 只存在于插件页, 全部读写经 postMessage 桥接。 */
 
-type SectionId = "service" | "help" | "devices" | "network" | "decrypt" | "record" | "subs"
+type SectionId = "service" | "help" | "devices" | "network" | "decrypt" | "record"
 
-const SECTIONS: { id: SectionId; label: string; hint: string; icon: typeof Settings }[] = [
-  { id: "service", label: "服务与端口", hint: "开机自启与三个监听端口", icon: Server },
-  { id: "help", label: "使用说明", hint: "观测步骤与范围说明", icon: BookOpen },
-  { id: "devices", label: "观测设备", hint: "在线终端、手动添加与分组", icon: Monitor },
-  { id: "network", label: "网络范围", hint: "接口、端口与定时抓包", icon: Network },
-  { id: "decrypt", label: "解密范围", hint: "域名、目标 IP 与国家地区", icon: Shield },
-  { id: "record", label: "记录范围", hint: "路径、方法、UA、JA3 与大小", icon: Filter },
-  { id: "subs", label: "规则订阅", hint: "QuanX / Surge / 纯列表", icon: Rss },
+const SECTIONS: { id: SectionId; label: string; hint: string }[] = [
+  { id: "service", label: "服务与端口", hint: "开机自启与三个监听端口" },
+  { id: "help", label: "使用说明", hint: "观测步骤与范围说明" },
+  { id: "devices", label: "观测设备", hint: "在线终端、手动添加与分组" },
+  { id: "network", label: "网络范围", hint: "接口、端口与定时抓包" },
+  { id: "decrypt", label: "解密范围", hint: "域名、目标 IP 与国家地区" },
+  { id: "record", label: "记录范围", hint: "路径、方法、UA、JA3 与大小" },
 ]
 
 function useSettingsSnapshot(): SettingsSnapshot | null {
@@ -111,13 +107,11 @@ const MODE3 = [
 
 /* ---------- 主组件 ---------- */
 
-export function SettingsPanel() {
+export function SettingsPanel({ section }: { section: SectionId }) {
   const snap = useSettingsSnapshot()
-  const [section, setSection] = useState<SectionId>("service")
   const [draft, setDraft] = useState<Partial<SettingsSnapshot>>({})
   const [manual, setManual] = useState({ ip: "", mac: "", name: "" })
   const [groupName, setGroupName] = useState("")
-  const [subForm, setSubForm] = useState({ url: "", name: "", format: "auto", interval: 0 })
 
   useEffect(() => { if (snap) setDraft(snap) }, [snap])
 
@@ -136,31 +130,7 @@ export function SettingsPanel() {
   })
 
   return (
-    <div className="nl-set" data-testid="settings-panel">
-      <aside className="nl-set-nav">
-        <div className="nl-set-nav-title">设置分区</div>
-        {SECTIONS.map((s) => {
-          const Icon = s.icon
-          return (
-            <button
-              key={s.id}
-              type="button"
-              className={cn("nl-set-nav-item", section === s.id && "nl-set-nav-item--active")}
-              onClick={() => setSection(s.id)}
-              data-testid={`settings-nav-${s.id}`}
-            >
-              <Icon size={14} />
-              <span>
-                <b>{s.label}</b>
-                <small>{s.hint}</small>
-              </span>
-            </button>
-          )
-        })}
-        <div className="nl-set-nav-foot">
-          <Info size={12} /> 配置由插件页保存，工具箱只做展示与交互
-        </div>
-      </aside>
+    <div className="nl-set nl-set--single" data-testid="settings-panel">
 
       <div className="nl-set-content">
         {!snap ? (
@@ -445,97 +415,8 @@ export function SettingsPanel() {
           </Card>
         ) : null}
 
-        {section === "subs" ? (
-          <>
-            <Card title="添加订阅" desc="粘贴 QuanX(.conf) / Surge(.conf) / 纯域名列表地址，引擎自动适配">
-              {!draft.subEngine ? (
-                <p className="nl-set-warn">引擎未运行，订阅功能不可用——请先开启抓包。</p>
-              ) : null}
-              <div className="nl-set-grid">
-                <Field label="订阅地址" wide>
-                  <input className="nl-set-input" placeholder="https://example.com/quanx.conf" value={subForm.url}
-                    onChange={(e) => setSubForm({ ...subForm, url: e.target.value })} />
-                </Field>
-                <Field label="备注">
-                  <input className="nl-set-input" placeholder="可选" value={subForm.name}
-                    onChange={(e) => setSubForm({ ...subForm, name: e.target.value })} />
-                </Field>
-                <Field label="格式">
-                  <select className="nl-set-input" value={subForm.format}
-                    onChange={(e) => setSubForm({ ...subForm, format: e.target.value })}>
-                    <option value="auto">自动识别</option>
-                    <option value="quanx">QuanX</option>
-                    <option value="surge">Surge</option>
-                    <option value="list">纯列表</option>
-                  </select>
-                </Field>
-                <Field label="更新间隔（分）" hint="0＝不自动更新">
-                  <input className="nl-set-input" type="number" min={0} step={5} value={subForm.interval}
-                    onChange={(e) => setSubForm({ ...subForm, interval: Number(e.target.value) })} />
-                </Field>
-              </div>
-              <div className="nl-set-row">
-                <Button size="sm" className="gap-1.5" disabled={!subForm.url || Boolean(draft.subBusy)}
-                  onClick={() => {
-                    applySettings("sub-add", { subUrl: subForm.url, subName: subForm.name,
-                      subFormat: subForm.format, subInterval: subForm.interval })
-                    setSubForm({ url: "", name: "", format: "auto", interval: 0 })
-                  }}><Plus size={13} /> 添加订阅</Button>
-                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => settingsAction("subs-load")}>
-                  <RefreshCw size={13} /> 刷新</Button>
-              </div>
-            </Card>
-            {draft.subEffective ? (
-              <Card title="当前生效" desc="启用订阅的并集">
-                <div className="nl-set-effective">
-                  <span>解密域名 <b>{arrLen(draft.subEffective.domains)}</b></span>
-                  <span>引擎规则 <b>{num(draft.subEffective.rules)}</b></span>
-                  <span>脚本 <b>{num(draft.subEffective.scripts)}</b></span>
-                  <span>IP 段 <b>{arrLen(draft.subEffective.dst_ips)}</b></span>
-                  <span>国家 <b>{arrLen(draft.subEffective.countries)}</b></span>
-                </div>
-              </Card>
-            ) : null}
-            <Card title="订阅列表" desc={`${(draft.subs ?? []).length} 条订阅`}>
-              {(draft.subs ?? []).length === 0 ? (
-                <span className="nl-set-empty">还没有订阅，粘贴地址后规则会自动适配到抓包范围与改写规则</span>
-              ) : (draft.subs ?? []).map((s: SubEntry) => (
-                <div className="nl-set-sub" key={s.id}>
-                  <div className="nl-set-sub-head">
-                    <b>{s.name}</b>
-                    <Badge variant="outline" className="text-[10px]">{s.format}</Badge>
-                    <Badge variant="outline" className="text-[10px]">{s.enabled ? "已启用" : "已暂停"}</Badge>
-                    {s.interval_min ? <small>每 {s.interval_min} 分钟更新</small> : null}
-                    <span className="nl-set-sub-actions">
-                      <Button size="sm" variant="outline" className="h-7 gap-1 text-[11px]" disabled={Boolean(draft.subBusy)}
-                        onClick={() => settingsAction("sub-update", { id: s.id })}><RefreshCw size={11} /> 更新</Button>
-                      <Button size="sm" variant="outline" className="h-7 gap-1 text-[11px]" disabled={Boolean(draft.subBusy)}
-                        onClick={() => settingsAction("sub-toggle", { id: s.id })}>
-                        {s.enabled ? <Pause size={11} /> : <Play size={11} />}{s.enabled ? "暂停" : "启用"}</Button>
-                      <Button size="sm" variant="outline" className="h-7 gap-1 text-[11px]"
-                        onClick={() => settingsAction("sub-detail", { id: s.id })}><Eye size={11} /> 明细</Button>
-                      <Button size="sm" variant="outline" className="h-7 gap-1 text-[11px] text-rose-600" disabled={Boolean(draft.subBusy)}
-                        onClick={() => settingsAction("sub-del", { id: s.id })}><Trash2 size={11} /> 删除</Button>
-                    </span>
-                  </div>
-                  <div className="nl-set-mono nl-set-sub-url">{s.url}</div>
-                  <div className="nl-set-sub-meta">
-                    域名 {s.host_count ?? 0} · IP {s.ip_count ?? 0} · 规则行 {s.rule_count ?? 0} ·
-                    改写 {s.rewrite_count ?? 0} · 脚本 {s.script_count ?? 0}
-                    {s.last_error ? <span className="nl-set-warn">错误：{s.last_error}</span> : null}
-                  </div>
-                  {draft.subDetail?.id === s.id ? (
-                    <pre className="nl-set-detail">{JSON.stringify(draft.subDetail.parsed ?? {}, null, 2)}</pre>
-                  ) : null}
-                </div>
-              ))}
-            </Card>
-          </>
-        ) : null}
       </div>
     </div>
   )
 }
 
-function arrLen(v: unknown): number { return Array.isArray(v) ? v.length : 0 }
-function num(v: unknown): number { return typeof v === "number" ? v : 0 }

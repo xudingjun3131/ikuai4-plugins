@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react"
 import {
   Download, Eraser, Maximize2, Minimize2, Pause, Play, Power, PowerOff,
-  RefreshCw, Settings, Shield,
+  RefreshCw, Shield,
 } from "lucide-react"
 
 import { caPemURL, exportHarURL } from "@/lib/api"
 import { DEFAULT_STATE, parentCall, type ParentState } from "@/lib/parent-bridge"
 
 export type ViewId = "overview" | "devices" | "sessions" | "insights" | "toolbox"
-export type ToolId = "rules" | "subs" | "rest" | "explorer" | "scripts" | "rewrite" | "settings"
+export type ToolId =
+  | "rules" | "subs" | "rest" | "explorer" | "scripts" | "rewrite"
+  | "service" | "help" | "devices" | "network" | "decrypt" | "record"
 
 const VIEWS: { id: ViewId; label: string; hint: string }[] = [
   { id: "overview", label: "总览", hint: "全网流量脉搏与关键指标" },
@@ -17,6 +19,8 @@ const VIEWS: { id: ViewId; label: string; hint: string }[] = [
   { id: "insights", label: "域名洞察", hint: "域名热度、状态构成与慢端点" },
 ]
 
+// [v1.1.31] 设置不再作为独立聚合页: 拆成横向 tab 直接挂在工具箱下;
+// 「订阅」只保留原有的 subs(SubsPanel), 设置里同名分区已去重删除。
 const TOOLS: { id: ToolId; label: string }[] = [
   { id: "rules", label: "规则" },
   { id: "rewrite", label: "断点改包" },
@@ -24,7 +28,12 @@ const TOOLS: { id: ToolId; label: string }[] = [
   { id: "rest", label: "编写" },
   { id: "explorer", label: "浏览" },
   { id: "scripts", label: "脚本" },
-  { id: "settings", label: "设置" },
+  { id: "service", label: "服务与端口" },
+  { id: "help", label: "使用说明" },
+  { id: "devices", label: "观测设备" },
+  { id: "network", label: "网络范围" },
+  { id: "decrypt", label: "解密范围" },
+  { id: "record", label: "记录范围" },
 ]
 
 function BrandMark() {
@@ -153,16 +162,6 @@ export function ConsoleHeader({
           onClick={() => parentCall("refresh")}
         >
           <RefreshCw size={14} />
-        </button>
-        <button
-          type="button"
-          className="nl-btn nl-btn--icon"
-          title="设置与使用说明"
-          aria-label="设置与使用说明"
-          data-testid="parent-settings"
-          onClick={() => parentCall("settings")}
-        >
-          <Settings size={14} />
         </button>
         <button
           type="button"
