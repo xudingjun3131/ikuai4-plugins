@@ -1161,3 +1161,79 @@
   background: rgba(248, 113, 113, 0.22);
   border-color: #f87171;
 }
+
+/* ===== v1.1.30 运维工具箱 -> 设置页(左侧分区导航 + 右侧卡片表单) ===== */
+.nl-set{display:grid;grid-template-columns:minmax(190px,230px) minmax(0,1fr);height:100%;min-height:0;background:#f7faf8;}
+.nl-set-nav{display:flex;flex-direction:column;gap:3px;padding:12px 10px;border-right:1px solid #dce8e1;background:#fff;overflow:auto;}
+.nl-set-nav-title{font-size:10px;font-weight:700;letter-spacing:.12em;color:#8a9a93;text-transform:uppercase;padding:4px 8px 8px;}
+.nl-set-nav-item{display:flex;gap:9px;align-items:flex-start;text-align:left;padding:9px 10px;border:1px solid transparent;border-radius:8px;background:transparent;color:#3d5a50;cursor:pointer;transition:background .15s,border-color .15s;}
+.nl-set-nav-item>svg{margin-top:2px;flex:0 0 auto;color:#0f766e;}
+.nl-set-nav-item span{display:flex;flex-direction:column;min-width:0;}
+.nl-set-nav-item b{font-size:12px;font-weight:600;}
+.nl-set-nav-item small{font-size:10px;color:#8a9a93;line-height:1.4;margin-top:2px;}
+.nl-set-nav-item:hover{background:#f1f7f4;}
+.nl-set-nav-item--active{background:#e8f5ef;border-color:#bfe3d3;}
+.nl-set-nav-item--active b{color:#0b4f49;}
+.nl-set-nav-foot{margin-top:auto;padding:10px 8px 2px;font-size:10px;color:#8a9a93;display:flex;gap:5px;align-items:flex-start;line-height:1.5;}
+.nl-set-content{min-width:0;overflow:auto;padding:14px 16px 24px;display:flex;flex-direction:column;gap:12px;}
+.nl-set-head{display:flex;align-items:baseline;gap:10px;padding-bottom:2px;}
+.nl-set-head h2{margin:0;font-size:15px;font-weight:700;color:#14332a;}
+.nl-set-head>span{font-size:11px;color:#7a8a83;}
+.nl-set-head-status{margin-left:auto;}
+.nl-set-loading,.nl-set-empty{font-size:11.5px;color:#8a9a93;padding:8px 0;}
+.nl-set-card{background:#fff;border:1px solid #dce8e1;border-radius:10px;padding:13px 15px;box-shadow:0 1px 2px rgba(16,40,32,.04);}
+.nl-set-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;border-bottom:1px solid #eef3f0;padding-bottom:9px;margin-bottom:11px;}
+.nl-set-card-head h3{margin:0;font-size:12.5px;font-weight:700;color:#14332a;}
+.nl-set-card-head p{margin:3px 0 0;font-size:11px;color:#7a8a83;line-height:1.5;}
+.nl-set-card-body{display:flex;flex-direction:column;gap:11px;}
+.nl-set-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;}
+.nl-set-field{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:11px;color:#5b6f67;}
+.nl-set-field--wide{grid-column:span 2;}
+.nl-set-label{font-weight:600;color:#3d5a50;}
+.nl-set-hint{font-size:10px;color:#9aaba3;line-height:1.5;}
+.nl-set-input{height:30px;width:100%;border:1px solid #d5e2da;border-radius:6px;padding:0 9px;font-size:12px;color:#1f3a31;background:#fff;outline:none;box-sizing:border-box;}
+.nl-set-input:focus{border-color:#0f766e;box-shadow:0 0 0 3px rgba(15,118,110,.12);}
+.nl-set-input::placeholder{color:#b6c6bd;}
+.nl-set-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.nl-set-savebar{display:flex;align-items:center;gap:10px;padding-top:2px;}
+.nl-set-switch-row{display:flex;gap:9px;align-items:center;font-size:12px;color:#1f3a31;cursor:pointer;}
+.nl-set-switch-row input{width:15px;height:15px;accent-color:#0f766e;}
+.nl-set-switch-row small{font-size:10px;color:#8a9a93;}
+.nl-set-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.nl-set-chips--groups{padding-top:8px;border-top:1px dashed #e3ece6;}
+.nl-set-chip{display:inline-flex;align-items:center;gap:5px;background:#eaf5ff;border:1px solid #b9d8f5;color:#2b6cb0;border-radius:6px;padding:3px 8px;font-size:11px;}
+.nl-set-chip b{font-weight:600;}
+.nl-set-chip small{color:#8aa6c4;font-size:10px;}
+.nl-set-chip button{border:0;background:transparent;color:inherit;cursor:pointer;display:inline-flex;padding:0;}
+.nl-set-chip--group{background:#f0f7f2;border-color:#cde5d5;color:#1a7f52;}
+.nl-set-devices{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow:auto;}
+.nl-set-device{display:flex;gap:9px;align-items:center;padding:7px 9px;border:1px solid #e8f0ea;border-radius:7px;font-size:11.5px;color:#3d5a50;cursor:pointer;background:#fff;}
+.nl-set-device--on{background:#f0f9f4;border-color:#bfe3d3;}
+.nl-set-device input{accent-color:#0f766e;}
+.nl-set-device b{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.nl-set-mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;color:#7a8a83;word-break:break-all;}
+.nl-set-check{margin-left:auto;color:#1a7f52;}
+.nl-set-day{width:28px;height:26px;border:1px solid #d5e2da;border-radius:6px;background:#fff;color:#5b6f67;font-size:11px;cursor:pointer;}
+.nl-set-day--on{background:#0f766e;border-color:#0f766e;color:#fff;}
+.nl-set-steps{margin:0;padding-left:18px;font-size:12px;line-height:1.9;color:#3d5a50;}
+.nl-set-note,.nl-set-warn{margin:0;font-size:11px;line-height:1.7;padding:9px 11px;border-radius:7px;}
+.nl-set-note{background:#f4f9f6;color:#4c6b5d;border:1px solid #dcebe1;}
+.nl-set-warn{background:#fff6ed;color:#b45309;border:1px solid #f5d9b0;}
+.nl-set-effective{display:flex;flex-wrap:wrap;gap:8px;font-size:11.5px;color:#5b6f67;}
+.nl-set-effective span{background:#f4f9f6;border:1px solid #dcebe1;border-radius:6px;padding:4px 9px;}
+.nl-set-effective b{color:#0f766e;}
+.nl-set-sub{border:1px solid #e6ede8;border-radius:9px;padding:10px 12px;background:#fbfdfc;}
+.nl-set-sub-head{display:flex;flex-wrap:wrap;gap:7px;align-items:center;font-size:12px;color:#14332a;}
+.nl-set-sub-head small{font-size:10px;color:#8a9a93;}
+.nl-set-sub-actions{margin-left:auto;display:inline-flex;flex-wrap:wrap;gap:5px;}
+.nl-set-sub-url{margin-top:5px;}
+.nl-set-sub-meta{margin-top:5px;font-size:10.5px;color:#7a8a83;display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.nl-set-detail{margin:8px 0 0;padding:10px;background:#1c2430;color:#dbe4ef;border-radius:7px;font-size:10.5px;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;}
+@media (max-width:900px){
+  .nl-set{grid-template-columns:1fr;}
+  .nl-set-nav{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid #dce8e1;padding:8px;}
+  .nl-set-nav-title,.nl-set-nav-foot{display:none;}
+  .nl-set-nav-item{flex:0 0 auto;}
+  .nl-set-nav-item small{display:none;}
+  .nl-set-field--wide{grid-column:span 1;}
+}

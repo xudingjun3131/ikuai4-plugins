@@ -579,3 +579,27 @@ toggle-pause / clear-flows / export-har / download-ca；
 比对, 比只 grep 源码更硬（本次 x: CA=1288, 全屏=1386, 且为最后一个）。
 历史注释 `[fs-exit-not-over-ca]`(html/index.html:133) 说的是旧浮动按钮压住 CA 按钮,
 与 ribbon 内相邻排列无关, 不要误以为要改插件页。
+
+**NetLoom v1.1.30 设置项迁入运维工具箱（2026-11-28）**：admin 要求「设置里面的所有选项都搬到
+运维工具箱里面去, 不是简单搬移, 是要页面适配」。
+「设置」原是插件页 Vue 弹窗 `#rq-settings`(7 个横排 tab: 服务与端口/使用说明/观测设备/
+网络范围/解密范围/记录范围/规则订阅), 「运维工具箱」是 React iframe 内的 toolbox view。
+关键约束: 固件 API(`/Action/call` + callPlugin)只存在于插件页, React iframe 里只有引擎 REST API,
+所以必须桥接而不是复制 DOM。
+实现:
+- React 新增 `components/settings-panel.tsx`, 左分区导航 + 右卡片栅格表单(复用 nl-rw 视觉语言 +
+  新增 .nl-set-* CSS), 7 分区各自独立保存; 不是把原弹窗塞进 iframe。
+- `lib/parent-bridge.ts` 加 SettingsSnapshot 类型 + requestSettings/applySettings/settingsAction;
+  父页面 message handler 加白名单 case: settings-request(打包配置快照)、settings-apply
+  (section 白名单写回 Vue data 后调原有 save* 方法)、settings-action(name 白名单代理即时动作)。
+  所有固件调用仍复用原 Vue 方法, 未新增 API 路径。
+- `console-shell.tsx` ToolId/TOOLS 加 settings, `App.tsx` TOOL_HASH 加 settings 并渲染面板。
+- 原弹窗 DOM(273 行)、悬停展开/弹窗死 CSS 删除; 父页面离线入口与 ribbon 的 parent-settings
+  都改走 `openSettings()`: 引擎未启动时先 setCapture(true) 拉起, 再用 `#tool=settings` 深链,
+  否则 iframe 未渲染会显示连接拒绝错误页。
+**踩坑**: ① 工具箱设置页不能只在 iframe 里做静态表单, 必须有父页面快照回读 + 动作代理,
+  且 section/name 必须白名单(原注释已强调不接任意方法名); ② 引擎未启动时 iframe 是 v-if 隐藏的,
+  离线入口直接深链无效, 必须先拉起引擎; ③ 解密范围与记录范围在父页面共用 saveScope(),
+  两个分区保存都要发全量 scope 字段, 只发半边会把另一半清空; ④ 自测桥接必须构造父页面 + iframe
+  双层(standalone 顶层时 parentCall 会 no-op), 从父页面向 iframe 发 type=settings 快照才符合
+  e.source===window.parent 校验。

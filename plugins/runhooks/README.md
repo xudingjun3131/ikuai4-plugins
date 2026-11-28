@@ -36,3 +36,16 @@
 界面调整：观测台顶部 ribbon 的「全屏观测台 / 退出全屏」按钮从中间移到最右侧，
 排在「CA 证书」之后。纯按钮顺序调整，功能 / `data-testid` / 点击行为不变。
 Chromium 真渲染复核 8 个按钮坐标：CA x=1288、全屏 x=1386（最后一个）。升级保留配置。
+
+## v1.1.30（2026-11-28）
+设置项整体迁入运维工具箱并做页面适配。
+
+- 原插件页「设置与使用说明」弹窗的 7 组选项全部搬到工具箱新增的「设置」分区，改为
+  左分区导航 + 右卡片表单布局；原弹窗 DOM 与悬停展开死 CSS 已删除。
+- 固件 API 只在插件页可达，故扩展 postMessage 桥接：`settings-request` 回传配置快照、
+  `settings-apply` 按分区白名单保存、`settings-action` 代理即时动作，全部复用原有 Vue 方法。
+- 引擎未启动时的离线入口改为先拉起引擎再用 `#tool=settings` 深链进入设置页。
+- 自测：`npm run build`（TS + vite）通过；Chromium 真渲染复核 7 分区、快照回填、
+  次级工具含「设置」、无 JS 报错；父页面 + iframe 双层环境复核桥接消息
+  （`settings-apply(ports/autostart)`、`settings-action(refresh-devices)`）全部到达。
+- 升级保留配置，规则与订阅不丢。

@@ -8,7 +8,7 @@ import { caPemURL, exportHarURL } from "@/lib/api"
 import { DEFAULT_STATE, parentCall, type ParentState } from "@/lib/parent-bridge"
 
 export type ViewId = "overview" | "devices" | "sessions" | "insights" | "toolbox"
-export type ToolId = "rules" | "subs" | "rest" | "explorer" | "scripts" | "rewrite"
+export type ToolId = "rules" | "subs" | "rest" | "explorer" | "scripts" | "rewrite" | "settings"
 
 const VIEWS: { id: ViewId; label: string; hint: string }[] = [
   { id: "overview", label: "总览", hint: "全网流量脉搏与关键指标" },
@@ -24,6 +24,7 @@ const TOOLS: { id: ToolId; label: string }[] = [
   { id: "rest", label: "编写" },
   { id: "explorer", label: "浏览" },
   { id: "scripts", label: "脚本" },
+  { id: "settings", label: "设置" },
 ]
 
 function BrandMark() {

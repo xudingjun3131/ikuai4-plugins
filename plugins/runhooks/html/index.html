@@ -45,7 +45,7 @@ body{background:#fff!important;padding:0!important;margin:0!important;color:var(
 .nl-status>span[style]{font-size:12px;color:var(--nl-sub);padding:2px 9px;background:#fff;
   border:1px solid var(--nl-soft);border-radius:11px;}
 
-/* 操作区: 标签+按钮成组, 长说明收敛为单行次要信息(悬停展开全文) */
+/* 操作区: 标签+按钮成组, 长说明作为次要信息常显 */
 .nl-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;}
 .nl-actions .rq-group-label{font-size:12px;font-weight:700;color:var(--nl-primary);
   background:var(--nl-primary-soft);border-radius:6px;padding:4px 10px;}
@@ -68,17 +68,10 @@ body{background:#fff!important;padding:0!important;margin:0!important;color:var(
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #app .rq-service-body .runhooks-row>span[style*="color:#909399"]:hover{white-space:normal;}
 
-/* 提示条: 通用紧凑信息卡; 观测步骤那面文字墙默认两行, 悬停展开全文 */
+/* 提示条: 通用紧凑信息卡, 说明全文直接展示 */
 .runhooks-tip{background:#f7f9fc;border:1px solid var(--nl-soft);border-left:3px solid var(--nl-primary);
   border-radius:6px;padding:8px 12px;font-size:11px;color:var(--nl-sub);line-height:1.7;margin-top:10px;}
 .runhooks-tip>b{color:var(--nl-ink);}
-#rq-settings>.runhooks-tip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  max-height:1.9em;position:relative;transition:max-height .25s ease;}
-#rq-settings>.runhooks-tip:hover,#rq-settings>.runhooks-tip:focus-within{max-height:1400px;white-space:normal;}
-#rq-settings>.runhooks-tip::after{content:'悬停展开完整步骤';position:absolute;right:10px;bottom:0;
-  font-size:10px;color:var(--nl-primary);padding-left:20px;
-  background:linear-gradient(90deg,transparent,#f7f9fc 28%);}
-#rq-settings>.runhooks-tip:hover::after,#rq-settings>.runhooks-tip:focus-within::after{content:none;}
 
 /* 分区头: 与固件页 sec_head 同节奏(标题 + 左侧主色条 + 下方细分隔) */
 .rq-group-label{font-size:12px;color:var(--nl-primary);font-weight:700;}
@@ -133,17 +126,6 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
 /* [fs-exit-not-over-ca] 退出全屏按钮不能压在观测台顶部 ribbon 右侧的
    「CA 证书」按钮上(v1.1.17 实锤: ribbon 高 66px, CA 按钮 y=16..48)。
    挪到右下角、footer(y>=727)之上, 避开 ribbon/deck/foot 三处功能区。 */
-/* [ui-consolidate] 设置与使用说明: 独立大弹窗, 默认关闭, 不再挤占观测台高度 */
-.rq-modal-mask{position:fixed;inset:0;background:rgba(15,32,28,.55);z-index:9500;display:flex;
-  align-items:center;justify-content:center;padding:24px;}
-.rq-modal{width:min(1180px,96vw);max-height:88vh;background:#fff;border-radius:10px;
-  box-shadow:0 18px 60px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden;}
-.rq-modal-head{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:14px 18px;
-  border-bottom:1px solid var(--nl-soft);background:#f8fafb;}
-.rq-modal-head b{font-size:15px;color:var(--nl-ink);}
-.rq-modal-head .sp{flex:1;}
-.rq-modal-body{overflow-y:auto;padding:14px 18px 18px;}
-#rq-settings{margin:0!important;}
 /* 精简后的一行工具条 */
 .nl-actions{min-height:30px;align-items:center;}
 .nl-actions .rq-tip{font-size:11px;color:var(--nl-mute);}
@@ -206,279 +188,10 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
     <div class="box clearfix">
         <div class="box_block">
             <div class="clearfix margin_phone">
-                <div v-if="settingsOpen" class="rq-modal-mask" @click.self="settingsOpen = false">
-                  <div class="rq-modal">
-                    <div class="rq-modal-head">
-                      <b>设置与使用说明</b>
-                      <span class="sp"></span>
-                      <button type="button" class="btn btn_default rounded height26" @click="settingsOpen = false">关闭</button>
-                    </div>
-                    <div class="rq-modal-body">
-                <div id="rq-settings">
-                <!-- [scope-capture] 端口/启动服务类: 按需求「可以不放进去」主界面,
-                     收进默认折叠(引擎未运行时自动展开以便启动)的次要区; 控件与后端动作不变。 -->
-                <div class="nl-split">
-                    <div class="nl-tabs">
-                        <div class="nl-tab" :class="{on: activeTab==='service'}" @click="activeTab='service'">服务与端口</div>
-                        <div class="nl-tab" :class="{on: activeTab==='help'}" @click="activeTab='help'">使用说明</div>
-                        <div class="nl-tab" :class="{on: activeTab==='devices'}" @click="activeTab='devices'">观测设备<b v-if="selectedDevices.length">({{ selectedDevices.length }})</b></div>
-                        <div class="nl-tab" :class="{on: activeTab==='net'}" @click="activeTab='net'">网络范围</div>
-                        <div class="nl-tab" :class="{on: activeTab==='dec'}" @click="activeTab='dec'">解密范围</div>
-                        <div class="nl-tab" :class="{on: activeTab==='rec'}" @click="activeTab='rec'">记录范围</div>
-                        <div class="nl-tab" :class="{on: activeTab==='subs'}" @click="activeTab='subs'; loadSubs()">规则订阅<b v-if="subs.length">({{ subs.length }})</b></div>
-                    </div>
-                    <div class="nl-panel">
-                        <div class="rq-tabpanel nl-pane" v-show="activeTab==='service'">
-                            <!-- [ui-slim] 服务与端口常展开: 去掉 details 折叠标题行,
-                                 打开设置弹窗就能直接看到开机自启与端口配置 -->
-                            <div id="rq-service" class="rq-service rq-service-open">
-                                <div class="rq-service-body">
-                                    <div class="runhooks-row" style="margin-top:4px;">
-                                        <!-- [ui-slim] 引擎随观测台的「抓包总开关」自动拉起 / 暂停记录,
-                                             不再单独提供启停按钮(set_capture 内已有 start 兜底)。 -->
-                                        <span style="font-size:12px; color:#909399;">引擎随抓包开关自动拉起，无需单独启停</span>
-                                        <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#606266; cursor:pointer;">
-                                            <input type="checkbox" v-model="autostart" @change="setAutostart">开机自启
-                                        </label>
-                                    </div>
-                                    <div class="runhooks-row" style="padding:8px 10px; background:#f8f9fb; border-radius:6px;">
-                                        <label style="min-width:64px;">引擎端口</label>
-                                        <span style="font-size:12px; color:#606266;">显式代理</span>
-                                        <input v-model="proxyPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                                        <span style="font-size:12px; color:#606266;">API/界面</span>
-                                        <input v-model="apiPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                                        <span style="font-size:12px; color:#606266;">透明监听</span>
-                                        <input v-model="transparentPort" type="number" style="width:80px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                                        <button type="button" class="btn btn_default rounded height26" @click="savePorts">保存端口</button>
-                                        <span style="font-size:12px; color:#909399;">改端口会自动重启引擎；设备代理填「路由器IP:显式代理端口」。观测台界面不写死代理地址，端口以本页设置为准</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="rq-tabpanel nl-pane" v-show="activeTab==='help'">
-                            <div class="runhooks-tip">
-                                <b>观测步骤：</b>1. 在上方<b>服务与端口</b>里点<b>启动引擎</b>（可勾“开机自启”）；2. 在下方<b>观测设备</b>里勾选要观测的终端（不选=不抓任何设备，绝不全局）；3. 在下方界面点<b>继续</b>开始记录（暂停同理，与顶部开关等效）；4. 点<b>下载 CA 证书</b>，在目标设备上安装并信任；5. 在<b>规则订阅</b>里粘贴 QuanX/Surge 订阅地址，自动适配解密范围与改写规则；6. 在下方观测台查看总览、设备星图、会话瀑布与域名洞察（点「全屏观测台」可在本页内铺满查看，不会新开窗口；「收起设置」让观测台占满本页）；点<b>断点改包</b>进运维工具箱的图形化工作台, 可视化挂起并编辑 body/headers、一键 Map Local、对比两条会话 diff、查看脚本异常; 单请求改写/脚本也在「运维工具箱」里。<br>
-                                <span style="color:#e6a23c;">解密范围/记录范围可按域名、目标IP、国家地区、路径、方法、UA、JA3、内容类型、大小精细过滤；路由器自身流量已排除。</span>
-                            </div>
-
-                            <!-- [scope-capture] 流量抓包相关配置全部放进本页主区 -->
-                        </div>
-                <div class="rq-tabpanel" v-show="activeTab==='devices'">
-                    <div class="runhooks-row">
-                        <button type="button" class="btn btn_blue rounded height26" @click="loadDevices">刷新设备列表</button>
-                        <span style="font-size:12px; color:#909399;">已选 {{ selectedDevices.length }} 台</span>
-                        <span v-if="selectedDevices.length" style="display:inline-flex; flex-wrap:wrap; gap:6px; width:100%; margin-top:6px;">
-                            <span v-for="(d,i) in selectedDevices" :key="i" style="display:inline-flex; align-items:center; gap:5px; background:#ecf5ff; border:1px solid #b3d8ff; color:#409eff; border-radius:4px; padding:2px 9px; font-size:12px;">
-                                {{ d.name || d.ip }}<span v-if="d.mac" style="color:#909399;">{{ d.mac }}</span>
-                                <!-- [iKuaiPatch] 必须用 removeSelected(i) 按索引删: toggleDevice(d)
-                                     按 lanDevices 形状匹配(d.ip_addr/d.termname), 而这里遍历的是
-                                     selectedDevices(形状 {ip,mac,name}), 字段名不同 -> findIndex
-                                     恒为 -1 -> 掉进 else 分支反而 push 一个空条目, 越点越多。 -->
-                                <a href="javascript:void(0)" style="color:#909399; text-decoration:none;" @click="removeSelected(i)">✕</a>
-                            </span>
-                        </span>
-                        <span v-for="g in groups" :key="g.name" style="display:inline-flex; gap:4px; align-items:center;">
-                            <button type="button" class="btn btn_default rounded height26" @click="applyGroup(g)">{{ g.name }}({{ g.devices.length }})</button>
-                            <a href="javascript:void(0)" style="font-size:12px; color:#f56c6c;" @click="delGroup(g.name)">删</a>
-                        </span>
-                    </div>
-                    <div class="runhooks-devices">
-                        <div v-if="lanDevices.length === 0" style="color:#909399; font-size:12px; padding:8px 0; line-height:1.8;">暂无在线设备。列表来自 DHCP 租约 + ARP 表（含静态 IP 设备，需设备与路由器通信过才会出现）；<br>设备不在列表时，用下方“手动添加”填 IP（+MAC）即可。</div>
-                        <div v-for="(d, i) in lanDevices" :key="i" class="runhooks-device-item">
-                            <label class="el-checkbox">
-                                <input type="checkbox" :checked="isSelected(d)" @change="toggleDevice(d)">
-                                <span class="el-checkbox__label"></span>
-                            </label>
-                            <span>{{ d.name || d.hostname || '未命名设备' }}</span>
-                            <span class="ip">{{ d.ip_addr }}</span>
-                            <span class="ip">{{ d.mac }}</span>
-                            <span v-if="d.termname && d.termname !== d.hostname" class="ip">{{ d.termname }}</span>
-                        </div>
-                    </div>
-                    <div class="runhooks-row" style="margin-top:8px;">
-                        <label>手动添加</label>
-                        <input v-model="manualIp" placeholder="IP" style="width:130px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <input v-model="manualMac" placeholder="MAC(可选)" style="width:150px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <input v-model="manualName" placeholder="名称(可选)" style="width:120px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <button type="button" class="btn btn_green rounded height26" @click="addManualAndSave">添加并保存</button>
-                        <input v-model="groupName" placeholder="分组名" style="width:100px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <button type="button" class="btn btn_default rounded height26" @click="saveGroup">存为分组</button>
-                    </div>
-                </div>
-
-                <div class="rq-tabpanel" v-show="activeTab==='net'">
-                    <div class="runhooks-row">
-                        <label>接口/VLAN</label>
-                        <input v-model="interfaces" placeholder="留空=全部；如 lan1,lan2" style="width:220px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <label>端口</label>
-                        <input v-model="ports" placeholder="80,443" style="width:140px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <button type="button" class="btn btn_green rounded height26" @click="saveNetwork">保存</button>
-                    </div>
-                    <div class="runhooks-row">
-                        <label>定时抓包</label>
-                        <label class="el-checkbox"><input type="checkbox" v-model="schedEnabled"><span class="el-checkbox__label"></span></label>
-                        <input v-model="schedStart" placeholder="09:00" style="width:70px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
-                        <span style="color:#606266;">至</span>
-                        <input v-model="schedStop" placeholder="18:00" style="width:70px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
-                        <button type="button" class="btn btn_default rounded height26" @click="setDays('all')">每天</button>
-                        <button type="button" class="btn btn_default rounded height26" @click="setDays('work')">工作日</button>
-                        <button type="button" class="btn btn_default rounded height26" @click="setDays('weekend')">周末</button>
-                        <span style="font-size:12px; color:#909399;">已选 {{ schedDays.length }} 天</span>
-                        <span style="font-size:12px; color:#909399;">按路由器本地时间</span>
-                        <button type="button" class="btn btn_green rounded height26" @click="saveSchedule">保存时段</button>
-                        <el-tag size="mini" :type="inWindow === 1 ? 'success' : 'info'">{{ inWindow === 1 ? '当前在时段内' : '当前不在时段内' }}</el-tag>
-                    </div>
-                </div>
-
-                <div class="rq-tabpanel" v-show="activeTab==='dec'">
-                    <div class="runhooks-row">
-                        <label>域名</label>
-                        <el-radio-group v-model="domainMode" size="mini">
-                            <el-radio-button label="all_except">解密全部(除外)</el-radio-button>
-                            <el-radio-button label="only">仅解密</el-radio-button>
-                        </el-radio-group>
-                        <input v-model="domains" placeholder="*.taobao.com,api.github.com（逗号分隔，支持*通配）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                    </div>
-                    <div class="runhooks-row">
-                        <label>目标IP</label>
-                        <el-radio-group v-model="dstIpMode" size="mini">
-                            <el-radio-button label="all_except">解密全部(除外)</el-radio-button>
-                            <el-radio-button label="only">仅解密</el-radio-button>
-                        </el-radio-group>
-                        <input v-model="dstIps" placeholder="203.0.113.0/24,198.51.100.7（CIDR 或单 IP）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                    </div>
-                    <div class="runhooks-row">
-                        <label>国家地区</label>
-                        <el-radio-group v-model="geoMode" size="mini">
-                            <el-radio-button label="off">关闭</el-radio-button>
-                            <el-radio-button label="only">仅这些国家</el-radio-button>
-                            <el-radio-button label="except">排除这些国家</el-radio-button>
-                        </el-radio-group>
-                        <input v-model="countries" placeholder="CN,US（两位国别码）" style="width:220px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <el-tag size="mini" :type="geoLoaded === 1 ? 'success' : 'warning'">{{ geoLoaded === 1 ? 'GEOIP已加载' : 'GEOIP未下载' }}</el-tag>
-                        <button type="button" class="btn btn_default rounded height26" @click="updateGeoip">更新 GEOIP 数据</button>
-                        <button type="button" class="btn btn_green rounded height26" @click="saveScope">保存解密范围</button>
-                    </div>
-                </div>
-
-                <div class="rq-tabpanel" v-show="activeTab==='rec'">
-                    <div class="runhooks-row">
-                        <label>匹配模式</label>
-                        <el-radio-group v-model="recordMode" size="mini">
-                            <el-radio-button label="all_except">记录全部(除外)</el-radio-button>
-                            <el-radio-button label="only">仅记录命中</el-radio-button>
-                        </el-radio-group>
-                        <span style="font-size:12px; color:#909399;">下面任一项命中即视为“命中”</span>
-                    </div>
-                    <div class="runhooks-row">
-                        <label>路径正则</label>
-                        <input v-model="paths" placeholder="^/api/,^/v[0-9]+/（逗号分隔）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                    </div>
-                    <div class="runhooks-row">
-                        <label>方法</label>
-                        <input v-model="methods" placeholder="POST,PUT（留空=不限）" style="width:200px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <label>UA包含</label>
-                        <input v-model="userAgents" placeholder="MyApp/1.0（逗号分隔）" style="flex:1; min-width:200px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                    </div>
-                    <div class="runhooks-row">
-                        <label>JA3</label>
-                        <input v-model="ja3" placeholder="JA3 md5（逗号分隔；仅透明路径可算）" style="flex:1; min-width:260px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                    </div>
-                    <div class="runhooks-row">
-                        <label>内容类型</label>
-                        <input v-model="contentTypes" placeholder="json,image,video,xml（逗号分隔）" style="width:280px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                        <label>响应大小</label>
-                        <input v-model="sizeMin" placeholder="最小B" style="width:90px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
-                        <span style="color:#606266;">~</span>
-                        <input v-model="sizeMax" placeholder="最大B(0=不限)" style="width:110px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
-                        <button type="button" class="btn btn_green rounded height26" @click="saveScope">保存记录范围</button>
-                    </div>
-                </div>
-
-                <!-- 5. 规则订阅(QuanX/Surge/纯列表) -->
-                <div class="rq-tabpanel" v-show="activeTab==='subs'">
-                    <div class="runhooks-tip" style="margin-top:0;">
-                        粘贴 <b>QuanX(.conf) / Surge(.conf) / 纯域名列表</b> 订阅地址, 引擎自动拉取并适配:
-                        域名规则 → 解密范围(白名单), REJECT → 不解密直隧道, IP-CIDR/GEOIP → 范围维度,
-                        [rewrite] → 改写规则(请求/返回修改), 脚本 → 自动转换为引擎脚本。
-                        订阅产物与手写配置分层存放, 互不覆盖; 支持定时自动更新。
-                    </div>
-                    <div v-if="!subEngine" style="font-size:12px; color:#e6a23c; padding:8px 0;">
-                        引擎未运行, 订阅功能不可用——请先启动引擎。
-                    </div>
-                    <template v-if="subEngine">
-                        <div class="runhooks-row" style="margin-top:10px;">
-                            <label>订阅地址</label>
-                            <input v-model="subUrl" placeholder="https://example.com/quanx.conf" style="flex:1; min-width:280px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                            <label>备注</label>
-                            <input v-model="subName" placeholder="可选" style="width:120px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 8px; font-size:12px;">
-                            <select v-model="subFormat" style="width:96px; height:26px; border:1px solid #dcdfe6; border-radius:4px; font-size:12px;">
-                                <option value="auto">自动识别</option>
-                                <option value="quanx">QuanX</option>
-                                <option value="surge">Surge</option>
-                                <option value="list">纯列表</option>
-                            </select>
-                            <label>更新(分)</label>
-                            <input v-model="subInterval" type="number" min="0" step="5" style="width:70px; height:26px; border:1px solid #dcdfe6; border-radius:4px; padding:0 6px; font-size:12px;">
-                            <button type="button" class="btn btn_green rounded height26" :disabled="subBusy || !subUrl" @click="addSub">添加订阅</button>
-                        </div>
-                        <div v-if="subEffective" class="runhooks-tip">
-                            当前生效(启用订阅的并集): 解密域名 <b>{{ (subEffective.domains || []).length }}</b> ·
-                            引擎规则 <b>{{ subEffective.rules || 0 }}</b> · 脚本 <b>{{ subEffective.scripts || 0 }}</b>
-                            <span v-if="(subEffective.dst_ips || []).length"> · IP 段 {{ subEffective.dst_ips.length }}</span>
-                            <span v-if="(subEffective.countries || []).length"> · 国家 {{ subEffective.countries.length }}</span>
-                            <div v-if="(subEffective.domains || []).length" style="margin-top:4px; font-family:monospace; font-size:11px; color:#67c23a; word-break:break-all;">
-                                {{ subEffective.domains.slice(0, 30).join('  ') }}{{ subEffective.domains.length > 30 ? '  …共 ' + subEffective.domains.length + ' 个' : '' }}
-                            </div>
-                        </div>
-                        <div v-for="s in subs" :key="s.id" style="border:1px solid #ebeef5; border-radius:8px; padding:12px; margin-top:10px; background:#fafafa;">
-                            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
-                                <b style="font-size:13px;">{{ s.name }}</b>
-                                <span style="font-size:11px; color:#909399; background:#f4f4f5; padding:1px 6px; border-radius:3px;">{{ {auto:'自动', quanx:'QuanX', surge:'Surge', list:'纯列表'}[s.format] || s.format }}</span>
-                                <span :style="s.enabled ? 'font-size:11px; color:#67c23a;' : 'font-size:11px; color:#909399;'">{{ s.enabled ? '已启用' : '已暂停' }}</span>
-                                <span v-if="s.interval_min > 0" style="font-size:11px; color:#909399;">每 {{ s.interval_min }} 分钟更新</span>
-                                <span style="margin-left:auto; display:inline-flex; gap:6px;">
-                                    <button type="button" class="btn btn_default rounded height26" :disabled="subBusy" @click="updateSub(s)">更新</button>
-                                    <button type="button" class="btn btn_default rounded height26" :disabled="subBusy" @click="toggleSub(s)">{{ s.enabled ? '暂停' : '启用' }}</button>
-                                    <button type="button" class="btn btn_default rounded height26" @click="showSubDetail(s)">{{ subDetail && subDetail.id === s.id ? '收起明细' : '明细' }}</button>
-                                    <button type="button" class="btn btn_red rounded height26" :disabled="subBusy" @click="delSub(s)">删除</button>
-                                </span>
-                            </div>
-                            <div style="font-size:11px; color:#909399; font-family:monospace; margin-top:4px; word-break:break-all;">{{ s.url }}</div>
-                            <div style="font-size:11px; color:#606266; margin-top:4px;">
-                                域名 {{ s.host_count }} · IP {{ s.ip_count }} · 规则行 {{ s.rule_count }} · 改写 {{ s.rewrite_count }} · 脚本 {{ s.script_count }}
-                                <span v-if="s.skipped_count"> · 跳过 {{ s.skipped_count }}</span> · 更新于 {{ fmtSubTime(s.last_update) }}
-                            </div>
-                            <div v-if="s.last_error" style="font-size:11px; color:#f56c6c; margin-top:4px;">错误: {{ s.last_error }}</div>
-                            <div v-if="subDetail && subDetail.id === s.id && subDetail.parsed" style="margin-top:8px; border-top:1px dashed #ebeef5; padding-top:8px; font-size:11px;">
-                                <div>解析明细(格式 {{ subDetail.parsed.format }}, 跳过 {{ subDetail.parsed.skipped }} 行)</div>
-                                <div v-if="subDetail.parsed.mitm_hosts.length" style="margin-top:2px;"><span style="color:#909399;">[mitm] 主机: </span><span style="font-family:monospace; color:#67c23a;">{{ subDetail.parsed.mitm_hosts.join(', ') }}</span></div>
-                                <div v-if="subDetail.parsed.rules.length" style="margin-top:4px; color:#909399;">规则(前 50 条):</div>
-                                <ul v-if="subDetail.parsed.rules.length" style="margin:2px 0 0 16px; padding:0; font-family:monospace;">
-                                    <li v-for="(r, i) in subDetail.parsed.rules.slice(0, 50)" :key="i">{{ r.type }},{{ r.value }},{{ r.policy }}</li>
-                                </ul>
-                                <div v-if="subDetail.parsed.rewrites.length" style="margin-top:4px; color:#909399;">改写指令(前 30 条):</div>
-                                <ul v-if="subDetail.parsed.rewrites.length" style="margin:2px 0 0 16px; padding:0; font-family:monospace;">
-                                    <li v-for="(r, i) in subDetail.parsed.rewrites.slice(0, 30)" :key="i">{{ r.kind }} ← {{ r.pattern }}</li>
-                                </ul>
-                                <div v-if="subDetail.parsed.scripts.length" style="margin-top:4px;"><span style="color:#909399;">脚本: </span><span style="font-family:monospace;">{{ subDetail.parsed.scripts.map(x => x.name + (x.fetch_err ? '(未取到)' : '')).join(', ') }}</span></div>
-                                <div v-if="subDetail.parsed.warnings.length" style="margin-top:4px; color:#e6a23c;">适配说明({{ subDetail.parsed.warnings.length }}):</div>
-                                <ul v-if="subDetail.parsed.warnings.length" style="margin:2px 0 0 16px; padding:0; color:#b88230;">
-                                    <li v-for="(w, i) in subDetail.parsed.warnings.slice(0, 20)" :key="i">{{ w }}</li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div v-if="!subs.length" style="text-align:center; color:#909399; font-size:12px; padding:24px 0;">
-                            还没有订阅。粘贴 QuanX/Surge 订阅地址, 规则会自动适配到抓包范围与改写规则。
-                        </div>
-                    </template>
-                </div>
-                    </div><!-- /nl-panel -->
-                </div><!-- /nl-split -->
-                </div><!-- /#rq-settings -->
-                    </div><!-- /.rq-modal-body -->
-                  </div><!-- /.rq-modal -->
-                </div><!-- /.rq-modal-mask -->
+                <!-- [v1.1.30] 设置与使用说明已整体迁入观测台「运维工具箱 → 设置」页。
+                     本页不再渲染设置弹窗; 所有配置读写经 postMessage 桥接
+                     (settings-request / settings-apply / settings-action, 见 methods)。
+                     引擎未启动时的离线按钮改走 openSettings(): 先拉起引擎再深链到工具箱设置页。 -->
 
                 <!-- [iKuaiPatch] 引擎未启动时 apiPort 无监听, iframe 会渲染出 Chromium
                      的「xxx 拒绝了我们的连接请求」错误页; 用户要求"要么隐藏, 不要出现
@@ -490,7 +203,7 @@ body.platform-fullscreen .box_block>.margin_phone{padding:0!important;margin:0!i
                 <div v-else class="rq-offline">
                     引擎未启动，观测台暂不可用。
                     <button type="button" class="btn btn_green rounded height26" @click="setCapture(true)">开启抓包(自动启动引擎)</button>
-                    <button type="button" class="btn btn_default rounded height26" @click="settingsOpen = true">设置与使用说明</button>
+                    <button type="button" class="btn btn_default rounded height26" @click="openSettings()">设置</button>
                 </div>
             </div>
         </div>
@@ -598,8 +311,12 @@ var app = new Vue({
                 case 'exit-fullscreen': this.setFullscreen(false); break;
                 case 'capture': this.setCapture(!!m.on); break;
                 case 'refresh': this.loadInitData(); break;
-                case 'settings': this.settingsOpen = true; break;
+                // [v1.1.30] 设置入口不再是弹窗, 而是切到观测台工具箱的设置页。
+                case 'settings': this.openSettings(); break;
                 case 'state-request': this.postState(); break;
+                case 'settings-request': this.postSettings(); break;
+                case 'settings-apply': this.applySettingsSection(m.section, m.values); break;
+                case 'settings-action': this.runSettingsAction(m.name, m.args); break;
             }
         });
     },
@@ -634,6 +351,81 @@ var app = new Vue({
         setFullscreen(on) {
             this.fullscreen = !!on;
             setFrameFullscreen(!!on);
+        },
+        // [v1.1.30] 设置迁移: 把插件层配置快照推给观测台 iframe(工具箱设置页)。
+        // 字段白名单固定, 不接受任意键名; iframe 未就绪时静默跳过, WebUI 挂载后会主动请求。
+        postSettings() {
+            const f = document.querySelector('.runhooks-frame');
+            if (!f || !f.contentWindow) return;
+            const settings = {
+                status: this.status, autostart: this.autostart,
+                proxyPort: this.proxyPort, apiPort: this.apiPort, transparentPort: this.transparentPort,
+                geoLoaded: this.geoLoaded, inWindow: this.inWindow,
+                lanDevices: this.lanDevices || [], selectedDevices: this.selectedDevices || [], groups: this.groups || [],
+                interfaces: this.interfaces, ports: this.ports,
+                schedEnabled: this.schedEnabled, schedStart: this.schedStart, schedStop: this.schedStop,
+                schedDays: this.schedDays || [], weekDays: this.weekDays || [],
+                domainMode: this.domainMode, domains: this.domains,
+                dstIpMode: this.dstIpMode, dstIps: this.dstIps,
+                geoMode: this.geoMode, countries: this.countries,
+                recordMode: this.recordMode, paths: this.paths, methods: this.methods,
+                userAgents: this.userAgents, ja3: this.ja3, contentTypes: this.contentTypes,
+                sizeMin: this.sizeMin, sizeMax: this.sizeMax,
+                subs: this.subs || [], subEffective: this.subEffective || null,
+                subEngine: this.subEngine, subDetail: this.subDetail || null, subBusy: this.subBusy
+            };
+            try { f.contentWindow.postMessage({__netloom: 1, type: 'settings', settings: settings}, '*'); } catch (e) {}
+        },
+        // [v1.1.30] 引擎未启动时 iframe 不渲染(会显示连接拒绝错误页), 所以先拉起引擎,
+        // 再用 hash 深链把已加载的观测台切到工具箱设置页(React 侧监听 hashchange)。
+        openSettings() {
+            const base = (this.uiUrl || '').split('#')[0];
+            this.uiUrl = base + '#tool=settings';
+            this.settingsOpen = false;
+            if (this.status !== 1) this.setCapture(true);
+            this.setFullscreen(true);
+        },
+        // [v1.1.30] 工具箱设置页的「保存」: section + values 都走白名单, 复用原有 Vue 方法,
+        // 不新增固件 API 调用路径。apply 后各 save 方法内部会 loadInitData -> postSettings 回填。
+        applySettingsSection(section, values) {
+            const v = values || {};
+            const put = (keys) => keys.forEach(k => { if (Object.prototype.hasOwnProperty.call(v, k)) this[k] = v[k]; });
+            switch (section) {
+                case 'autostart': put(['autostart']); this.setAutostart(); break;
+                case 'ports': put(['proxyPort', 'apiPort', 'transparentPort']); this.savePorts(); break;
+                case 'devices': put(['selectedDevices']); this.saveDevices(); break;
+                case 'group': put(['groupName']); this.saveGroup(); break;
+                case 'network': put(['interfaces', 'ports']); this.saveNetwork(); break;
+                case 'schedule': put(['schedEnabled', 'schedStart', 'schedStop', 'schedDays']); this.saveSchedule(); break;
+                case 'scope':
+                    put(['domainMode', 'domains', 'dstIpMode', 'dstIps', 'geoMode', 'countries',
+                         'recordMode', 'paths', 'methods', 'userAgents', 'ja3', 'contentTypes',
+                         'sizeMin', 'sizeMax']);
+                    this.saveScope(); break;
+                case 'sub-add': put(['subUrl', 'subName', 'subFormat', 'subInterval']); this.addSub(); break;
+            }
+        },
+        // [v1.1.30] 工具箱设置页的即时动作: 名称白名单, 参数只取固定键。
+        runSettingsAction(name, args) {
+            const a = args || {};
+            switch (name) {
+                case 'refresh-devices': this.loadDevices(); break;
+                case 'add-manual':
+                    this.manualIp = a.ip || ''; this.manualMac = a.mac || ''; this.manualName = a.name || '';
+                    this.addManualAndSave(); break;
+                case 'remove-selected': this.removeSelected(Number(a.index) || 0); break;
+                case 'toggle-device': this.toggleDevice(a.device || {}); this.saveDevices(); break;
+                case 'save-devices': this.saveDevices(); break;
+                case 'apply-group': { const g = (this.groups || []).find(x => x.name === a.name); if (g) this.applyGroup(g); break; }
+                case 'del-group': this.delGroup(a.name || ''); break;
+                case 'set-days': this.setDays(a.preset || 'all'); break;
+                case 'geoip-update': this.updateGeoip(); break;
+                case 'subs-load': this.loadSubs(); break;
+                case 'sub-update': { const x = (this.subs || []).find(y => y.id === a.id); if (x) this.updateSub(x); break; }
+                case 'sub-toggle': { const x = (this.subs || []).find(y => y.id === a.id); if (x) this.toggleSub(x); break; }
+                case 'sub-del': { const x = (this.subs || []).find(y => y.id === a.id); if (x) this.delSub(x); break; }
+                case 'sub-detail': { const x = (this.subs || []).find(y => y.id === a.id); if (x) this.showSubDetail(x); break; }
+            }
         },
         // [v1.1.8] 图形化断点改包工作台: 用 hash 深链把已打开的观测台 iframe
         // 切到工具箱的 rewrite 页(React 侧监听 hashchange), 不重载、不新开窗口。
@@ -707,6 +499,7 @@ var app = new Vue({
                     this.schedStop = sd.stop || '18:00';
                     this.schedDays = sd.days || [1, 2, 3, 4, 5];
                 }
+                this.postSettings();
             });
         },
         // 在线设备双源合并: dhcp_lease(DHCP客户端, 带主机名) + arp(ARP表)。
@@ -730,6 +523,7 @@ var app = new Vue({
                         out.push(d);
                     });
                     this.lanDevices = out;
+                    this.postSettings();
                 });
             });
         },
@@ -973,6 +767,7 @@ var app = new Vue({
                     this.subEffective = null;
                     this.subEngine = false;
                 }
+                this.postSettings();
             });
         },
         addSub() {
@@ -1039,6 +834,7 @@ var app = new Vue({
             this.callPlugin('show', {TYPE: 'subdetail', id: s.id}, (response) => {
                 if (response.Result % 10000 == 0 && response.Data) {
                     this.subDetail = {id: s.id, parsed: response.Data};
+                    this.postSettings();
                 } else {
                     this.$message.error('获取明细失败：' + (response.ErrMsg || '未知错误'));
                 }

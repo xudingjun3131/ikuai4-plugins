@@ -16,6 +16,7 @@ import { RewritePanel } from "@/components/rewrite-panel"
 import { RulesPanel } from "@/components/rules-panel"
 import { ScriptsPanel } from "@/components/scripts-panel"
 import { SessionsPanel } from "@/components/sessions"
+import { SettingsPanel } from "@/components/settings-panel"
 import { SubsPanel } from "@/components/subs-panel"
 import { TrafficDetail } from "@/components/traffic-detail"
 import { TrafficList } from "@/components/traffic-list"
@@ -31,6 +32,7 @@ const TOOL_HASH: Record<string, ToolId> = {
   rest: "rest",
   explorer: "explorer",
   scripts: "scripts",
+  settings: "settings",
 }
 
 function toolFromHash(): { tool: ToolId; view: ViewId } | null {
@@ -122,7 +124,7 @@ function App() {
         {view === "toolbox" ? (
           <>
             <div className="nl-tool-note">
-              运维工具箱为次级功能：规则、断点改包、订阅、单请求改写、脚本调试与会话 diff。
+              运维工具箱为次级功能：规则、断点改包、订阅、单请求改写、脚本调试、会话 diff 与全部设置项。
               观测台的主视角是「全网设备 · 时间轴 · 域名画像」——数据来自整台网关，而不是某一台设备上的某个 App。
             </div>
             <div className="nl-tool-frame">
@@ -158,6 +160,11 @@ function App() {
               {tool === "scripts" ? (
                 <div className="nl-tool-grid nl-tool-grid--full">
                   <ScriptsPanel />
+                </div>
+              ) : null}
+              {tool === "settings" ? (
+                <div className="nl-tool-grid nl-tool-grid--full">
+                  <SettingsPanel />
                 </div>
               ) : null}
               {tool === "explorer" ? (
